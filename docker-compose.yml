@@ -1,0 +1,60 @@
+services:
+  # 1. Base de datos PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: market-db
+    environment:
+      POSTGRES_DB: market_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secretpassword
+    ports:
+      - "5433:5432"  # <-- Cambiado a 5433 para evitar el puerto 5432 ocupado en Windows
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d market_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Microservicio de Usuarios
+  user-api:
+    build: ./User-Api
+    container_name: user-api
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/market_db # Internamente sigue usando 5432
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: secretpassword
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # 3. API Gateway
+# 3. API Gateway
+  gateway:
+    build: ./Getaway-Spring
+    container_name: gateway-spring
+    ports:
+      - "8082:8080"  # Mapea el puerto 8082 local al 8080 del contenedor
+    environment:
+      SPRING_CLOUD_GATEWAY_ROUTES_0_ID: user-service
+      SPRING_CLOUD_GATEWAY_ROUTES_0_URI: http://user-api:8081
+      SPRING_CLOUD_GATEWAY_ROUTES_0_PREDICATES_0: Path=/api/v1/usuarios/**
+    depends_on:
+      - user-api
+
+  # 4. Frontend Web Nginx
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: market-frontend
+    ports:
+      - "3000:8080"
+    depends_on:
+      - gateway
+
+volumes:
+  postgres_data:
