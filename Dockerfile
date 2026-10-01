@@ -1,15 +1,19 @@
-FROM nginxinc/nginx-unprivileged:alpine
+# Etapa 1: Compilación de TypeScript
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build || npx tsc
 
-# Actualizar paquetes de seguridad
-USER root
-RUN apk update && apk upgrade --no-cache
-USER 101
+# Etapa 2: Servidor Web Nginx Estándar
+FROM nginx:alpine
 
-# Copiar archivos estáticos
-COPY ./index.html /usr/share/nginx/html/index.html
-COPY ./css /usr/share/nginx/html/css
-COPY ./js /usr/share/nginx/html/js
-COPY ./Assets /usr/share/nginx/html/Assets
+# Copiar todo el contenido estático del proyecto al directorio público de Nginx
+COPY . /usr/share/nginx/html/
 
-EXPOSE 8080
+# Reemplazar la carpeta js/ con el código TypeScript compilado a JavaScript
+COPY --from=build /app/js /usr/share/nginx/html/js
+
+EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

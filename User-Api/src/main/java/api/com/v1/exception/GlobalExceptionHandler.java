@@ -42,6 +42,14 @@ public class GlobalExceptionHandler {
         return error;
     }
 
+    @ExceptionHandler(CredencialesInvalidasException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Map<String, String> manejoCredencialesInvalidas(CredencialesInvalidasException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("mensaje", ex.getMessage());
+        return error;
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Map<String, String> manejoErrorGenerico(Exception ex) {

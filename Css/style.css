@@ -705,3 +705,118 @@ button:hover {
 :root[data-theme="dark"] .navbar-light .nav-link:hover {
     color: var(--accent) !important;
 }
+/* Publicaciones de venta */
+.publicacion-card {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+.publicacion-imagen {
+    aspect-ratio: 4 / 3;
+    background: #f1f3f5;
+    overflow: hidden;
+}
+.publicacion-imagen img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.publicacion-sin-imagen {
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: #777;
+    font-size: 2rem;
+}
+.publicacion-barra {
+    min-height: 58px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid var(--border);
+}
+.publicacion-titulo {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+.publicacion-precio {
+    flex: 0 0 auto;
+    font-weight: 700;
+}
+.foto-preview {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+.publicacion-card { cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.publicacion-card:hover, .publicacion-card:focus { transform: translateY(-2px); box-shadow: 0 5px 16px rgba(0,0,0,.12); outline: none; }
+.detalle-galeria { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+.detalle-foto { width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; border:1px solid var(--border); }
+.detalle-foto-principal { grid-column: span 4; aspect-ratio: 16/9; }
+.detalle-precio { font-size:1.8rem; font-weight:700; margin-bottom:1rem; }
+.detalle-descripcion { white-space:pre-wrap; word-break:break-word; }
+.mensajes-lista { max-height:260px; overflow:auto; border:1px solid var(--border); border-radius:8px; padding:10px; }
+.mensaje-item { padding:8px 10px; border-bottom:1px solid var(--border); }
+.mensaje-item:last-child { border-bottom:0; }
+@media (max-width:576px) { .detalle-galeria { grid-template-columns:repeat(2,1fr); } .detalle-foto-principal { grid-column:span 2; } }
+
+/* Catálogo: filtros y metadatos */
+.publicacion-meta { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:8px 12px; border-top:1px solid var(--border); font-size:.8rem; }
+.filtros-catalogo { background: var(--surface); border-color: var(--border); }
+
+/* Mensajería */
+.bandeja { min-height: 60vh; }
+.bandeja-lista { max-height: 70vh; overflow:auto; }
+.bandeja-item { display:flex; gap:10px; width:100%; padding:10px 12px; border:0; border-bottom:1px solid var(--border); background:transparent; color:var(--text); text-align:left; }
+.bandeja-item:hover, .bandeja-item.activa { background: rgba(0,173,181,.12); }
+.bandeja-texto { min-width:0; flex:1; }
+.bandeja-miniatura { width:44px; height:44px; object-fit:cover; border-radius:8px; border:1px solid var(--border); flex:0 0 auto; }
+.chat-cabecera { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.chat-mensajes { flex:1; min-height:300px; max-height:52vh; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
+.chat-burbuja { max-width:75%; padding:8px 12px; border-radius:12px; word-break:break-word; white-space:pre-wrap; border:1px solid var(--border); background:var(--surface); }
+.chat-burbuja.mia { align-self:flex-end; background: rgba(0,173,181,.18); }
+.chat-burbuja.otra { align-self:flex-start; }
+.chat-hora { font-size:.68rem; color:var(--muted-text); }
+.chat-sistema { align-self:center; font-size:.8rem; color:var(--muted-text); background:var(--page-background); padding:4px 12px; border-radius:999px; }
+.chat-form { display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--border); }
+.min-w-0 { min-width:0; }
+
+/* Página de mensajes */
+.mensajes-page { background: var(--page-background); }
+.mensajes-contenedor { max-width: 1200px; margin: 0 auto; }
+.mensajes-layout { display:grid; grid-template-columns: 340px 1fr; height: calc(100vh - 62px); border-left:1px solid var(--border); border-right:1px solid var(--border); background: var(--surface); }
+.mensajes-lista { display:flex; flex-direction:column; border-right:1px solid var(--border); min-height:0; }
+.mensajes-items { overflow:auto; flex:1; }
+.mensajes-chat { display:flex; flex-direction:column; min-width:0; min-height:0; }
+.chat-activo { display:flex; flex-direction:column; flex:1; min-height:0; }
+.chat-activo.d-none { display:none !important; }
+.chat-vacio { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color: var(--muted-text); text-align:center; padding:24px; }
+.chat-vacio.d-none { display:none !important; }
+.mensajes-chat .chat-mensajes { flex:1; max-height:none; min-height:0; }
+.chat-pie { border-top:1px solid var(--border); }
+.chat-pie .chat-form { border-top:0; }
+.chat-rapidas { display:flex; gap:6px; flex-wrap:wrap; padding:8px 12px 0; }
+.chat-oferta-form { padding:8px 12px 0; }
+.chat-dia { align-self:center; font-size:.75rem; color: var(--muted-text); margin:6px 0; }
+.chat-oferta { min-width:200px; }
+
+@media (max-width: 767.98px) {
+    .mensajes-layout { grid-template-columns: 1fr; }
+    .mensajes-layout .mensajes-chat { display:none; }
+    .mensajes-layout.chat-abierto .mensajes-lista { display:none; }
+    .mensajes-layout.chat-abierto .mensajes-chat { display:flex; }
+    .chat-burbuja { max-width: 88%; }
+}
+
+/* Respaldo por si Bootstrap no carga (CDN caído): ocultar elementos marcados */
+.d-none { display: none !important; }
