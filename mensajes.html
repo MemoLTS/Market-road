@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mensajes · Market-Road</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="mensajes-page" data-requiere-sesion="true">
+    <nav class="navbar navbar-light bg-white border-bottom border-gray">
+        <div class="container-fluid px-3">
+            <a class="navbar-brand fw-bold" href="index.html"><i class="bi bi-shop"></i> Market-Road</a>
+            <div class="d-flex align-items-center gap-2">
+                <a class="btn btn-outline-secondary btn-sm" href="index.html"><i class="bi bi-arrow-left"></i> Catálogo</a>
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="btn-theme-toggle"
+                    aria-label="Cambiar tema"><span id="icono-tema">🌙</span></button>
+                <div id="navAuthInvitado" class="d-none"></div>
+                <div id="navAuthUsuario" class="dropdown d-none">
+                    <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                        aria-expanded="false">
+                        <i class="bi bi-person-circle"></i> <span id="navApodoUsuario">Usuario</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button class="dropdown-item text-danger" type="button" id="btnCerrarSesion">Cerrar sesión</button></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="mensajes-contenedor">
+        <!-- Sin sesión -->
+        <div id="mensajesSinSesion" class="d-none text-center p-5">
+            <i class="bi bi-lock display-4 text-muted"></i>
+            <h2 class="h5 mt-3">Inicia sesión para ver tus mensajes</h2>
+            <a class="btn btn-primary mt-2" href="index.html">Ir al inicio</a>
+        </div>
+
+        <div id="mensajesLayout" class="mensajes-layout d-none">
+            <!-- Lista de conversaciones -->
+            <aside class="mensajes-lista" id="panelLista" aria-label="Conversaciones">
+                <div class="p-3 border-bottom">
+                    <h1 class="h5 mb-3">Mensajes</h1>
+                    <input id="buscarConversacion" type="search" class="form-control form-control-sm mb-2" maxlength="100"
+                        placeholder="Buscar por producto o persona" aria-label="Buscar conversación">
+                    <div class="btn-group btn-group-sm w-100" role="group" aria-label="Filtro de conversaciones" id="filtrosConversacion">
+                        <button type="button" class="btn btn-outline-primary active" data-filtro="TODAS">Todas</button>
+                        <button type="button" class="btn btn-outline-primary" data-filtro="COMPRAS">Compras</button>
+                        <button type="button" class="btn btn-outline-primary" data-filtro="VENTAS">Ventas</button>
+                        <button type="button" class="btn btn-outline-primary" data-filtro="NO_LEIDAS">Sin leer</button>
+                    </div>
+                    <div id="chipPublicacion" class="d-none mt-2 small"></div>
+                </div>
+                <div id="listaConversaciones" class="mensajes-items" aria-live="polite"></div>
+            </aside>
+
+            <!-- Chat -->
+            <section class="mensajes-chat" id="panelChat" aria-label="Chat">
+                <div id="chatVacio" class="chat-vacio">
+                    <i class="bi bi-chat-dots display-4"></i>
+                    <p class="mb-0">Selecciona una conversación para ver los mensajes.</p>
+                </div>
+
+                <div id="chatActivo" class="d-none chat-activo">
+                    <header class="chat-cabecera">
+                        <button type="button" class="btn btn-sm btn-outline-secondary d-md-none" id="btnVolverLista" aria-label="Volver a la lista">
+                            <i class="bi bi-arrow-left"></i>
+                        </button>
+                        <img id="chatImagen" src="" alt="" class="bandeja-miniatura">
+                        <div class="flex-grow-1 min-w-0">
+                            <strong id="chatTitulo" class="d-block text-truncate"></strong>
+                            <small id="chatSubtitulo" class="text-muted d-block text-truncate"></small>
+                        </div>
+                        <div id="chatAcciones" class="d-flex gap-2 flex-wrap justify-content-end"></div>
+                    </header>
+
+                    <div id="chatAlerta" class="alert d-none m-2 mb-0" role="alert"></div>
+                    <div id="chatMensajes" class="chat-mensajes" aria-live="polite"></div>
+
+                    <footer id="chatPie" class="chat-pie">
+                        <form id="formOferta" class="chat-oferta-form d-none" novalidate>
+                            <label for="ofertaMonto" class="form-label small mb-1">Tu oferta</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">$</span>
+                                <input id="ofertaMonto" type="text" inputmode="decimal" class="form-control" placeholder="Ej: 45000" autocomplete="off">
+                                <button class="btn btn-success" type="submit" id="btnEnviarOferta">Enviar oferta</button>
+                                <button class="btn btn-outline-secondary" type="button" id="btnCancelarOferta">Cancelar</button>
+                            </div>
+                        </form>
+                        <div id="respuestasRapidas" class="chat-rapidas"></div>
+                        <form id="formChat" class="chat-form" novalidate>
+                            <div class="flex-grow-1">
+                                <textarea id="chatTexto" class="form-control" rows="2" maxlength="1000"
+                                    placeholder="Escribe un mensaje... (Enter envía, Shift+Enter salto de línea)"
+                                    aria-label="Mensaje"></textarea>
+                                <small class="text-muted"><span id="chatContador">0</span>/1000</small>
+                            </div>
+                            <button class="btn btn-primary align-self-start" type="submit" id="btnEnviarMensaje" aria-label="Enviar">
+                                <i class="bi bi-send"></i>
+                            </button>
+                        </form>
+                    </footer>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="js/theme.js"></script>
+    <script type="module" src="js/auth.js"></script>
+    <script type="module" src="js/mensajes.js"></script>
+</body>
+
+</html>
