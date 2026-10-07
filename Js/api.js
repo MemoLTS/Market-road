@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://localhost:8082/api/v1';
+export const API_BASE_URL = 'http://localhost:8081/api/v1';
 const CLAVE_SESION = 'mr_session';
 const TIMEOUT_MS = 20000;
 /** Error de la API con el código HTTP, para poder distinguir 404, 409, 429, etc. */

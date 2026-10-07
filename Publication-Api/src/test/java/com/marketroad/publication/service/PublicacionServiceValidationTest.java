@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.marketroad.publication.dto.NuevaPublicacionDTO;
@@ -21,9 +22,10 @@ class PublicacionServiceValidationTest {
     private static final Identidad AUTOR = new Identidad(1L, "vendedor");
 
     private static PublicacionServiceImpl servicio() {
-        return new PublicacionServiceImpl(
-                org.mockito.Mockito.mock(PublicacionRepository.class),
-                org.mockito.Mockito.mock(ImagenPublicacionRepository.class));
+        PublicacionServiceImpl servicio = new PublicacionServiceImpl();
+        ReflectionTestUtils.setField(servicio, "repository", org.mockito.Mockito.mock(PublicacionRepository.class));
+        ReflectionTestUtils.setField(servicio, "imagenRepository", org.mockito.Mockito.mock(ImagenPublicacionRepository.class));
+        return servicio;
     }
 
     private static NuevaPublicacionDTO datos(String titulo, String precio, String desc, String ubicacion, String categoria,

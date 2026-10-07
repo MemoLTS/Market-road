@@ -7,6 +7,7 @@ import java.util.Map;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,13 +29,10 @@ public class PublicacionServiceImpl implements PublicacionService {
     private static final long MAX_BYTES_POR_FOTO = 5L * 1024 * 1024;
     private static final List<String> TIPOS_PERMITIDOS = List.of("image/jpeg", "image/png", "image/webp");
 
-    private final PublicacionRepository repository;
-    private final ImagenPublicacionRepository imagenRepository;
-
-    public PublicacionServiceImpl(PublicacionRepository repository, ImagenPublicacionRepository imagenRepository) {
-        this.repository = repository;
-        this.imagenRepository = imagenRepository;
-    }
+    @Autowired
+    private PublicacionRepository repository;
+    @Autowired
+    private ImagenPublicacionRepository imagenRepository;
 
     @Override
     @Transactional

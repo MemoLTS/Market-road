@@ -3,6 +3,7 @@ package com.marketroad.publication.controller;
 import java.net.URI;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,11 +32,8 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/v1/conversaciones")
 public class ConversacionController {
-    private final ConversacionService service;
-
-    public ConversacionController(ConversacionService service) {
-        this.service = service;
-    }
+    @Autowired
+    private ConversacionService service;
 
     /** Bandeja del usuario (más reciente primero). Con {@code publicacionId} filtra por una publicación. */
     @GetMapping

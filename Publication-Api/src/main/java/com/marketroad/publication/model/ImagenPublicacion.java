@@ -10,7 +10,7 @@ public class ImagenPublicacion {
     private Long id;
 
     @Basic(fetch = FetchType.LAZY)
-    @Column(nullable = false, columnDefinition = "bytea")
+    @Column(nullable = false, length = 10_000_000)
     private byte[] datos;
 
     @Column(nullable = false, length = 100)
