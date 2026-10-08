@@ -1,4 +1,4 @@
-import { apiFetch, obtenerSesion } from './api.js';
+import { apiFetch, obtenerSesion, urlAbsoluta } from './api.js';
 import { montarPanelContacto } from './contacto.js';
 import { conBoton, escapeHtml, formatoPrecio, mensajeDeError, mostrarAlerta, obtenerUbicacion, ocultarAlerta, opcionalPorId, porId, } from './util.js';
 import { LIMITES, primerError, validarCoordenadas, validarDescripcion, validarFotos, validarMonto, validarRangoPrecios, validarTitulo, validarUbicacion, } from './validaciones.js';
@@ -8,6 +8,17 @@ const estado = {
     q: '', categorias: new Set(), precioMin: '', precioMax: '', orden: 'RELEVANCIA',
     radioKm: '', ubicacion: null, pagina: 0, soloMias: false,
 };
+/** Única tarjeta de ejemplo: ocupa el primer lugar y las publicaciones nuevas se agregan a continuación. */
+const EJEMPLO = { titulo: 'Tu primera publicación', precio: 185000, ubicacion: 'Cerca de ti' };
+const IMAGEN_EJEMPLO = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">'
+    + '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+    + '<stop offset="0" stop-color="#8ec5ff"/><stop offset="1" stop-color="#1877f2"/></linearGradient></defs>'
+    + '<rect width="400" height="400" fill="url(#g)"/>'
+    + '<g fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">'
+    + '<circle cx="130" cy="250" r="55"/><circle cx="280" cy="250" r="55"/>'
+    + '<path d="M130 250 L180 160 H250 L280 250 M180 160 L210 250 H130 M245 125 H290"/></g>'
+    + '<text x="200" y="352" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" fill="#fff">Ejemplo</text>'
+    + '</svg>');
 let ubicacionPublicacion = null;
 let secuenciaCarga = 0; // descarta respuestas viejas si el usuario cambia filtros rápido
 document.addEventListener('DOMContentLoaded', async () => {
@@ -133,6 +144,38 @@ function construirQuery() {
     p.set('tamano', String(TAMANO_PAGINA));
     return p.toString();
 }
+function hayFiltrosActivos() {
+    return Boolean(estado.q || estado.categorias.size || estado.precioMin || estado.precioMax
+        || estado.ubicacion || estado.radioKm || estado.orden !== 'RELEVANCIA');
+}
+/** El ejemplo solo se muestra en el listado general (sin filtros, sin "mis publicaciones", primera página). */
+function mostrarEjemplo() {
+    return !estado.soloMias && estado.pagina === 0 && !hayFiltrosActivos();
+}
+function renderEjemplo() {
+    return `
+        <article class="mk-card mk-card-ejemplo" role="button" tabindex="0" data-ejemplo="true"
+            aria-label="Ejemplo de publicación. Pulsa para crear la tuya">
+            <div class="mk-img">
+                <img src="${IMAGEN_EJEMPLO}" alt="Ejemplo de publicación">
+                <span class="mk-badge">Ejemplo</span>
+            </div>
+            <div class="mk-info">
+                <span class="mk-price">${formatoPrecio(EJEMPLO.precio)}</span>
+                <span class="mk-title">${escapeHtml(EJEMPLO.titulo)}</span>
+                <span class="mk-loc"><i class="bi bi-geo-alt" aria-hidden="true"></i> ${escapeHtml(EJEMPLO.ubicacion)}</span>
+            </div>
+        </article>`;
+}
+function renderMensaje(html, tipo = 'info') {
+    return `<div class="mk-mensaje mk-mensaje-${tipo}" role="${tipo === 'error' ? 'alert' : 'status'}">${html}</div>`;
+}
+function abrirCrearPublicacion() {
+    const modal = obtenerSesion() ? 'modalPublicacion' : 'modalLogin';
+    const el = opcionalPorId(modal);
+    if (el)
+        bootstrap.Modal.getOrCreateInstance(el).show();
+}
 async function cargarPublicaciones() {
     const contenedor = opcionalPorId('contenedor-publicaciones');
     const resumen = opcionalPorId('resumenCatalogo');
@@ -140,8 +183,10 @@ async function cargarPublicaciones() {
     if (!contenedor || !resumen || !paginacion)
         return;
     const mio = ++secuenciaCarga;
-    contenedor.innerHTML = '<div class="col-12 text-center text-muted py-4">Cargando publicaciones...</div>';
+    const ejemplo = mostrarEjemplo() ? renderEjemplo() : '';
+    contenedor.innerHTML = ejemplo + renderMensaje('Cargando publicaciones...');
     paginacion.innerHTML = '';
+    activarEjemplo(contenedor);
     try {
         let lista;
         let pagina = null;
@@ -159,10 +204,15 @@ async function cargarPublicaciones() {
             resumen.textContent = `${pagina.total} resultado${pagina.total === 1 ? '' : 's'}`;
         }
         if (!lista.length) {
-            contenedor.innerHTML = '<div class="col-12"><div class="alert alert-light border">No se encontraron publicaciones con esos criterios.</div></div>';
+            contenedor.innerHTML = ejemplo + renderMensaje(ejemplo
+                ? 'Aún no hay publicaciones. La tuya aparecerá justo al lado de este ejemplo.'
+                : 'No se encontraron publicaciones con esos criterios.');
+            activarEjemplo(contenedor);
             return;
         }
-        contenedor.innerHTML = lista.map(renderPublicacion).join('');
+        // Ejemplo primero y las publicaciones a continuación; la grilla las baja de fila sola al llenarse.
+        contenedor.innerHTML = ejemplo + lista.map(renderPublicacion).join('');
+        activarEjemplo(contenedor);
         contenedor.querySelectorAll('[data-publicacion-id]').forEach(card => {
             const abrir = () => { void abrirDetalle(Number(card.dataset['publicacionId'])); };
             card.addEventListener('click', abrir);
@@ -179,8 +229,22 @@ async function cargarPublicaciones() {
     catch (e) {
         if (mio !== secuenciaCarga)
             return;
-        contenedor.innerHTML = `<div class="col-12"><div class="alert alert-danger">${escapeHtml(mensajeDeError(e, 'No se pudieron cargar las publicaciones.'))}</div></div>`;
+        contenedor.innerHTML = ejemplo
+            + renderMensaje(escapeHtml(mensajeDeError(e, 'No se pudieron cargar las publicaciones.')), 'error');
+        activarEjemplo(contenedor);
     }
+}
+function activarEjemplo(contenedor) {
+    const tarjeta = contenedor.querySelector('[data-ejemplo]');
+    if (!tarjeta)
+        return;
+    tarjeta.addEventListener('click', abrirCrearPublicacion);
+    tarjeta.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            abrirCrearPublicacion();
+        }
+    });
 }
 function renderPaginacion(pagina, nav) {
     if (pagina.totalPaginas <= 1)
@@ -198,26 +262,21 @@ function renderPaginacion(pagina, nav) {
     porId('pagSiguiente').addEventListener('click', () => ir(1));
 }
 function renderPublicacion(p) {
-    const src = p.imagenUrls[0] ?? '';
-    const distancia = p.distanciaKm != null
-        ? `<span class="badge text-bg-light border"><i class="bi bi-geo-alt"></i> ${p.distanciaKm} km</span>` : '';
-    const vendida = p.estado === 'VENDIDA' ? '<span class="badge text-bg-secondary">Vendida</span>' : '';
+    const src = p.imagenUrls[0] ? urlAbsoluta(p.imagenUrls[0]) : '';
+    const vendida = p.estado === 'VENDIDA' ? '<span class="mk-badge mk-badge-vendida">Vendida</span>' : '';
+    const distancia = p.distanciaKm != null ? ` · ${p.distanciaKm} km` : '';
     return `
-        <article class="col-12 col-sm-6 col-lg-4">
-            <div class="publicacion-card h-100" role="button" tabindex="0" data-publicacion-id="${p.id}" aria-label="Ver detalles de ${escapeHtml(p.titulo)}">
-                <div class="publicacion-imagen">
-                    ${src ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(p.titulo)}" loading="lazy">`
-        : '<div class="publicacion-sin-imagen"><i class="bi bi-image"></i></div>'}
-                </div>
-                <div class="publicacion-barra">
-                    <span class="publicacion-titulo" title="${escapeHtml(p.titulo)}">${escapeHtml(p.titulo)}</span>
-                    <span class="publicacion-precio">${formatoPrecio(p.precio)}</span>
-                </div>
-                <div class="publicacion-meta">
-                    <span class="badge text-bg-light border">${escapeHtml(p.categoriaNombre)}</span>
-                    ${distancia}${vendida}
-                    <small class="text-muted ms-auto text-truncate">${escapeHtml(p.ubicacion)}</small>
-                </div>
+        <article class="mk-card" role="button" tabindex="0" data-publicacion-id="${p.id}"
+            aria-label="Ver detalles de ${escapeHtml(p.titulo)}">
+            <div class="mk-img">
+                ${src ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(p.titulo)}" loading="lazy">`
+        : '<div class="mk-sin-imagen"><i class="bi bi-image" aria-hidden="true"></i></div>'}
+                ${vendida}
+            </div>
+            <div class="mk-info">
+                <span class="mk-price">${formatoPrecio(p.precio)}</span>
+                <span class="mk-title" title="${escapeHtml(p.titulo)}">${escapeHtml(p.titulo)}</span>
+                <span class="mk-loc"><i class="bi bi-geo-alt" aria-hidden="true"></i> ${escapeHtml(p.ubicacion)}${distancia}</span>
             </div>
         </article>`;
 }
@@ -297,7 +356,9 @@ function previsualizarFotos(event) {
     }
 }
 function actualizarBotonPublicar() {
-    opcionalPorId('btnNuevaPublicacion')?.classList.toggle('d-none', !obtenerSesion());
+    const conSesion = obtenerSesion() !== null;
+    opcionalPorId('btnNuevaPublicacion')?.classList.toggle('d-none', !conSesion);
+    opcionalPorId('btnPublicarInvitado')?.classList.toggle('d-none', conSesion);
 }
 // ------------------------------------------------------------ detalle
 async function abrirDetalle(id) {
@@ -305,7 +366,7 @@ async function abrirDetalle(id) {
         return;
     try {
         const p = await apiFetch(`/publicaciones/${id}`);
-        const imagenes = p.imagenUrls.map((url, i) => `<img src="${escapeHtml(url)}" class="detalle-foto ${i === 0 ? 'detalle-foto-principal' : ''}" alt="${escapeHtml(p.titulo)} foto ${i + 1}">`).join('');
+        const imagenes = p.imagenUrls.map((url, i) => `<img src="${escapeHtml(urlAbsoluta(url))}" class="detalle-foto ${i === 0 ? 'detalle-foto-principal' : ''}" alt="${escapeHtml(p.titulo)} foto ${i + 1}">`).join('');
         porId('detallePublicacionContenido').innerHTML = `
             <div class="row g-3">
                 <div class="col-lg-7"><div class="detalle-galeria">${imagenes}</div></div>

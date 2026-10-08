@@ -4,153 +4,233 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Market-Road</title>
-    <!-- Carga de Bootstrap y Bootstrap Icons desde CDN -->
+    <title>Marketplace · Market-Road</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body class="home-page">
-    <!-- Header con Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom border-gray">
-        <div class="container-lg">
-            <a class="navbar-brand fw-bold" href="#">
-                <i class="bi bi-shop"></i> Market-Road
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu"
-                aria-controls="navbarMenu" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
+<body class="home-page mk-body">
+    <!-- Barra superior -->
+    <header class="mk-topbar">
+        <a class="mk-brand" href="index.html" aria-label="Market-Road, inicio">
+            <span class="mk-brand-icon"><i class="bi bi-shop" aria-hidden="true"></i></span>
+            <span class="mk-brand-text">Market-Road</span>
+        </a>
+
+        <label class="mk-search">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <span class="visually-hidden">Buscar en Marketplace</span>
+            <input id="filtroTexto" type="search" form="formFiltros" maxlength="100" placeholder="Buscar en Marketplace"
+                autocomplete="off">
+        </label>
+
+        <div class="mk-actions">
+            <button class="btn btn-light mk-icon-btn" type="button" id="btn-theme-toggle" aria-label="Cambiar tema">
+                <span id="icono-tema">🌙</span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarMenu">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" aria-current="page" href="#inicio">Inicio</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#productos">Productos</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#servicios">Servicios</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#contacto">Contacto</a>
-                    </li>
-                </ul>
-                <button class="btn btn-primary ms-lg-3" type="button" data-bs-toggle="modal"
-                    data-bs-target="#modalRegistro">
-                    Registrarse
-                </button>
+
+            <!-- Invitado -->
+            <div id="navAuthInvitado" class="d-flex align-items-center gap-2">
+                <button class="btn btn-light fw-semibold" type="button" data-bs-toggle="modal"
+                    data-bs-target="#modalLogin">Iniciar sesión</button>
+                <button class="btn btn-primary fw-semibold" type="button" data-bs-toggle="modal"
+                    data-bs-target="#modalRegistro">Registrarse</button>
+            </div>
+
+            <!-- Usuario con sesión -->
+            <div id="navAuthUsuario" class="d-flex align-items-center gap-2 d-none">
+                <a class="btn btn-light mk-icon-btn position-relative" href="mensajes.html" aria-label="Mensajes">
+                    <i class="bi bi-chat-dots-fill" aria-hidden="true"></i>
+                    <span id="badgeNoLeidos"
+                        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
+                </a>
+                <div class="dropdown">
+                    <button class="btn btn-light dropdown-toggle fw-semibold" type="button" data-bs-toggle="dropdown"
+                        aria-expanded="false">
+                        <i class="bi bi-person-circle" aria-hidden="true"></i>
+                        <span id="navApodoUsuario">Usuario</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button class="dropdown-item" type="button" id="btnMisPublicaciones"><i
+                                    class="bi bi-tags" aria-hidden="true"></i> Mis publicaciones</button></li>
+                        <li><a class="dropdown-item" href="mensajes.html"><i class="bi bi-chat-dots"
+                                    aria-hidden="true"></i> Mensajes</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><button class="dropdown-item text-danger" type="button" id="btnCerrarSesion"><i
+                                    class="bi bi-box-arrow-right" aria-hidden="true"></i> Cerrar sesión</button></li>
+                    </ul>
+                </div>
             </div>
         </div>
-    </nav>
+    </header>
 
-    <main class="marketplace-main" id="inicio">
-        <section class="marketplace-intro" aria-labelledby="marketplace-title">
-            <div>
-                <p class="marketplace-eyebrow">Market-Road <span>·</span> compra cerca</p>
-                <h1 id="marketplace-title">Algo bueno te espera a la vuelta.</h1>
-                <p class="marketplace-lede">Encuentra objetos únicos de personas cerca de ti.</p>
-            </div>
-            <label class="marketplace-search">
-                <i class="bi bi-search" aria-hidden="true"></i>
-                <span class="visually-hidden">Buscar publicaciones</span>
-                <input id="input-busqueda" type="search" placeholder="¿Qué estás buscando?">
-            </label>
-        </section>
-
-        <section class="marketplace-listings" id="productos" aria-labelledby="listings-title">
-            <div class="listings-heading">
-                <div>
-                    <p class="marketplace-eyebrow">Lo que hay cerca</p>
-                    <h2 id="listings-title">Publicaciones recientes</h2>
-                </div>
-                <button class="create-listing-button" type="button" data-bs-toggle="modal"
-                    data-bs-target="#modalRegistro">
-                    <i class="bi bi-plus-lg" aria-hidden="true"></i>
-                    Crear publicación
+    <div class="mk-layout">
+        <!-- Barra lateral -->
+        <aside class="mk-sidebar" aria-label="Filtros de Marketplace">
+            <div class="d-flex align-items-center justify-content-between">
+                <h1 class="mk-sidebar-title">Marketplace</h1>
+                <button class="btn btn-light d-lg-none" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#panelFiltros" aria-expanded="false" aria-controls="panelFiltros">
+                    <i class="bi bi-sliders" aria-hidden="true"></i> Filtros
                 </button>
             </div>
-            <div id="contenedor-productos" class="marketplace-grid" aria-live="polite"></div>
-        </section>
-    </main>
 
-    <div class="modal fade" id="modalDetallePublicacion" tabindex="-1" aria-labelledby="detalleTitulo"
-        aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content listing-detail">
-                <div class="modal-header">
-                    <span class="detail-category" id="detalleCategoria"></span>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <img class="detail-image" id="detalleImagen" src="" alt="">
-                    <div class="detail-copy">
-                        <h2 id="detalleTitulo"></h2>
-                        <p class="detail-price" id="detallePrecio"></p>
-                        <p class="detail-description" id="detalleDescripcion"></p>
-                        <dl class="detail-facts">
-                            <div>
-                                <dt><i class="bi bi-geo-alt" aria-hidden="true"></i> Distancia</dt>
-                                <dd id="detalleDistancia"></dd>
-                            </div>
-                            <div>
-                                <dt><i class="bi bi-pin-map" aria-hidden="true"></i> Zona</dt>
-                                <dd id="detalleUbicacion"></dd>
-                            </div>
-                            <div>
-                                <dt><i class="bi bi-person" aria-hidden="true"></i> Vendedor</dt>
-                                <dd id="detalleVendedor"></dd>
-                            </div>
-                        </dl>
+            <button class="btn btn-primary mk-crear d-none" type="button" id="btnNuevaPublicacion"
+                data-bs-toggle="modal" data-bs-target="#modalPublicacion">
+                <i class="bi bi-plus-lg" aria-hidden="true"></i> Crear nueva publicación
+            </button>
+            <button class="btn btn-primary mk-crear" type="button" id="btnPublicarInvitado" data-bs-toggle="modal"
+                data-bs-target="#modalLogin">
+                <i class="bi bi-plus-lg" aria-hidden="true"></i> Inicia sesión para vender
+            </button>
+
+            <div class="collapse d-lg-block" id="panelFiltros">
+                <form id="formFiltros" class="mk-filtros" novalidate>
+                    <h2 class="mk-filtros-titulo">Filtros</h2>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold" for="filtroPrecioMin">Precio</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input id="filtroPrecioMin" type="text" inputmode="decimal" class="form-control form-control-sm"
+                                placeholder="Mín." aria-label="Precio mínimo">
+                            <span class="text-muted">a</span>
+                            <input id="filtroPrecioMax" type="text" inputmode="decimal" class="form-control form-control-sm"
+                                placeholder="Máx." aria-label="Precio máximo">
+                        </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="create-listing-button" data-bs-dismiss="modal" data-bs-toggle="modal"
-                        data-bs-target="#modalRegistro">
-                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
-                        Crear publicación
-                    </button>
-                </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold" for="filtroOrden">Ordenar por</label>
+                        <select id="filtroOrden" class="form-select form-select-sm">
+                            <option value="RELEVANCIA">Relevancia / recientes</option>
+                            <option value="RECIENTES">Más recientes</option>
+                            <option value="PRECIO_ASC">Precio: menor a mayor</option>
+                            <option value="PRECIO_DESC">Precio: mayor a menor</option>
+                            <option value="DISTANCIA">Distancia</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <span class="form-label small fw-semibold d-block">Categorías</span>
+                        <div id="filtroCategorias" class="d-flex flex-wrap gap-1"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <span class="form-label small fw-semibold d-block">Ubicación</span>
+                        <button class="btn btn-outline-secondary btn-sm" type="button" id="btnUbicacion">
+                            <i class="bi bi-geo-alt" aria-hidden="true"></i> Compartir mi ubicación
+                        </button>
+                        <p class="small text-muted mt-2 mb-2" id="estadoUbicacion">Comparte tu ubicación para ordenar por
+                            distancia.</p>
+                        <div id="grupoRadio" class="d-none">
+                            <label class="form-label small" for="filtroRadio">Radio</label>
+                            <select id="filtroRadio" class="form-select form-select-sm">
+                                <option value="">Sin límite</option>
+                                <option value="2">2 km</option>
+                                <option value="5">5 km</option>
+                                <option value="10">10 km</option>
+                                <option value="25">25 km</option>
+                                <option value="50">50 km</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary btn-sm flex-grow-1" type="submit">Aplicar</button>
+                        <button class="btn btn-light btn-sm" type="button" id="btnLimpiarFiltros">Limpiar</button>
+                    </div>
+                </form>
+            </div>
+        </aside>
+
+        <!-- Contenido -->
+        <main class="mk-main" id="inicio">
+            <div class="mk-main-head">
+                <h2 class="mk-main-title">Selecciones de hoy</h2>
+                <span class="mk-resumen" id="resumenCatalogo" aria-live="polite"></span>
+            </div>
+            <div id="publicacionesAlerta" class="alert d-none" role="alert"></div>
+
+            <!-- 1 tarjeta de ejemplo y, a continuación, las publicaciones reales (4 por fila) -->
+            <section id="contenedor-publicaciones" class="mk-grid" aria-live="polite"
+                aria-label="Publicaciones"></section>
+            <nav id="paginacionCatalogo" class="mk-paginacion" aria-label="Paginación del catálogo"></nav>
+        </main>
+    </div>
+
+    <!-- Modal: iniciar sesión -->
+    <div class="modal fade" id="modalLogin" tabindex="-1" aria-labelledby="modalLoginLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formLogin" novalidate>
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalLoginLabel">Iniciar sesión</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="loginAlerta" class="alert d-none" role="alert"></div>
+                        <div class="mb-3">
+                            <label for="loginCorreo" class="form-label">Correo</label>
+                            <input type="email" class="form-control" id="loginCorreo" autocomplete="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loginContrasena" class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" id="loginContrasena"
+                                autocomplete="current-password" required maxlength="32">
+                        </div>
+                        <p class="small text-muted mb-0">Tu sesión se mantiene iniciada en este dispositivo hasta que
+                            cierres sesión.</p>
+                    </div>
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn btn-link p-0" data-bs-dismiss="modal" data-bs-toggle="modal"
+                            data-bs-target="#modalRegistro">¿No tienes cuenta? Regístrate</button>
+                        <button type="submit" class="btn btn-primary" id="btnLogin">Entrar</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <!-- Modal de registro de usuario -->
+    <!-- Modal: registro -->
     <div class="modal fade" id="modalRegistro" tabindex="-1" aria-labelledby="modalRegistroLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <form id="formRegistro">
+                <form id="formRegistro" novalidate>
                     <div class="modal-header">
                         <h5 class="modal-title" id="modalRegistroLabel">Crear cuenta</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
                     <div class="modal-body">
                         <div id="registroAlerta" class="alert d-none" role="alert"></div>
-
-                        <div class="mb-3">
-                            <label for="regNombre" class="form-label">Nombre</label>
-                            <input type="text" class="form-control" id="regNombre" required minlength="3"
-                                maxlength="32">
-                        </div>
-                        <div class="mb-3">
-                            <label for="regApellido" class="form-label">Apellido</label>
-                            <input type="text" class="form-control" id="regApellido" required minlength="3"
-                                maxlength="32">
-                        </div>
-                        <div class="mb-3">
-                            <label for="regApodo" class="form-label">Apodo</label>
-                            <input type="text" class="form-control" id="regApodo" required minlength="3" maxlength="20">
-                        </div>
-                        <div class="mb-3">
-                            <label for="regCorreo" class="form-label">Correo</label>
-                            <input type="email" class="form-control" id="regCorreo" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="regContrasena" class="form-label">Contraseña</label>
-                            <input type="password" class="form-control" id="regContrasena" required minlength="8"
-                                maxlength="32">
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label for="regNombre" class="form-label">Nombre</label>
+                                <input type="text" class="form-control" id="regNombre" required minlength="3"
+                                    maxlength="32">
+                            </div>
+                            <div class="col-sm-6">
+                                <label for="regApellido" class="form-label">Apellido</label>
+                                <input type="text" class="form-control" id="regApellido" required minlength="3"
+                                    maxlength="32">
+                            </div>
+                            <div class="col-12">
+                                <label for="regApodo" class="form-label">Apodo</label>
+                                <input type="text" class="form-control" id="regApodo" required minlength="3"
+                                    maxlength="20">
+                            </div>
+                            <div class="col-12">
+                                <label for="regCorreo" class="form-label">Correo</label>
+                                <input type="email" class="form-control" id="regCorreo" autocomplete="username" required>
+                            </div>
+                            <div class="col-12">
+                                <label for="regContrasena" class="form-label">Contraseña</label>
+                                <input type="password" class="form-control" id="regContrasena" autocomplete="new-password"
+                                    required minlength="8" maxlength="32">
+                                <div class="form-text">8 a 32 caracteres, con al menos una letra y un número.</div>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -162,10 +242,94 @@
         </div>
     </div>
 
+    <!-- Modal: crear publicación -->
+    <div class="modal fade" id="modalPublicacion" tabindex="-1" aria-labelledby="modalPublicacionLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <form id="formPublicacion" novalidate>
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalPublicacionLabel">Nueva publicación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="publicacionModalAlerta" class="alert d-none" role="alert"></div>
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label for="publicacionTitulo" class="form-label">Título</label>
+                                <input type="text" class="form-control" id="publicacionTitulo" minlength="3"
+                                    maxlength="100" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="publicacionPrecio" class="form-label">Precio</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="text" inputmode="decimal" class="form-control" id="publicacionPrecio"
+                                        placeholder="45000" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="publicacionCategoria" class="form-label">Categoría</label>
+                                <select id="publicacionCategoria" class="form-select" required></select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="publicacionUbicacion" class="form-label">Ubicación</label>
+                                <input type="text" class="form-control" id="publicacionUbicacion" minlength="2"
+                                    maxlength="120" placeholder="Comuna o barrio" required>
+                            </div>
+                            <div class="col-12">
+                                <label for="publicacionDescripcion" class="form-label">Descripción</label>
+                                <textarea class="form-control" id="publicacionDescripcion" rows="4" minlength="10"
+                                    maxlength="1000" required></textarea>
+                            </div>
+                            <div class="col-12">
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    id="btnUbicacionPublicacion"><i class="bi bi-geo-alt" aria-hidden="true"></i> Usar mi
+                                    ubicación exacta</button>
+                                <small class="text-muted ms-2" id="estadoUbicacionPublicacion">Opcional: permite que te
+                                    encuentren por distancia.</small>
+                            </div>
+                            <div class="col-12">
+                                <label for="publicacionFotos" class="form-label">Fotos (1 a 8, JPG, PNG o WEBP, máx. 5
+                                    MB)</label>
+                                <input type="file" class="form-control" id="publicacionFotos"
+                                    accept="image/jpeg,image/png,image/webp" multiple required>
+                                <div id="fotosPreview" class="row g-2 mt-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnPublicar">Publicar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: detalle de publicación -->
+    <div class="modal fade" id="modalDetallePublicacion" tabindex="-1" aria-label="Detalle de la publicación"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Detalle de la publicación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="detallePublicacionContenido"></div>
+                    <hr>
+                    <div id="panelContacto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="js/theme.js"></script>
-    <script type="module" src="js/catalogo.js"></script>
+    <script type="module" src="js/auth.js"></script>
     <script type="module" src="js/usuarios.js"></script>
+    <script type="module" src="js/publicaciones.js"></script>
 </body>
 
 </html>

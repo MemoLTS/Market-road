@@ -1,4 +1,4 @@
-import { apiFetch, guardarSesion, limpiarSesion, obtenerSesion, usuarioActual } from './api.js';
+import { apiFetch, CLAVE_SESION, guardarSesion, limpiarSesion, obtenerSesion, usuarioActual } from './api.js';
 import type { LoginRespuesta } from './tipos.js';
 import { conBoton, mensajeDeError, mostrarAlerta, ocultarAlerta, opcionalPorId } from './util.js';
 import { LIMITES, primerError, validarCorreo } from './validaciones.js';
@@ -7,6 +7,18 @@ document.addEventListener('DOMContentLoaded', () => {
     actualizarNavegacion();
     opcionalPorId<HTMLFormElement>('formLogin')?.addEventListener('submit', manejarLogin);
     opcionalPorId('btnCerrarSesion')?.addEventListener('click', manejarLogout);
+});
+
+// La sesión vive en localStorage: si se inicia o cierra en otra pestaña, esta se actualiza sola.
+window.addEventListener('storage', (e: StorageEvent) => {
+    if (e.key !== CLAVE_SESION && e.key !== null) return;
+    actualizarNavegacion();
+    window.dispatchEvent(new CustomEvent('mr:sesion-cambiada'));
+});
+
+// Al volver a la pestaña se revisa el vencimiento (obtenerSesion limpia el token si ya expiró).
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) actualizarNavegacion();
 });
 
 // Si api.ts detecta un 401, se actualiza la UI y se avisa en vez de dejar una sesión "fantasma".
