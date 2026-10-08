@@ -41,11 +41,13 @@ public class PublicacionController {
             @RequestParam("descripcion") String descripcion,
             @RequestParam("ubicacion") String ubicacion,
             @RequestParam(value = "categoria", required = false) String categoria,
+            @RequestParam(value = "modalidadesEntrega", required = false) List<String> modalidadesEntrega,
             @RequestParam(value = "latitud", required = false) Double latitud,
             @RequestParam(value = "longitud", required = false) Double longitud,
             @RequestParam("fotos") List<MultipartFile> fotos,
             HttpServletRequest request) {
-        NuevaPublicacionDTO datos = new NuevaPublicacionDTO(titulo, precio, descripcion, ubicacion, categoria, latitud, longitud);
+        NuevaPublicacionDTO datos = new NuevaPublicacionDTO(
+                titulo, precio, descripcion, ubicacion, categoria, modalidadesEntrega, latitud, longitud);
         PublicacionResponseDTO creada = service.crear(datos, fotos, Identidad.de(request));
         return ResponseEntity.created(URI.create("/api/v1/publicaciones/" + creada.id())).body(creada);
     }

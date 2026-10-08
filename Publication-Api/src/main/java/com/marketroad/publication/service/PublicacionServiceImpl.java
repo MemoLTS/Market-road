@@ -55,6 +55,15 @@ public class PublicacionServiceImpl implements PublicacionService {
         }
 
         CategoriaPublicacion categoria = CategoriaPublicacion.desdeCodigo(datos.categoria());
+        if (datos.modalidadesEntrega() == null || datos.modalidadesEntrega().isEmpty()) {
+            throw new IllegalArgumentException("Selecciona al menos una modalidad de entrega");
+        }
+        java.util.Set<ModalidadEntrega> modalidadesEntrega = java.util.EnumSet.noneOf(ModalidadEntrega.class);
+        for (String codigo : datos.modalidadesEntrega()) {
+            if (!modalidadesEntrega.add(ModalidadEntrega.desdeCodigo(codigo))) {
+                throw new IllegalArgumentException("No repitas una modalidad de entrega");
+            }
+        }
 
         Double latitud = datos.latitud();
         Double longitud = datos.longitud();
@@ -90,6 +99,7 @@ public class PublicacionServiceImpl implements PublicacionService {
         publicacion.setDescripcion(descripcionNormalizada);
         publicacion.setUbicacion(ubicacionNormalizada);
         publicacion.setCategoria(categoria);
+        publicacion.setModalidadesEntrega(modalidadesEntrega);
         publicacion.setLatitud(latitud);
         publicacion.setLongitud(longitud);
         publicacion.setUsuarioId(autor.usuarioId());

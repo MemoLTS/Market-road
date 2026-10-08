@@ -30,7 +30,8 @@ class PublicacionServiceValidationTest {
 
     private static NuevaPublicacionDTO datos(String titulo, String precio, String desc, String ubicacion, String categoria,
                                              Double lat, Double lon) {
-        return new NuevaPublicacionDTO(titulo, precio, desc, ubicacion, categoria, lat, lon);
+        return new NuevaPublicacionDTO(titulo, precio, desc, ubicacion, categoria,
+                List.of("ENTREGA_PERSONAL"), lat, lon);
     }
 
     private static NuevaPublicacionDTO validos() {
@@ -66,6 +67,17 @@ class PublicacionServiceValidationTest {
         var foto = new MockMultipartFile("fotos", "foto.jpg", "image/jpeg", new byte[] {1});
         rechaza(datos("Producto válido", "1000", DESC, UBICACION, "NO_EXISTE", null, null), List.of(foto));
         rechaza(datos("Producto válido", "1000", DESC, UBICACION, null, null, null), List.of(foto));
+    }
+
+    @Test
+    void rechazaModalidadDeEntregaFaltanteOInvalida() {
+        var foto = new MockMultipartFile("fotos", "foto.jpg", "image/jpeg", new byte[] {1});
+        rechaza(new NuevaPublicacionDTO("Producto válido", "1000", DESC, UBICACION, "OTROS", List.of(), null, null),
+                List.of(foto));
+        rechaza(new NuevaPublicacionDTO("Producto válido", "1000", DESC, UBICACION, "OTROS",
+                List.of("NO_EXISTE"), null, null), List.of(foto));
+        rechaza(new NuevaPublicacionDTO("Producto válido", "1000", DESC, UBICACION, "OTROS",
+                List.of("ENVIO", "ENVIO"), null, null), List.of(foto));
     }
 
     @Test

@@ -701,6 +701,21 @@ body {
     font-weight: 700;
 }
 
+.mk-category {
+    display: inline-block;
+    max-width: 100%;
+    margin-bottom: 4px;
+    padding: 3px 9px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(24, 119, 242, .1);
+    color: var(--mk-blue);
+    font-size: .72rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .mk-title,
 .mk-loc {
     display: block;
@@ -770,6 +785,73 @@ body {
 
 .mk-body .modal-title {
     font-weight: 700;
+}
+
+#modalPublicacion .modal-dialog {
+    max-height: calc(100vh - 1rem);
+}
+
+#modalPublicacion .modal-content {
+    max-height: inherit;
+}
+
+#modalPublicacion #formPublicacion {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#modalPublicacion .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+#modalPublicacion .modal-footer {
+    z-index: 1;
+    flex-shrink: 0;
+    background: var(--mk-surface);
+}
+
+#fotosPreview {
+    max-height: 180px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.modalidades-entrega .btn-check:focus-visible + .btn {
+    outline: 3px solid rgba(13, 110, 253, .45);
+    outline-offset: 2px;
+}
+
+.modalidades-entrega .btn-check:checked + .btn {
+    background: var(--mk-blue);
+    border-color: var(--mk-blue);
+    color: #fff;
+}
+
+.modalidades-entrega .btn-check:checked + .btn .text-body-secondary {
+    color: rgba(255, 255, 255, .8) !important;
+}
+
+.modalidades-entrega.is-invalid .btn {
+    border-color: var(--bs-form-invalid-border-color);
+}
+
+.modalidades-entrega.is-invalid .invalid-feedback {
+    display: block;
+}
+
+.mk-delivery {
+    display: block;
+    overflow: hidden;
+    color: var(--mk-muted);
+    font-size: .75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Responsive */

@@ -233,7 +233,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn btn-link p-0" data-bs-dismiss="modal" data-bs-toggle="modal"
+                            data-bs-target="#modalLogin">¿Ya tienes cuenta? Inicia sesión</button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary" id="btnRegistrar">Crear cuenta</button>
                     </div>
@@ -245,7 +247,7 @@
     <!-- Modal: crear publicación -->
     <div class="modal fade" id="modalPublicacion" tabindex="-1" aria-labelledby="modalPublicacionLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
             <div class="modal-content">
                 <form id="formPublicacion" novalidate>
                     <div class="modal-header">
@@ -270,12 +272,57 @@
                             </div>
                             <div class="col-md-6">
                                 <label for="publicacionCategoria" class="form-label">Categoría</label>
-                                <select id="publicacionCategoria" class="form-select" required></select>
+                                <select id="publicacionCategoria" class="form-select" required>
+                                    <option value="" selected disabled>Selecciona una categoría</option>
+                                </select>
+                                <div class="form-text">Elige la categoría que mejor describe tu producto.</div>
                             </div>
                             <div class="col-md-6">
                                 <label for="publicacionUbicacion" class="form-label">Ubicación</label>
                                 <input type="text" class="form-control" id="publicacionUbicacion" minlength="2"
                                     maxlength="120" placeholder="Comuna o barrio" required>
+                            </div>
+                            <div class="col-12">
+                                <fieldset id="grupoModalidadesEntrega" class="modalidades-entrega">
+                                    <legend class="form-label mb-1">Modalidades de entrega <span
+                                            class="text-danger">*</span></legend>
+                                    <p class="form-text mt-0">Selecciona una o más opciones disponibles para este producto.</p>
+                                    <div class="row g-2">
+                                        <div class="col-sm-4">
+                                            <input class="btn-check" type="checkbox" id="entregaPersonal"
+                                                name="modalidadesEntrega" value="ENTREGA_PERSONAL">
+                                            <label class="btn btn-outline-primary w-100 h-100 text-start"
+                                                for="entregaPersonal">
+                                                <i class="bi bi-person-walking me-1" aria-hidden="true"></i>
+                                                <span class="d-block fw-semibold">Entrega en persona</span>
+                                                <small class="text-body-secondary">Coordinada directamente</small>
+                                            </label>
+                                        </div>
+                                        <div class="col-sm-4">
+                                            <input class="btn-check" type="checkbox" id="entregaEnvio"
+                                                name="modalidadesEntrega" value="ENVIO">
+                                            <label class="btn btn-outline-primary w-100 h-100 text-start"
+                                                for="entregaEnvio">
+                                                <i class="bi bi-box-seam me-1" aria-hidden="true"></i>
+                                                <span class="d-block fw-semibold">Envío</span>
+                                                <small class="text-body-secondary">A domicilio o sucursal</small>
+                                            </label>
+                                        </div>
+                                        <div class="col-sm-4">
+                                            <input class="btn-check" type="checkbox" id="encuentroPublico"
+                                                name="modalidadesEntrega" value="ENCUENTRO_PUBLICO">
+                                            <label class="btn btn-outline-primary w-100 h-100 text-start"
+                                                for="encuentroPublico">
+                                                <i class="bi bi-geo-alt me-1" aria-hidden="true"></i>
+                                                <span class="d-block fw-semibold">Encuentro público</span>
+                                                <small class="text-body-secondary">En un lugar concurrido</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div id="modalidadesEntregaError" class="invalid-feedback">
+                                        Selecciona al menos una modalidad de entrega.
+                                    </div>
+                                </fieldset>
                             </div>
                             <div class="col-12">
                                 <label for="publicacionDescripcion" class="form-label">Descripción</label>

@@ -3,7 +3,9 @@ package com.marketroad.publication.model;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.persistence.*;
 
@@ -30,6 +32,13 @@ public class Publicacion {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30, columnDefinition = "varchar(30) not null default 'OTROS'")
     private CategoriaPublicacion categoria = CategoriaPublicacion.OTROS;
+
+    @ElementCollection
+    @CollectionTable(name = "publicacion_modalidades_entrega",
+            joinColumns = @JoinColumn(name = "publicacion_id"))
+    @Column(name = "modalidad", nullable = false, length = 30)
+    @Enumerated(EnumType.STRING)
+    private Set<ModalidadEntrega> modalidadesEntrega = EnumSet.noneOf(ModalidadEntrega.class);
 
     /** Coordenadas opcionales del producto; sin ellas la publicación no participa en filtros ni orden por distancia. */
     private Double latitud;
@@ -74,6 +83,12 @@ public class Publicacion {
     public void setUbicacion(String ubicacion) { this.ubicacion = ubicacion; }
     public CategoriaPublicacion getCategoria() { return categoria; }
     public void setCategoria(CategoriaPublicacion categoria) { this.categoria = categoria; }
+    public Set<ModalidadEntrega> getModalidadesEntrega() { return modalidadesEntrega; }
+    public void setModalidadesEntrega(Set<ModalidadEntrega> modalidadesEntrega) {
+        this.modalidadesEntrega = modalidadesEntrega == null || modalidadesEntrega.isEmpty()
+                ? EnumSet.noneOf(ModalidadEntrega.class)
+                : EnumSet.copyOf(modalidadesEntrega);
+    }
     public Double getLatitud() { return latitud; }
     public void setLatitud(Double latitud) { this.latitud = latitud; }
     public Double getLongitud() { return longitud; }

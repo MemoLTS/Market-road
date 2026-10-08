@@ -53,6 +53,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     opcionalPorId<HTMLFormElement>('formPublicacion')?.addEventListener('submit', crearPublicacion);
     opcionalPorId<HTMLInputElement>('publicacionFotos')?.addEventListener('change', previsualizarFotos);
+    document.querySelectorAll<HTMLInputElement>('#grupoModalidadesEntrega input[name="modalidadesEntrega"]')
+        .forEach(input => input.addEventListener('change', actualizarEstadoModalidades));
     opcionalPorId<HTMLFormElement>('formFiltros')?.addEventListener('submit', e => { e.preventDefault(); aplicarFiltros(); });
     opcionalPorId('filtroOrden')?.addEventListener('change', aplicarFiltros);
     opcionalPorId('filtroRadio')?.addEventListener('change', aplicarFiltros);
@@ -76,9 +78,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function cargarCategorias(): Promise<void> {
     let categorias: Categoria[] = [];
+    let errorCarga: unknown = null;
     try {
         categorias = await apiFetch<Categoria[]>('/publicaciones/categorias');
-    } catch { /* el catálogo sigue funcionando sin filtro por categoría */ }
+    } catch (error) {
+        errorCarga = error;
+    }
 
     const cont = opcionalPorId('filtroCategorias');
     if (cont) {
@@ -89,7 +94,16 @@ async function cargarCategorias(): Promise<void> {
     }
     const select = opcionalPorId<HTMLSelectElement>('publicacionCategoria');
     if (select) {
-        select.innerHTML = categorias.map(c => `<option value="${escapeHtml(c.codigo)}">${escapeHtml(c.nombre)}</option>`).join('');
+        select.innerHTML = '<option value="" selected disabled>Selecciona una categoría</option>'
+            + categorias.map(c => `<option value="${escapeHtml(c.codigo)}">${escapeHtml(c.nombre)}</option>`).join('');
+        if (errorCarga) {
+            mostrarAlerta(
+                opcionalPorId('publicacionModalAlerta'),
+                mensajeDeError(errorCarga, 'No se pudieron cargar las categorías. Inténtalo nuevamente.'),
+            );
+        } else if (!categorias.length) {
+            mostrarAlerta(opcionalPorId('publicacionModalAlerta'), 'No hay categorías disponibles para publicar.');
+        }
     }
 }
 
@@ -293,6 +307,7 @@ function renderPublicacion(p: Publicacion): string {
     const src = p.imagenUrls[0] ? urlAbsoluta(p.imagenUrls[0]) : '';
     const vendida = p.estado === 'VENDIDA' ? '<span class="mk-badge mk-badge-vendida">Vendida</span>' : '';
     const distancia = p.distanciaKm != null ? ` · ${p.distanciaKm} km` : '';
+    const modalidades = (p.modalidadesEntrega ?? []).map(modalidad => modalidad.nombre).join(' · ');
     return `
         <article class="mk-card" role="button" tabindex="0" data-publicacion-id="${p.id}"
             aria-label="Ver detalles de ${escapeHtml(p.titulo)}">
@@ -302,9 +317,11 @@ function renderPublicacion(p: Publicacion): string {
                 ${vendida}
             </div>
             <div class="mk-info">
+                <span class="mk-category">${escapeHtml(p.categoriaNombre || 'Otros')}</span>
                 <span class="mk-price">${formatoPrecio(p.precio)}</span>
                 <span class="mk-title" title="${escapeHtml(p.titulo)}">${escapeHtml(p.titulo)}</span>
                 <span class="mk-loc"><i class="bi bi-geo-alt" aria-hidden="true"></i> ${escapeHtml(p.ubicacion)}${distancia}</span>
+                <span class="mk-delivery" title="${escapeHtml(modalidades)}"><i class="bi bi-box-seam" aria-hidden="true"></i> ${escapeHtml(modalidades || 'Modalidad no informada')}</span>
             </div>
         </article>`;
 }
@@ -323,13 +340,14 @@ async function ubicacionParaPublicacion(): Promise<void> {
 }
 
 function validarPublicacion(titulo: string, precio: string, descripcion: string, ubicacion: string,
-                            categoria: string, fotos: File[]): string | null {
+                            categoria: string, modalidadesEntrega: string[], fotos: File[]): string | null {
     return primerError(
         obtenerSesion() ? null : 'Debes iniciar sesión para publicar.',
         validarTitulo(titulo),
         validarDescripcion(descripcion),
         validarUbicacion(ubicacion),
         categoria ? null : 'Elige una categoría.',
+        modalidadesEntrega.length ? null : 'Selecciona al menos una modalidad de entrega.',
         validarMonto(precio, 'El precio'),
         ubicacionPublicacion ? validarCoordenadas(ubicacionPublicacion.lat, ubicacionPublicacion.lon) : null,
         validarFotos(fotos),
@@ -347,11 +365,18 @@ async function crearPublicacion(event: SubmitEvent): Promise<void> {
     const descripcion = porId<HTMLTextAreaElement>('publicacionDescripcion').value.trim();
     const ubicacion = porId<HTMLInputElement>('publicacionUbicacion').value.trim();
     const categoria = porId<HTMLSelectElement>('publicacionCategoria').value;
+    const modalidadesEntrega = Array.from(
+        document.querySelectorAll<HTMLInputElement>('#grupoModalidadesEntrega input[name="modalidadesEntrega"]:checked'),
+    ).map(input => input.value);
     const fotos = Array.from(porId<HTMLInputElement>('publicacionFotos').files ?? []);
 
-    const error = validarPublicacion(titulo, precio, descripcion, ubicacion, categoria, fotos);
+    const error = validarPublicacion(titulo, precio, descripcion, ubicacion, categoria, modalidadesEntrega, fotos);
     if (error) {
+        if (!modalidadesEntrega.length) {
+            porId('grupoModalidadesEntrega').classList.add('is-invalid');
+        }
         mostrarAlerta(alerta, error);
+        alerta?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
     }
 
@@ -361,6 +386,7 @@ async function crearPublicacion(event: SubmitEvent): Promise<void> {
     datos.append('descripcion', descripcion);
     datos.append('ubicacion', ubicacion);
     datos.append('categoria', categoria);
+    modalidadesEntrega.forEach(modalidad => datos.append('modalidadesEntrega', modalidad));
     if (ubicacionPublicacion) {
         datos.append('latitud', String(ubicacionPublicacion.lat));
         datos.append('longitud', String(ubicacionPublicacion.lon));
@@ -372,6 +398,7 @@ async function crearPublicacion(event: SubmitEvent): Promise<void> {
             await apiFetch('/publicaciones', { method: 'POST', body: datos });
             bootstrap.Modal.getOrCreateInstance(porId('modalPublicacion')).hide();
             form.reset();
+            opcionalPorId('grupoModalidadesEntrega')?.classList.remove('is-invalid');
             ubicacionPublicacion = null;
             porId('estadoUbicacionPublicacion').textContent = 'Opcional: permite que te encuentren por distancia.';
             porId('fotosPreview').innerHTML = '';
@@ -381,6 +408,17 @@ async function crearPublicacion(event: SubmitEvent): Promise<void> {
         });
     } catch (e) {
         mostrarAlerta(alerta, mensajeDeError(e, 'No se pudo crear la publicación.'));
+        alerta?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function actualizarEstadoModalidades(): void {
+    const grupo = opcionalPorId('grupoModalidadesEntrega');
+    const seleccionada = document.querySelector(
+        '#grupoModalidadesEntrega input[name="modalidadesEntrega"]:checked',
+    );
+    if (seleccionada) {
+        grupo?.classList.remove('is-invalid');
     }
 }
 
@@ -423,6 +461,7 @@ async function abrirDetalle(id: number): Promise<void> {
                     <div class="detalle-precio">${formatoPrecio(p.precio)}</div>
                     <p class="mb-1"><span class="badge text-bg-light border">${escapeHtml(p.categoriaNombre)}</span>
                        ${p.estado === 'VENDIDA' ? '<span class="badge text-bg-secondary">Vendida</span>' : ''}</p>
+                    <p><strong>Entrega:</strong> ${escapeHtml((p.modalidadesEntrega ?? []).map(modalidad => modalidad.nombre).join(' · ') || 'No informada')}</p>
                     <p><strong>Ubicación:</strong> ${escapeHtml(p.ubicacion)}</p>
                     <p><strong>Vendedor:</strong> ${escapeHtml(p.vendedorApodo || 'Usuario #' + p.usuarioId)}</p>
                     <p class="detalle-descripcion">${escapeHtml(p.descripcion)}</p>

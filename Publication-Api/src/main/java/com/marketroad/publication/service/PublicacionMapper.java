@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
+import com.marketroad.publication.dto.ModalidadEntregaDTO;
 import com.marketroad.publication.dto.PublicacionResponseDTO;
 import com.marketroad.publication.model.Publicacion;
 import com.marketroad.publication.repository.ImagenPublicacionRepository;
@@ -24,6 +25,9 @@ public final class PublicacionMapper {
         return new PublicacionResponseDTO(
                 p.getId(), p.getTitulo(), p.getPrecio(), p.getDescripcion(), p.getUbicacion(),
                 p.getCategoria().name(), p.getCategoria().getNombre(),
+                p.getModalidadesEntrega().stream()
+                        .map(m -> new ModalidadEntregaDTO(m.name(), m.getNombre()))
+                        .toList(),
                 p.getLatitud(), p.getLongitud(), distanciaKm,
                 p.getUsuarioId(), p.getVendedorApodo(),
                 p.getEstado().name(), p.getFechaCreacion(), urls);
