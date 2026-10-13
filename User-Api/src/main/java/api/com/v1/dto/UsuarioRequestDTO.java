@@ -17,9 +17,8 @@ public record UsuarioRequestDTO(
         @Pattern(regexp = "^[\\p{L}][\\p{L} '.-]*$", message = "El apellido solo puede contener letras, espacios, apóstrofes, puntos y guiones")
         String apellido,
 
-        @NotBlank(message = "El apodo del usuario no puede estar vacío")
-        @Size(min = 3, max = 20, message = "El apodo debe tener entre 3 y 20 caracteres")
-        @Pattern(regexp = "^[A-Za-z0-9][A-Za-z0-9_.-]*$", message = "El apodo solo puede contener letras, números, guion, guion bajo y punto, sin espacios")
+        @Size(max = 20, message = "El apodo puede tener como máximo 20 caracteres")
+        @Pattern(regexp = "^(?:[A-Za-z0-9][A-Za-z0-9_.-]*)?$", message = "El apodo solo puede contener letras, números, guion, guion bajo y punto, sin espacios")
         String apodo,
 
         @NotBlank(message = "El correo del usuario no puede estar vacío")

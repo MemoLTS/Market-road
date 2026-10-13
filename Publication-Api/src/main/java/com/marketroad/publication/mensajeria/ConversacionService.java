@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,20 +41,14 @@ import com.marketroad.publication.security.Identidad;
  */
 @Service
 public class ConversacionService {
-    private final ConversacionRepository conversaciones;
-    private final MensajeConversacionRepository mensajes;
-    private final PublicacionRepository publicaciones;
-    private final LimitadorMensajes limitador;
-
-    public ConversacionService(ConversacionRepository conversaciones,
-                               MensajeConversacionRepository mensajes,
-                               PublicacionRepository publicaciones,
-                               LimitadorMensajes limitador) {
-        this.limitador = limitador;
-        this.conversaciones = conversaciones;
-        this.mensajes = mensajes;
-        this.publicaciones = publicaciones;
-    }
+    @Autowired
+    private ConversacionRepository conversaciones;
+    @Autowired
+    private MensajeConversacionRepository mensajes;
+    @Autowired
+    private PublicacionRepository publicaciones;
+    @Autowired
+    private LimitadorMensajes limitador;
 
     // ------------------------------------------------------------------ consultas
 

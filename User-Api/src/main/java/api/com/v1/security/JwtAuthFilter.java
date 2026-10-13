@@ -77,6 +77,10 @@ public class JwtAuthFilter extends HttpFilter {
         if (path.startsWith("/api/v1/auth")) {
             return true;
         }
+        // Las fotos se pueden mostrar como avatar; solo la carga requiere sesión.
+        if ("GET".equalsIgnoreCase(metodo) && path.matches("/api/v1/usuarios/\\d+/foto")) {
+            return true;
+        }
         // Registro de usuario nuevo: POST exacto a /api/v1/usuarios
         if ("POST".equalsIgnoreCase(metodo) && PREFIJO_USUARIOS.equals(path)) {
             return true;

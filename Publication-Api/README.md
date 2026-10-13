@@ -8,6 +8,7 @@ Microservicio Spring Boot de publicaciones de venta para Market-Road.
 - Entre 1 y 8 imágenes por publicación.
 - JPG, PNG y WEBP.
 - Máximo 5 MB por imagen.
+- Una o más modalidades de entrega: `ENTREGA_PERSONAL`, `ENVIO` y `ENCUENTRO_PUBLICO`.
 - Título de 3 a 100 caracteres.
 - Precio positivo con hasta 2 decimales.
 - Asociación con el usuario mediante el `subject` del JWT.
@@ -22,5 +23,6 @@ La API se expone normalmente mediante `Getaway-Spring` en `http://localhost:8082
 ## Catálogo y mensajería
 
 - Catálogo paginado con búsqueda, categorías, rango de precio, radio y orden por relevancia, precio, distancia o recientes.
+- Al crear una publicación, envía cada modalidad seleccionada como un campo multipart repetido `modalidadesEntrega`; las respuestas incluyen su código y nombre.
 - Mensajería comprador-vendedor por publicación, con ofertas de precio, aceptación/rechazo y cierre de venta.
 - Detalle de endpoints en `Documentos/Documentacion_Proyecto.md`.

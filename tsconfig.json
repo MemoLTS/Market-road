@@ -5,7 +5,7 @@
     "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "rootDir": "src",
-    "outDir": "js",
+    "outDir": "Js",
     "strict": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,

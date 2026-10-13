@@ -13,6 +13,7 @@ public record PublicacionResponseDTO(
         /** Código de la categoría (ej. ELECTRONICA) y su nombre para mostrar. */
         String categoria,
         String categoriaNombre,
+        List<ModalidadEntregaDTO> modalidadesEntrega,
         Double latitud,
         Double longitud,
         /** Solo cuando la consulta incluye la ubicación del usuario y la publicación tiene coordenadas. */

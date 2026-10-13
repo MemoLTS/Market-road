@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,13 +33,10 @@ import com.marketroad.publication.repository.PublicacionRepository;
  */
 @Service
 public class CatalogoService {
-    private final PublicacionRepository repository;
-    private final ImagenPublicacionRepository imagenRepository;
-
-    public CatalogoService(PublicacionRepository repository, ImagenPublicacionRepository imagenRepository) {
-        this.repository = repository;
-        this.imagenRepository = imagenRepository;
-    }
+    @Autowired
+    private PublicacionRepository repository;
+    @Autowired
+    private ImagenPublicacionRepository imagenRepository;
 
     public List<CategoriaDTO> categorias() {
         return Arrays.stream(CategoriaPublicacion.values())

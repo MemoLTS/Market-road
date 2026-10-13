@@ -1,6 +1,7 @@
 "use strict";
 function aplicarTema(tema) {
     document.documentElement.setAttribute('data-theme', tema);
+    document.documentElement.setAttribute('data-bs-theme', tema);
     localStorage.setItem('theme', tema);
     const icono = document.getElementById('icono-tema');
     if (icono)

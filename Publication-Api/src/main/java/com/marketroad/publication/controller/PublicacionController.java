@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -28,13 +29,10 @@ import jakarta.validation.constraints.Positive;
 @RestController
 @RequestMapping("/api/v1/publicaciones")
 public class PublicacionController {
-    private final PublicacionService service;
-    private final CatalogoService catalogo;
-
-    public PublicacionController(PublicacionService service, CatalogoService catalogo) {
-        this.service = service;
-        this.catalogo = catalogo;
-    }
+    @Autowired
+    private PublicacionService service;
+    @Autowired
+    private CatalogoService catalogo;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PublicacionResponseDTO> crear(
@@ -43,11 +41,13 @@ public class PublicacionController {
             @RequestParam("descripcion") String descripcion,
             @RequestParam("ubicacion") String ubicacion,
             @RequestParam(value = "categoria", required = false) String categoria,
+            @RequestParam(value = "modalidadesEntrega", required = false) List<String> modalidadesEntrega,
             @RequestParam(value = "latitud", required = false) Double latitud,
             @RequestParam(value = "longitud", required = false) Double longitud,
             @RequestParam("fotos") List<MultipartFile> fotos,
             HttpServletRequest request) {
-        NuevaPublicacionDTO datos = new NuevaPublicacionDTO(titulo, precio, descripcion, ubicacion, categoria, latitud, longitud);
+        NuevaPublicacionDTO datos = new NuevaPublicacionDTO(
+                titulo, precio, descripcion, ubicacion, categoria, modalidadesEntrega, latitud, longitud);
         PublicacionResponseDTO creada = service.crear(datos, fotos, Identidad.de(request));
         return ResponseEntity.created(URI.create("/api/v1/publicaciones/" + creada.id())).body(creada);
     }

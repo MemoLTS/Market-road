@@ -1,14 +1,14 @@
 server:
-  port: 8090
+  port: ${SERVER_PORT:8090}
 
 spring:
   application:
     name: inventario
 
   datasource:
-    url: jdbc:mysql://localhost:3306/inventario
-    username: root
-    password:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/inventario?useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:marketroad_app}
+    password: ${SPRING_DATASOURCE_PASSWORD:marketroad_local_dev}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:

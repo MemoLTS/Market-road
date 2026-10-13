@@ -2,8 +2,9 @@ export interface Usuario {
     id: number;
     nombre: string;
     apellido: string;
-    apodo: string;
+    apodo: string | null;
     correo: string;
+    ciudad: string | null;
 }
 
 export interface LoginRespuesta {
@@ -25,6 +26,11 @@ export interface Categoria {
     nombre: string;
 }
 
+export interface ModalidadEntrega {
+    codigo: 'ENTREGA_PERSONAL' | 'ENVIO' | 'ENCUENTRO_PUBLICO';
+    nombre: string;
+}
+
 export interface Publicacion {
     id: number;
     titulo: string;
@@ -33,6 +39,7 @@ export interface Publicacion {
     ubicacion: string;
     categoria: string;
     categoriaNombre: string;
+    modalidadesEntrega: ModalidadEntrega[];
     latitud: number | null;
     longitud: number | null;
     distanciaKm: number | null;

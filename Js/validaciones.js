@@ -121,6 +121,8 @@ export function validarNombre(valor, etiqueta) {
 }
 export function validarApodo(valor) {
     const v = valor.trim();
+    if (!v)
+        return null;
     if (v.length < LIMITES.apodo.min || v.length > LIMITES.apodo.max) {
         return `El apodo debe tener entre ${LIMITES.apodo.min} y ${LIMITES.apodo.max} caracteres.`;
     }

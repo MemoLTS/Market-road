@@ -1,5 +1,11 @@
-export const API_BASE_URL = 'http://localhost:8082/api/v1';
-const CLAVE_SESION = 'mr_session';
+export const API_BASE_URL = 'http://localhost:8081/api/v1';
+export const CLAVE_SESION = 'mr_session';
+/** La API devuelve rutas relativas para las imágenes (/api/v1/...): se completan con el origen del gateway. */
+export function urlAbsoluta(ruta) {
+    if (!ruta || /^(https?:|data:|blob:)/i.test(ruta))
+        return ruta;
+    return new URL(ruta, API_BASE_URL).href;
+}
 const TIMEOUT_MS = 20000;
 /** Error de la API con el código HTTP, para poder distinguir 404, 409, 429, etc. */
 export class ApiError extends Error {
@@ -48,6 +54,13 @@ export function estaAutenticado() {
 export function usuarioActual() {
     return obtenerSesion()?.usuario ?? null;
 }
+export function actualizarUsuarioSesion(usuario) {
+    const sesion = obtenerSesion();
+    if (!sesion)
+        return;
+    localStorage.setItem(CLAVE_SESION, JSON.stringify({ ...sesion, usuario }));
+    window.dispatchEvent(new CustomEvent('mr:sesion-cambiada'));
+}
 function mensajeDeCuerpo(cuerpo, status) {
     if (cuerpo) {
         const directo = cuerpo.error ?? cuerpo.mensaje ?? cuerpo.message;
@@ -78,7 +91,8 @@ export async function apiFetch(endpoint, options = {}) {
     const temporizador = setTimeout(() => controlador.abort(), TIMEOUT_MS);
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers, signal: controlador.signal });
-        if (response.status === 401) {
+        // Solo es "sesión expirada" si se envió un token. Un 401 del login (clave incorrecta) no cierra nada.
+        if (response.status === 401 && sesion?.token && endpoint !== '/auth/login') {
             limpiarSesion();
             window.dispatchEvent(new CustomEvent('mr:sesion-expirada'));
         }

@@ -7,6 +7,7 @@ import java.util.Map;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,13 +29,10 @@ public class PublicacionServiceImpl implements PublicacionService {
     private static final long MAX_BYTES_POR_FOTO = 5L * 1024 * 1024;
     private static final List<String> TIPOS_PERMITIDOS = List.of("image/jpeg", "image/png", "image/webp");
 
-    private final PublicacionRepository repository;
-    private final ImagenPublicacionRepository imagenRepository;
-
-    public PublicacionServiceImpl(PublicacionRepository repository, ImagenPublicacionRepository imagenRepository) {
-        this.repository = repository;
-        this.imagenRepository = imagenRepository;
-    }
+    @Autowired
+    private PublicacionRepository repository;
+    @Autowired
+    private ImagenPublicacionRepository imagenRepository;
 
     @Override
     @Transactional
@@ -57,11 +55,23 @@ public class PublicacionServiceImpl implements PublicacionService {
         }
 
         CategoriaPublicacion categoria = CategoriaPublicacion.desdeCodigo(datos.categoria());
+        if (datos.modalidadesEntrega() == null || datos.modalidadesEntrega().isEmpty()) {
+            throw new IllegalArgumentException("Selecciona al menos una modalidad de entrega");
+        }
+        java.util.Set<ModalidadEntrega> modalidadesEntrega = java.util.EnumSet.noneOf(ModalidadEntrega.class);
+        for (String codigo : datos.modalidadesEntrega()) {
+            if (!modalidadesEntrega.add(ModalidadEntrega.desdeCodigo(codigo))) {
+                throw new IllegalArgumentException("No repitas una modalidad de entrega");
+            }
+        }
 
         Double latitud = datos.latitud();
         Double longitud = datos.longitud();
         if ((latitud == null) != (longitud == null)) {
             throw new IllegalArgumentException("Debes indicar latitud y longitud juntas");
+        }
+        if (latitud == null) {
+            throw new IllegalArgumentException("Debes seleccionar una ubicación en una ciudad o pueblo");
         }
         if (latitud != null && !Geo.coordenadasValidas(latitud, longitud)) {
             throw new IllegalArgumentException("Las coordenadas indicadas no son válidas");
@@ -92,6 +102,7 @@ public class PublicacionServiceImpl implements PublicacionService {
         publicacion.setDescripcion(descripcionNormalizada);
         publicacion.setUbicacion(ubicacionNormalizada);
         publicacion.setCategoria(categoria);
+        publicacion.setModalidadesEntrega(modalidadesEntrega);
         publicacion.setLatitud(latitud);
         publicacion.setLongitud(longitud);
         publicacion.setUsuarioId(autor.usuarioId());

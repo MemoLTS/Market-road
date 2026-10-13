@@ -1,4 +1,6 @@
-import { apiFetch } from './api.js';
+import { apiFetch, guardarSesion } from './api.js';
+import { actualizarNavegacion } from './auth.js';
+import type { LoginRespuesta } from './tipos.js';
 import { conBoton, mensajeDeError, mostrarAlerta, ocultarAlerta, opcionalPorId } from './util.js';
 import {
     primerError, validarApodo, validarContrasenaNueva, validarCorreo, validarNombre,
@@ -43,7 +45,7 @@ function leerCampo(id: string): string {
 
 function validarRegistro(d: DatosRegistro): string | null {
     return primerError(
-        !d.nombre || !d.apellido || !d.apodo || !d.correo || !d.contrasena ? 'Completa todos los campos.' : null,
+        !d.nombre || !d.apellido || !d.correo || !d.contrasena ? 'Completa nombre, apellido, correo y contraseña.' : null,
         validarNombre(d.nombre, 'El nombre'),
         validarNombre(d.apellido, 'El apellido'),
         validarApodo(d.apodo),
@@ -75,7 +77,20 @@ async function registrarUsuario(event: SubmitEvent): Promise<void> {
     try {
         await conBoton(opcionalPorId<HTMLButtonElement>('btnRegistrar'), 'Creando...', async () => {
             await apiFetch('/usuarios', { method: 'POST', body: JSON.stringify(datos) });
-            mostrarAlerta(alerta, '¡Usuario registrado con éxito! Ya puedes iniciar sesión.', 'success');
+            const { correo, contrasena } = datos;
+            try {
+                // Se deja la sesión iniciada para que el usuario no tenga que escribir sus datos otra vez.
+                guardarSesion(await apiFetch<LoginRespuesta>('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ correo, contrasena }),
+                }));
+                actualizarNavegacion();
+                window.dispatchEvent(new CustomEvent('mr:sesion-cambiada'));
+                const modalEl = opcionalPorId('modalRegistro');
+                if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            } catch {
+                mostrarAlerta(alerta, '¡Usuario registrado con éxito! Ya puedes iniciar sesión.', 'success');
+            }
             form.reset();
             form.querySelectorAll('.is-valid, .is-invalid').forEach(el => el.classList.remove('is-valid', 'is-invalid'));
         });

@@ -1,4 +1,4 @@
-import { ApiError, apiFetch, obtenerSesion } from './api.js';
+import { ApiError, apiFetch, obtenerSesion, urlAbsoluta } from './api.js';
 import type { ConversacionDetalle, ConversacionResumen, Mensaje } from './tipos.js';
 import {
     conBoton, escapeHtml, formatoFechaCorta, formatoPrecio, mensajeDeError, mostrarAlerta, ocultarAlerta, porId,
@@ -107,7 +107,7 @@ function renderLista(): void {
 
     lista.innerHTML = items.map(c => `
         <button type="button" class="bandeja-item ${estado.activa?.id === c.id ? 'activa' : ''}" data-conv="${c.id}">
-            <img src="${escapeHtml(c.imagenUrl)}" alt="" class="bandeja-miniatura" loading="lazy">
+            <img src="${escapeHtml(urlAbsoluta(c.imagenUrl))}" alt="" class="bandeja-miniatura" loading="lazy">
             <span class="bandeja-texto">
                 <span class="d-flex justify-content-between gap-2">
                     <strong class="text-truncate">${escapeHtml(c.interlocutorApodo)}</strong>
@@ -175,7 +175,7 @@ function sincronizarEnLista(c: ConversacionResumen): void {
 
 function pintarCabecera(c: ConversacionResumen): void {
     const imagen = porId<HTMLImageElement>('chatImagen');
-    imagen.src = c.imagenUrl;
+    imagen.src = urlAbsoluta(c.imagenUrl);
     porId('chatTitulo').textContent = c.publicacionTitulo;
 
     const etiquetas: Record<string, string> = { VENDIDA: 'Vendida', ELIMINADA: 'Publicación eliminada' };
