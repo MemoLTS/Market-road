@@ -86,12 +86,33 @@ document.addEventListener('DOMContentLoaded', () => {
             if (solicitudActual.signal.aborted) return;
             const tipo = respuesta.headers.get('Content-Type') ?? blob.type;
             if (tipo.includes('image/svg+xml')) {
+                fotoOriginal = null;
+                fotoParaSubir = null;
+                imagenOriginal = null;
+                controlesRecorte?.classList.add('d-none');
                 if (estadoFoto) estadoFoto.textContent = 'Aún no tienes una foto de perfil guardada.';
                 return;
             }
             if (!tipo.startsWith('image/')) {
                 throw new Error('El servidor no devolvió un archivo de imagen.');
             }
+            fotoOriginal = new File([blob], 'foto-perfil-guardada', { type: tipo });
+            fotoParaSubir = null;
+            urlOriginal = URL.createObjectURL(blob);
+            imagenOriginal = new Image();
+            imagenOriginal.onload = () => {
+                if (solicitudActual.signal.aborted) return;
+                if (posicionX) posicionX.value = '50';
+                if (posicionY) posicionY.value = '50';
+                controlesRecorte?.classList.remove('d-none');
+            };
+            imagenOriginal.onerror = () => {
+                if (solicitudActual.signal.aborted) return;
+                fotoOriginal = null;
+                imagenOriginal = null;
+                if (estadoFoto) estadoFoto.textContent = 'No se pudo preparar la foto guardada para recortarla.';
+            };
+            imagenOriginal.src = urlOriginal;
             urlFotoGuardada = URL.createObjectURL(blob);
             if (!vistaPrevia) return;
             vistaPrevia.onload = () => {
@@ -331,9 +352,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (fotoParaSubir) {
+                if (estadoFoto) estadoFoto.textContent = 'Guardando y verificando la foto...';
                 const datos = new FormData();
                 datos.append('foto', fotoParaSubir);
                 await apiFetch(`/usuarios/${sesion.usuario.id}/foto`, { method: 'PUT', body: datos });
+                await verificarFotoGuardada(sesion.usuario.id, fotoParaSubir);
+                if (estadoFoto) estadoFoto.textContent = 'Foto guardada y verificada.';
             }
 
             if (apodoCambio || ciudadCambio) {
@@ -455,6 +479,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 : reject(new Error('No se pudo generar la imagen recortada.')), 'image/png');
         });
         return blob;
+    }
+
+    async function verificarFotoGuardada(usuarioId: number, fotoEnviada: File): Promise<void> {
+        const respuesta = await fetch(urlAbsoluta(`/api/v1/usuarios/${usuarioId}/foto?v=${Date.now()}`), {
+            cache: 'no-store',
+        });
+        if (!respuesta.ok) {
+            throw new Error(`La foto se envió, pero no se pudo confirmar su guardado (HTTP ${respuesta.status}).`);
+        }
+
+        const fotoRecibida = await respuesta.blob();
+        if (!fotoRecibida.type.startsWith('image/') || fotoRecibida.type.includes('image/svg+xml')) {
+            throw new Error('La foto se envió, pero el servidor todavía devuelve la imagen predeterminada.');
+        }
+
+        const [bytesEnviados, bytesGuardados] = await Promise.all([
+            fotoEnviada.arrayBuffer(),
+            fotoRecibida.arrayBuffer(),
+        ]);
+        const enviados = new Uint8Array(bytesEnviados);
+        const guardados = new Uint8Array(bytesGuardados);
+        if (enviados.length !== guardados.length
+            || enviados.some((byte, indice) => byte !== guardados[indice])) {
+            throw new Error('La foto se envió, pero el servidor no devolvió la misma imagen guardada. Inténtalo de nuevo.');
+        }
     }
 
     function liberarUrlRecortada(): void {
