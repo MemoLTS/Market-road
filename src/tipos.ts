@@ -2,8 +2,9 @@ export interface Usuario {
     id: number;
     nombre: string;
     apellido: string;
-    apodo: string;
+    apodo: string | null;
     correo: string;
+    ciudad: string | null;
 }
 
 export interface LoginRespuesta {

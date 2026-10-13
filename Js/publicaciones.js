@@ -1,8 +1,9 @@
 import { apiFetch, obtenerSesion, urlAbsoluta } from './api.js';
 import { montarPanelContacto } from './contacto.js';
+import { buscarLugarEnCoordenadas, buscarLugares } from './geocodificacion.js';
 import { conBoton, escapeHtml, formatoPrecio, mensajeDeError, mostrarAlerta, obtenerUbicacion, ocultarAlerta, opcionalPorId, porId, } from './util.js';
 import { LIMITES, primerError, validarCoordenadas, validarDescripcion, validarFotos, validarMonto, validarRangoPrecios, validarTitulo, validarUbicacion, } from './validaciones.js';
-const TAMANO_PAGINA = 12;
+const FILAS_POR_PAGINA = 6;
 const ORDENES = ['RELEVANCIA', 'PRECIO_ASC', 'PRECIO_DESC', 'DISTANCIA', 'RECIENTES'];
 const estado = {
     q: '', categorias: new Set(), precioMin: '', precioMax: '', orden: 'RELEVANCIA',
@@ -19,8 +20,15 @@ const IMAGEN_EJEMPLO = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xml
     + '<path d="M130 250 L180 160 H250 L280 250 M180 160 L210 250 H130 M245 125 H290"/></g>'
     + '<text x="200" y="352" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" fill="#fff">Ejemplo</text>'
     + '</svg>');
-let ubicacionPublicacion = null;
+let lugarPublicacion = null;
+let resultadosLugar = [];
+let temporizadorBusquedaLugar = null;
+let solicitudBusquedaLugar = null;
+let mapaPublicacion = null;
+let marcadorPublicacion = null;
 let secuenciaCarga = 0; // descarta respuestas viejas si el usuario cambia filtros rápido
+let tamanoPaginaActual = 0;
+let temporizadorCambioAncho = null;
 document.addEventListener('DOMContentLoaded', async () => {
     await cargarCategorias();
     void cargarPublicaciones();
@@ -29,12 +37,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     opcionalPorId('publicacionFotos')?.addEventListener('change', previsualizarFotos);
     document.querySelectorAll('#grupoModalidadesEntrega input[name="modalidadesEntrega"]')
         .forEach(input => input.addEventListener('change', actualizarEstadoModalidades));
-    opcionalPorId('formFiltros')?.addEventListener('submit', e => { e.preventDefault(); aplicarFiltros(); });
-    opcionalPorId('filtroOrden')?.addEventListener('change', aplicarFiltros);
-    opcionalPorId('filtroRadio')?.addEventListener('change', aplicarFiltros);
+    opcionalPorId('formFiltros')?.addEventListener('submit', e => {
+        e.preventDefault();
+        if (aplicarFiltros()) {
+            ocultarPanelFiltros();
+        }
+    });
     opcionalPorId('btnLimpiarFiltros')?.addEventListener('click', limpiarFiltros);
     opcionalPorId('btnUbicacion')?.addEventListener('click', compartirUbicacion);
     opcionalPorId('btnUbicacionPublicacion')?.addEventListener('click', ubicacionParaPublicacion);
+    opcionalPorId('btnMapaPublicacion')?.addEventListener('click', alternarMapaPublicacion);
+    opcionalPorId('btnCerrarMapaPublicacion')?.addEventListener('click', cerrarMapaPublicacion);
+    opcionalPorId('publicacionUbicacion')?.addEventListener('input', buscarUbicacionPublicacion);
+    opcionalPorId('resultadosUbicacionPublicacion')?.addEventListener('click', seleccionarResultadoUbicacion);
+    opcionalPorId('formPublicacion')?.addEventListener('reset', limpiarUbicacionPublicacion);
     opcionalPorId('btnMisPublicaciones')?.addEventListener('click', alternarMisPublicaciones);
     const alCambiarSesion = () => {
         actualizarBotonPublicar();
@@ -45,6 +61,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     window.addEventListener('mr:sesion-expirada', alCambiarSesion);
     window.addEventListener('mr:sesion-cambiada', alCambiarSesion);
+    window.addEventListener('resize', () => {
+        if (temporizadorCambioAncho)
+            clearTimeout(temporizadorCambioAncho);
+        temporizadorCambioAncho = setTimeout(() => {
+            if (estado.soloMias || !tamanoPaginaActual || tamanoPaginaActual === obtenerTamanoPagina())
+                return;
+            estado.pagina = 0;
+            void cargarPublicaciones();
+        }, 150);
+    });
 });
 // ------------------------------------------------------------ catálogo
 async function cargarCategorias() {
@@ -61,7 +87,6 @@ async function cargarCategorias() {
         cont.innerHTML = categorias.map(c => `
             <input type="checkbox" class="btn-check" id="cat-${escapeHtml(c.codigo)}" value="${escapeHtml(c.codigo)}" autocomplete="off">
             <label class="btn btn-sm btn-outline-secondary" for="cat-${escapeHtml(c.codigo)}">${escapeHtml(c.nombre)}</label>`).join('');
-        cont.querySelectorAll('input').forEach(i => i.addEventListener('change', aplicarFiltros));
     }
     const select = opcionalPorId('publicacionCategoria');
     if (select) {
@@ -86,22 +111,23 @@ function leerFiltros() {
 }
 function aplicarFiltros() {
     leerFiltros();
-    const alerta = opcionalPorId('publicacionesAlerta');
+    const alerta = opcionalPorId('filtroAlerta');
     ocultarAlerta(alerta);
     const error = primerError(estado.q.length > LIMITES.titulo.max ? `La búsqueda puede tener como máximo ${LIMITES.titulo.max} caracteres.` : null, validarRangoPrecios(estado.precioMin, estado.precioMax));
     if (error) {
         mostrarAlerta(alerta, error);
-        return;
+        return false;
     }
     if ((estado.orden === 'DISTANCIA' || estado.radioKm) && !estado.ubicacion) {
         mostrarAlerta(alerta, 'Para ordenar o filtrar por distancia primero comparte tu ubicación.');
         porId('filtroOrden').value = estado.orden = 'RELEVANCIA';
         porId('filtroRadio').value = estado.radioKm = '';
-        return;
+        return false;
     }
     estado.soloMias = false;
     estado.pagina = 0;
     void cargarPublicaciones();
+    return true;
 }
 function limpiarFiltros() {
     porId('formFiltros').reset();
@@ -109,7 +135,14 @@ function limpiarFiltros() {
     estado.ubicacion = null;
     porId('estadoUbicacion').textContent = 'Comparte tu ubicación para ordenar por distancia.';
     porId('grupoRadio').classList.add('d-none');
-    aplicarFiltros();
+    if (aplicarFiltros()) {
+        ocultarPanelFiltros();
+    }
+}
+function ocultarPanelFiltros() {
+    const panel = opcionalPorId('panelFiltros');
+    if (panel)
+        bootstrap.Collapse.getOrCreateInstance(panel).hide();
 }
 async function compartirUbicacion() {
     const texto = porId('estadoUbicacion');
@@ -153,8 +186,17 @@ function construirQuery() {
     }
     p.set('orden', estado.orden);
     p.set('pagina', String(estado.pagina));
-    p.set('tamano', String(TAMANO_PAGINA));
+    const tamano = obtenerTamanoPagina();
+    tamanoPaginaActual = tamano;
+    p.set('tamano', String(tamano));
     return p.toString();
+}
+function obtenerTamanoPagina() {
+    const contenedor = opcionalPorId('contenedor-publicaciones');
+    if (!contenedor)
+        return 4 * FILAS_POR_PAGINA;
+    const cantidadColumnas = getComputedStyle(contenedor).gridTemplateColumns.split(/\s+/).filter(Boolean).length;
+    return Math.max(1, cantidadColumnas) * FILAS_POR_PAGINA;
 }
 function hayFiltrosActivos() {
     return Boolean(estado.q || estado.categorias.size || estado.precioMin || estado.precioMax
@@ -259,19 +301,29 @@ function activarEjemplo(contenedor) {
     });
 }
 function renderPaginacion(pagina, nav) {
-    if (pagina.totalPaginas <= 1)
+    if (pagina.totalPaginas <= 0)
         return;
+    const totalPaginas = pagina.totalPaginas;
+    const paginaActual = Math.min(pagina.pagina + 1, totalPaginas);
+    const maximoVisible = 5;
+    const inicio = Math.max(1, Math.min(paginaActual - 2, totalPaginas - maximoVisible + 1));
+    const fin = Math.min(totalPaginas, inicio + maximoVisible - 1);
+    const botones = (numero) => `
+        <button class="btn btn-sm ${numero === paginaActual ? 'btn-primary' : 'btn-outline-secondary'}"
+            type="button" data-pagina="${numero - 1}" aria-label="Página ${numero}"
+            ${numero === paginaActual ? 'aria-current="page"' : ''}>${numero}</button>`;
+    const numeros = Array.from({ length: fin - inicio + 1 }, (_, indice) => inicio + indice);
     nav.innerHTML = `
-        <button class="btn btn-outline-secondary btn-sm" id="pagAnterior" ${pagina.pagina === 0 ? 'disabled' : ''}>Anterior</button>
-        <span class="small">Página ${pagina.pagina + 1} de ${pagina.totalPaginas}</span>
-        <button class="btn btn-outline-secondary btn-sm" id="pagSiguiente" ${pagina.pagina + 1 >= pagina.totalPaginas ? 'disabled' : ''}>Siguiente</button>`;
-    const ir = (delta) => {
-        estado.pagina = Math.max(0, estado.pagina + delta);
-        void cargarPublicaciones();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-    porId('pagAnterior').addEventListener('click', () => ir(-1));
-    porId('pagSiguiente').addEventListener('click', () => ir(1));
+        ${inicio > 1 ? `${botones(1)}${inicio > 2 ? '<span class="mk-paginacion-puntos" aria-hidden="true">…</span>' : ''}` : ''}
+        ${numeros.map(botones).join('')}
+        ${fin < totalPaginas ? `${fin < totalPaginas - 1 ? '<span class="mk-paginacion-puntos" aria-hidden="true">…</span>' : ''}${botones(totalPaginas)}` : ''}`;
+    nav.querySelectorAll('[data-pagina]').forEach(boton => {
+        boton.addEventListener('click', () => {
+            estado.pagina = Number(boton.dataset['pagina']);
+            void cargarPublicaciones();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    });
 }
 function renderPublicacion(p) {
     const src = p.imagenUrls[0] ? urlAbsoluta(p.imagenUrls[0]) : '';
@@ -298,17 +350,150 @@ function renderPublicacion(p) {
 // ------------------------------------------------------------ crear publicación
 async function ubicacionParaPublicacion() {
     const texto = porId('estadoUbicacionPublicacion');
+    texto.textContent = 'Obteniendo ubicación y buscando la ciudad o pueblo más cercano...';
     try {
-        ubicacionPublicacion = await obtenerUbicacion();
-        texto.textContent = 'Ubicación guardada para esta publicación.';
+        const ubicacion = await obtenerUbicacion();
+        await seleccionarCoordenadas(ubicacion);
     }
     catch (e) {
-        ubicacionPublicacion = null;
         texto.textContent = mensajeDeError(e);
     }
 }
+function buscarUbicacionPublicacion() {
+    lugarPublicacion = null;
+    resultadosLugar = [];
+    const texto = porId('estadoUbicacionPublicacion');
+    const consulta = porId('publicacionUbicacion').value.trim();
+    const resultados = porId('resultadosUbicacionPublicacion');
+    texto.textContent = consulta ? 'Selecciona una ciudad o pueblo de los resultados.' : 'Selecciona una ciudad o pueblo para definir la zona.';
+    resultados.replaceChildren();
+    solicitudBusquedaLugar?.abort();
+    if (temporizadorBusquedaLugar)
+        clearTimeout(temporizadorBusquedaLugar);
+    if (consulta.length < 2)
+        return;
+    temporizadorBusquedaLugar = setTimeout(() => {
+        const solicitud = new AbortController();
+        solicitudBusquedaLugar = solicitud;
+        texto.textContent = 'Buscando ciudades y pueblos...';
+        void buscarLugares(consulta, solicitud.signal).then(lugares => {
+            if (solicitud.signal.aborted)
+                return;
+            resultadosLugar = lugares;
+            if (!lugares.length) {
+                texto.textContent = 'No encontramos una ciudad o pueblo real con ese nombre. Prueba otra búsqueda o el mapa.';
+                return;
+            }
+            resultados.innerHTML = lugares.map((lugar, indice) => `
+                <button type="button" class="list-group-item list-group-item-action"
+                    role="option" data-lugar-indice="${indice}">${escapeHtml(lugar.nombre)}</button>`).join('');
+            texto.textContent = 'Elige una ubicación de la lista para confirmarla.';
+        }).catch(error => {
+            if (solicitud.signal.aborted)
+                return;
+            texto.textContent = mensajeDeError(error, 'No se pudieron buscar ciudades y pueblos.');
+        });
+    }, 1000);
+}
+function seleccionarResultadoUbicacion(event) {
+    const boton = event.target.closest('[data-lugar-indice]');
+    if (!boton)
+        return;
+    const indice = Number(boton.dataset['lugarIndice']);
+    const lugar = resultadosLugar[indice];
+    if (lugar)
+        establecerLugarPublicacion(lugar);
+}
+function establecerLugarPublicacion(lugar) {
+    lugarPublicacion = lugar;
+    porId('publicacionUbicacion').value = lugar.nombre;
+    porId('resultadosUbicacionPublicacion').replaceChildren();
+    porId('estadoUbicacionPublicacion').textContent = `Zona seleccionada: ${lugar.nombre}.`;
+    if (mapaPublicacion) {
+        mapaPublicacion.setView([lugar.ubicacion.lat, lugar.ubicacion.lon], 13);
+        colocarMarcadorPublicacion(lugar.ubicacion, lugar.nombre);
+    }
+}
+async function seleccionarCoordenadas(ubicacion) {
+    const texto = porId('estadoUbicacionPublicacion');
+    lugarPublicacion = null;
+    solicitudBusquedaLugar?.abort();
+    if (temporizadorBusquedaLugar)
+        clearTimeout(temporizadorBusquedaLugar);
+    porId('resultadosUbicacionPublicacion').replaceChildren();
+    texto.textContent = 'Verificando la ciudad o pueblo de esta zona...';
+    try {
+        const lugar = await buscarLugarEnCoordenadas(ubicacion);
+        establecerLugarPublicacion(lugar);
+    }
+    catch (error) {
+        texto.textContent = mensajeDeError(error, 'No se pudo identificar una ciudad o pueblo en esa zona.');
+        throw error;
+    }
+}
+function alternarMapaPublicacion() {
+    const panel = porId('panelMapaPublicacion');
+    if (panel.classList.contains('d-none')) {
+        panel.classList.remove('d-none');
+        inicializarMapaPublicacion();
+        window.setTimeout(() => mapaPublicacion?.invalidateSize(), 100);
+    }
+    else {
+        cerrarMapaPublicacion();
+    }
+}
+function cerrarMapaPublicacion() {
+    porId('panelMapaPublicacion').classList.add('d-none');
+}
+function inicializarMapaPublicacion() {
+    if (mapaPublicacion)
+        return;
+    if (typeof L === 'undefined') {
+        porId('estadoUbicacionPublicacion').textContent =
+            'No se pudo cargar el mapa. Puedes buscar la ciudad o pueblo por nombre.';
+        return;
+    }
+    mapaPublicacion = L.map('mapaPublicacion').setView([-33.45, -70.66], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+    }).addTo(mapaPublicacion);
+    mapaPublicacion.on('click', event => {
+        const ubicacion = { lat: event.latlng.lat, lon: event.latlng.lng };
+        colocarMarcadorPublicacion(ubicacion, 'Buscando ciudad o pueblo...');
+        void seleccionarCoordenadas(ubicacion).catch(() => undefined);
+    });
+    if (lugarPublicacion) {
+        mapaPublicacion.setView([lugarPublicacion.ubicacion.lat, lugarPublicacion.ubicacion.lon], 13);
+        colocarMarcadorPublicacion(lugarPublicacion.ubicacion, lugarPublicacion.nombre);
+    }
+}
+function colocarMarcadorPublicacion(ubicacion, nombre) {
+    if (!mapaPublicacion)
+        return;
+    const posicion = [ubicacion.lat, ubicacion.lon];
+    if (marcadorPublicacion) {
+        marcadorPublicacion.setLatLng(posicion).bindPopup(escapeHtml(nombre)).openPopup();
+    }
+    else {
+        marcadorPublicacion = L.marker(posicion).addTo(mapaPublicacion)
+            .bindPopup(escapeHtml(nombre)).openPopup();
+    }
+}
+function limpiarUbicacionPublicacion() {
+    lugarPublicacion = null;
+    resultadosLugar = [];
+    solicitudBusquedaLugar?.abort();
+    if (temporizadorBusquedaLugar)
+        clearTimeout(temporizadorBusquedaLugar);
+    opcionalPorId('resultadosUbicacionPublicacion')?.replaceChildren();
+    const estadoUbicacion = opcionalPorId('estadoUbicacionPublicacion');
+    if (estadoUbicacion)
+        estadoUbicacion.textContent = 'Selecciona una ciudad o pueblo para definir la zona.';
+}
 function validarPublicacion(titulo, precio, descripcion, ubicacion, categoria, modalidadesEntrega, fotos) {
-    return primerError(obtenerSesion() ? null : 'Debes iniciar sesión para publicar.', validarTitulo(titulo), validarDescripcion(descripcion), validarUbicacion(ubicacion), categoria ? null : 'Elige una categoría.', modalidadesEntrega.length ? null : 'Selecciona al menos una modalidad de entrega.', validarMonto(precio, 'El precio'), ubicacionPublicacion ? validarCoordenadas(ubicacionPublicacion.lat, ubicacionPublicacion.lon) : null, validarFotos(fotos));
+    return primerError(obtenerSesion() ? null : 'Debes iniciar sesión para publicar.', validarTitulo(titulo), validarDescripcion(descripcion), validarUbicacion(ubicacion), lugarPublicacion && lugarPublicacion.nombre === ubicacion ? null
+        : 'Selecciona una ciudad o pueblo real de los resultados o márcalo en el mapa.', categoria ? null : 'Elige una categoría.', modalidadesEntrega.length ? null : 'Selecciona al menos una modalidad de entrega.', validarMonto(precio, 'El precio'), lugarPublicacion ? validarCoordenadas(lugarPublicacion.ubicacion.lat, lugarPublicacion.ubicacion.lon) : null, validarFotos(fotos));
 }
 async function crearPublicacion(event) {
     event.preventDefault();
@@ -324,8 +509,9 @@ async function crearPublicacion(event) {
     const fotos = Array.from(porId('publicacionFotos').files ?? []);
     const error = validarPublicacion(titulo, precio, descripcion, ubicacion, categoria, modalidadesEntrega, fotos);
     if (error) {
-        if (!modalidadesEntrega.length)
+        if (!modalidadesEntrega.length) {
             porId('grupoModalidadesEntrega').classList.add('is-invalid');
+        }
         mostrarAlerta(alerta, error);
         alerta?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
@@ -337,10 +523,8 @@ async function crearPublicacion(event) {
     datos.append('ubicacion', ubicacion);
     datos.append('categoria', categoria);
     modalidadesEntrega.forEach(modalidad => datos.append('modalidadesEntrega', modalidad));
-    if (ubicacionPublicacion) {
-        datos.append('latitud', String(ubicacionPublicacion.lat));
-        datos.append('longitud', String(ubicacionPublicacion.lon));
-    }
+    datos.append('latitud', String(lugarPublicacion?.ubicacion.lat));
+    datos.append('longitud', String(lugarPublicacion?.ubicacion.lon));
     fotos.forEach(f => datos.append('fotos', f));
     try {
         await conBoton(opcionalPorId('btnPublicar'), 'Publicando...', async () => {
@@ -348,8 +532,13 @@ async function crearPublicacion(event) {
             bootstrap.Modal.getOrCreateInstance(porId('modalPublicacion')).hide();
             form.reset();
             opcionalPorId('grupoModalidadesEntrega')?.classList.remove('is-invalid');
-            ubicacionPublicacion = null;
-            porId('estadoUbicacionPublicacion').textContent = 'Opcional: permite que te encuentren por distancia.';
+            limpiarUbicacionPublicacion();
+            cerrarMapaPublicacion();
+            if (marcadorPublicacion) {
+                marcadorPublicacion = null;
+                mapaPublicacion = null;
+                porId('mapaPublicacion').replaceChildren();
+            }
             porId('fotosPreview').innerHTML = '';
             mostrarAlerta(opcionalPorId('publicacionesAlerta'), 'Publicación creada correctamente.', 'success');
             estado.pagina = 0;
@@ -364,8 +553,9 @@ async function crearPublicacion(event) {
 function actualizarEstadoModalidades() {
     const grupo = opcionalPorId('grupoModalidadesEntrega');
     const seleccionada = document.querySelector('#grupoModalidadesEntrega input[name="modalidadesEntrega"]:checked');
-    if (seleccionada)
+    if (seleccionada) {
         grupo?.classList.remove('is-invalid');
+    }
 }
 function previsualizarFotos(event) {
     const preview = porId('fotosPreview');

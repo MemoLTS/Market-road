@@ -30,7 +30,7 @@ function leerCampo(id) {
     return opcionalPorId(id)?.value ?? '';
 }
 function validarRegistro(d) {
-    return primerError(!d.nombre || !d.apellido || !d.apodo || !d.correo || !d.contrasena ? 'Completa todos los campos.' : null, validarNombre(d.nombre, 'El nombre'), validarNombre(d.apellido, 'El apellido'), validarApodo(d.apodo), validarCorreo(d.correo), validarContrasenaNueva(d.contrasena));
+    return primerError(!d.nombre || !d.apellido || !d.correo || !d.contrasena ? 'Completa nombre, apellido, correo y contraseña.' : null, validarNombre(d.nombre, 'El nombre'), validarNombre(d.apellido, 'El apellido'), validarApodo(d.apodo), validarCorreo(d.correo), validarContrasenaNueva(d.contrasena));
 }
 async function registrarUsuario(event) {
     event.preventDefault();

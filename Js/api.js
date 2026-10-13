@@ -54,6 +54,13 @@ export function estaAutenticado() {
 export function usuarioActual() {
     return obtenerSesion()?.usuario ?? null;
 }
+export function actualizarUsuarioSesion(usuario) {
+    const sesion = obtenerSesion();
+    if (!sesion)
+        return;
+    localStorage.setItem(CLAVE_SESION, JSON.stringify({ ...sesion, usuario }));
+    window.dispatchEvent(new CustomEvent('mr:sesion-cambiada'));
+}
 function mensajeDeCuerpo(cuerpo, status) {
     if (cuerpo) {
         const directo = cuerpo.error ?? cuerpo.mensaje ?? cuerpo.message;

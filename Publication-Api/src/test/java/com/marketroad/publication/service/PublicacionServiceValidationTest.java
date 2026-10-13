@@ -35,7 +35,7 @@ class PublicacionServiceValidationTest {
     }
 
     private static NuevaPublicacionDTO validos() {
-        return datos("Producto válido", "1000", DESC, UBICACION, "OTROS", null, null);
+        return datos("Producto válido", "1000", DESC, UBICACION, "OTROS", -36.8, -73.05);
     }
 
     private static void rechaza(NuevaPublicacionDTO d, List<MultipartFile> fotos) {
@@ -85,6 +85,7 @@ class PublicacionServiceValidationTest {
         var foto = new MockMultipartFile("fotos", "foto.jpg", "image/jpeg", new byte[] {1});
         rechaza(datos("Producto válido", "1000", DESC, UBICACION, "OTROS", -33.4, null), List.of(foto));
         rechaza(datos("Producto válido", "1000", DESC, UBICACION, "OTROS", 95.0, -70.6), List.of(foto));
+        rechaza(datos("Producto válido", "1000", DESC, UBICACION, "OTROS", null, null), List.of(foto));
     }
 
     @Test

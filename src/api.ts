@@ -58,6 +58,13 @@ export function usuarioActual(): Usuario | null {
     return obtenerSesion()?.usuario ?? null;
 }
 
+export function actualizarUsuarioSesion(usuario: Usuario): void {
+    const sesion = obtenerSesion();
+    if (!sesion) return;
+    localStorage.setItem(CLAVE_SESION, JSON.stringify({ ...sesion, usuario }));
+    window.dispatchEvent(new CustomEvent('mr:sesion-cambiada'));
+}
+
 interface CuerpoError {
     error?: string;
     mensaje?: string;

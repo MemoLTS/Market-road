@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as v from '../js/validaciones.js';
+import * as v from '../Js/validaciones.js';
 
 test('título: largo y saltos de línea', () => {
     assert.equal(v.validarTitulo('Bicicleta'), null);
@@ -53,6 +53,7 @@ test('cuenta: correo, nombre, apodo y contraseña', () => {
     assert.equal(v.validarNombre('María José', 'El nombre'), null);
     assert.notEqual(v.validarNombre('R2D2', 'El nombre'), null);
     assert.equal(v.validarApodo('juan_92'), null);
+    assert.equal(v.validarApodo(''), null);
     assert.notEqual(v.validarApodo('con espacio'), null);
     assert.equal(v.validarContrasenaNueva('Clave1234'), null);
     assert.notEqual(v.validarContrasenaNueva('soloLetras'), null);

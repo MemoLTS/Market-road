@@ -1,12 +1,12 @@
 package api.com.v1.model;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import jakarta.validation.constraints.*;
 
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(name = "Usuarios")
 public class Usuario {
@@ -25,9 +25,8 @@ public class Usuario {
     @Column(nullable = false)
     private String apellido;
 
-    @NotBlank(message = "El apodo del usuario no puede estar vacío")
-    @Size(min = 3, max = 20, message = "El apodo debe tener entre 3 y 20 caracteres")
-    @Column(nullable = false)
+    @Size(max = 20, message = "El apodo puede tener como máximo 20 caracteres")
+    @Column(unique = true)
     private String apodo;
 
     @NotBlank(message = "El correo del usuario no puede estar vacío")
@@ -35,8 +34,20 @@ public class Usuario {
     @Column(nullable = false, unique = true)
     private String correo;
 
+    @Size(max = 120, message = "La ciudad puede tener como máximo 120 caracteres")
+    @Column(length = 120)
+    private String ciudad;
+
     @NotBlank(message = "La contraseña del usuario no puede estar vacía")
     @Column(nullable = false, length = 60)
     private String contrasena;
 
+    public Usuario(Long id, String nombre, String apellido, String apodo, String correo, String contrasena) {
+        this.id = id;
+        this.nombre = nombre;
+        this.apellido = apellido;
+        this.apodo = apodo;
+        this.correo = correo;
+        this.contrasena = contrasena;
+    }
 }

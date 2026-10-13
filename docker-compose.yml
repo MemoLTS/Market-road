@@ -4,20 +4,56 @@ networks:
 
 volumes:
   mysql_data:
+    name: market-road_mysql_data
 
 services:
-  # Base de Datos Relacional MySQL
+  # Base de datos privada: solo accesible desde la red interna de Compose.
   mysql-db:
     image: mysql:8.0
     container_name: marketroad-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: marketroad_db
-    ports:
-      - "3306:3306"
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysqladmin ping --host=127.0.0.1 --user=root --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - marketroad-net
+
+  # Crea las bases/permisos también cuando se reutiliza un volumen MySQL existente.
+  database-init:
+    image: mysql:8.0
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+    volumes:
+      - ./database/init.sql:/init.sql:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysql --host=mysql-db --user=root < /init.sql"]
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - marketroad-net
+
+  # Administrador web local; no expone el puerto MySQL al host ni a la red.
+  phpmyadmin:
+    image: phpmyadmin:5-apache
+    container_name: marketroad-phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: mysql-db
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 16M
+    ports:
+      - "127.0.0.1:8085:80"
+    depends_on:
+      mysql-db:
+        condition: service_healthy
     networks:
       - marketroad-net
 
@@ -30,16 +66,17 @@ services:
     restart: always
     environment:
       SERVER_PORT: 8084
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/marketroad_db?useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: rootpassword
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/db_usuarios?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-marketroad_app}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
       JWT_SECRET: cambia-este-secreto-en-produccion-minimo-32-caracteres
     ports:
-      - "8084:8084"
+      - "127.0.0.1:8084:8084"
     depends_on:
-      - mysql-db
+      database-init:
+        condition: service_completed_successfully
     networks:
       - marketroad-net
 
@@ -52,15 +89,16 @@ services:
     restart: always
     environment:
       SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/marketroad_db?useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: rootpassword
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/inventario?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-marketroad_app}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
     ports:
-      - "8082:8082"
+      - "127.0.0.1:8082:8082"
     depends_on:
-      - mysql-db
+      database-init:
+        condition: service_completed_successfully
     networks:
       - marketroad-net
 
@@ -74,15 +112,16 @@ services:
     environment:
       SERVER_PORT: 8083
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/marketroad_db?useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: rootpassword
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-marketroad_app}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
       JWT_SECRET: cambia-este-secreto-en-produccion-minimo-32-caracteres
     ports:
-      - "8083:8083"
+      - "127.0.0.1:8083:8083"
     depends_on:
-      - mysql-db
+      database-init:
+        condition: service_completed_successfully
     networks:
       - marketroad-net
 
@@ -96,7 +135,7 @@ services:
     environment:
       SERVER_PORT: 8081
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     depends_on:
       - user-api
       - prod-api
@@ -112,7 +151,7 @@ services:
     container_name: marketroad-frontend
     restart: always
     ports:
-      - "80:80"
+      - "127.0.0.1:8080:80"
     depends_on:
       - gateway-service
     networks:

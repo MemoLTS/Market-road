@@ -1,5 +1,5 @@
-# Etapa 1: Compilar con JDK 21 (Lombok es 100% compatible)
-FROM maven:3.9-eclipse-temurin-21 AS builder
+# Etapa 1: Compilar con el mismo JDK requerido por el proyecto
+FROM maven:3.9-eclipse-temurin-25 AS builder
 WORKDIR /app
 COPY pom.xml .
 COPY src ./src

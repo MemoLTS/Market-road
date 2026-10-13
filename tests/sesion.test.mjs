@@ -11,7 +11,7 @@ globalThis.localStorage = {
 const eventos = [];
 globalThis.window = { dispatchEvent: e => { eventos.push(e.type); return true; } };
 
-const api = await import('../js/api.js');
+const api = await import('../Js/api.js');
 
 const usuario = { id: 1, nombre: 'Juan', apellido: 'Perez', apodo: 'juanp', correo: 'juan@correo.com' };
 const reiniciar = () => { almacen.clear(); eventos.length = 0; };

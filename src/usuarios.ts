@@ -45,7 +45,7 @@ function leerCampo(id: string): string {
 
 function validarRegistro(d: DatosRegistro): string | null {
     return primerError(
-        !d.nombre || !d.apellido || !d.apodo || !d.correo || !d.contrasena ? 'Completa todos los campos.' : null,
+        !d.nombre || !d.apellido || !d.correo || !d.contrasena ? 'Completa nombre, apellido, correo y contraseña.' : null,
         validarNombre(d.nombre, 'El nombre'),
         validarNombre(d.apellido, 'El apellido'),
         validarApodo(d.apodo),

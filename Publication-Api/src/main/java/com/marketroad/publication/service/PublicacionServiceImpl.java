@@ -70,6 +70,9 @@ public class PublicacionServiceImpl implements PublicacionService {
         if ((latitud == null) != (longitud == null)) {
             throw new IllegalArgumentException("Debes indicar latitud y longitud juntas");
         }
+        if (latitud == null) {
+            throw new IllegalArgumentException("Debes seleccionar una ubicación en una ciudad o pueblo");
+        }
         if (latitud != null && !Geo.coordenadasValidas(latitud, longitud)) {
             throw new IllegalArgumentException("Las coordenadas indicadas no son válidas");
         }
