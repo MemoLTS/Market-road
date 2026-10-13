@@ -410,14 +410,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const botonGuardar = opcionalPorId<HTMLButtonElement>('btnGuardarPerfil');
         if (botonGuardar) botonGuardar.disabled = true;
         try {
-            if (fotoOriginal && imagenOriginal?.naturalWidth && imagenOriginal.naturalHeight) {
+            if (fotoParaSubir && fotoOriginal && imagenOriginal?.naturalWidth && imagenOriginal.naturalHeight) {
                 const recorte = await recortarImagen(
                     imagenOriginal,
                     Number(posicionX?.value ?? 50),
                     Number(posicionY?.value ?? 50),
                 );
                 fotoParaSubir = new File([recorte], 'foto-perfil.png', { type: 'image/png' });
-            } else if (fotoOriginal) {
+            } else if (fotoParaSubir && fotoOriginal) {
                 throw new Error('Espera a que termine de cargarse la imagen antes de guardar.');
             }
 
