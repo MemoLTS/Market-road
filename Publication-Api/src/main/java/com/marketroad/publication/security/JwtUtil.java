@@ -1,6 +1,7 @@
 package com.marketroad.publication.security;
 
 import javax.crypto.SecretKey;
+import jakarta.annotation.PostConstruct;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -9,9 +10,13 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtUtil {
-    private final SecretKey key;
+    @Value("${jwt.secret}")
+    private String secret;
 
-    public JwtUtil(@Value("${jwt.secret}") String secret) {
+    private SecretKey key;
+
+    @PostConstruct
+    public void inicializar() {
         if (secret == null || secret.length() < 32) {
             throw new IllegalArgumentException("JWT_SECRET debe tener al menos 32 caracteres");
         }

@@ -2,6 +2,7 @@ package com.marketroad.publication.security;
 
 import java.io.IOException;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,10 +13,10 @@ import jakarta.servlet.http.*;
 @Component
 @Order(1)
 public class JwtAuthFilter extends HttpFilter {
-    private final JwtUtil jwtUtil;
-    private final ObjectMapper mapper = new ObjectMapper();
-
-    public JwtAuthFilter(JwtUtil jwtUtil) { this.jwtUtil = jwtUtil; }
+    @Autowired
+    private JwtUtil jwtUtil;
+    @Autowired
+    private ObjectMapper mapper;
 
     @Override
     protected void doFilter(HttpServletRequest request, HttpServletResponse response, FilterChain chain)

@@ -2,17 +2,15 @@ package api.com.v1.config;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
 public class UsuarioSchemaMigration implements ApplicationRunner {
 
-    private final JdbcTemplate jdbcTemplate;
-
-    public UsuarioSchemaMigration(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Override
     public void run(ApplicationArguments args) {

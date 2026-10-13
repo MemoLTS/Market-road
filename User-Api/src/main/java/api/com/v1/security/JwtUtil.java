@@ -8,6 +8,7 @@ import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -23,18 +24,21 @@ import io.jsonwebtoken.security.Keys;
 @Component
 public class JwtUtil {
 
-    private final SecretKey claveFirma;
-    private final long expiracionMs;
+    @Value("${jwt.secret}")
+    private String secreto;
 
-    public JwtUtil(
-            @Value("${jwt.secret}") String secreto,
-            @Value("${jwt.expiration-ms}") long expiracionMs) {
+    @Value("${jwt.expiration-ms}")
+    private long expiracionMs;
+
+    private SecretKey claveFirma;
+
+    @PostConstruct
+    public void inicializar() {
         if (secreto == null || secreto.getBytes(StandardCharsets.UTF_8).length < 32) {
             throw new IllegalStateException(
                     "jwt.secret debe tener al menos 32 caracteres (256 bits) para HS256");
         }
         this.claveFirma = Keys.hmacShaKeyFor(secreto.getBytes(StandardCharsets.UTF_8));
-        this.expiracionMs = expiracionMs;
     }
 
     public long getExpiracionMs() {

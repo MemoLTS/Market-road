@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,11 +23,8 @@ public class DispositivoInicioSesionService {
     private static final int MAXIMO_DISPOSITIVOS = 5;
     private static final int MAXIMO_SESIONES_POR_DISPOSITIVO = 3;
 
-    private final DispositivoInicioSesionRepository repository;
-
-    public DispositivoInicioSesionService(DispositivoInicioSesionRepository repository) {
-        this.repository = repository;
-    }
+    @Autowired
+    private DispositivoInicioSesionRepository repository;
 
     @Transactional
     public void registrar(Long usuarioId, String dispositivoId, String agenteUsuario) {

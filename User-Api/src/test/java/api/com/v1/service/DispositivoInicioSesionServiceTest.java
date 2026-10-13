@@ -13,6 +13,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import api.com.v1.model.DispositivoInicioSesion;
 import api.com.v1.repository.DispositivoInicioSesionRepository;
@@ -50,7 +51,7 @@ class DispositivoInicioSesionServiceTest {
         when(repository.findAllByUsuarioIdOrderByFechaInicioDescIdDesc(1L)).thenReturn(historial);
 
         List<api.com.v1.dto.DispositivoInicioSesionDTO> resultado =
-                new DispositivoInicioSesionService(repository).obtenerHistorial(1L);
+                servicio(repository).obtenerHistorial(1L);
 
         assertEquals(5, resultado.size());
         assertFalse(resultado.stream().anyMatch(dispositivo -> dispositivo.dispositivo().equals("Equipo 5")));
@@ -77,7 +78,7 @@ class DispositivoInicioSesionServiceTest {
                         .thenComparing(DispositivoInicioSesion::getId, Comparator.reverseOrder()))
                 .toList());
 
-        new DispositivoInicioSesionService(repository).registrar(1L, dispositivoId, "Chrome/126 Windows");
+        servicio(repository).registrar(1L, dispositivoId, "Chrome/126 Windows");
 
         ArgumentCaptor<Iterable> captor = ArgumentCaptor.forClass(Iterable.class);
         verify(repository).deleteAll(captor.capture());
@@ -95,5 +96,11 @@ class DispositivoInicioSesionServiceTest {
         registro.setDispositivo(etiqueta);
         registro.setFechaInicio(fecha);
         return registro;
+    }
+
+    private DispositivoInicioSesionService servicio(DispositivoInicioSesionRepository repository) {
+        DispositivoInicioSesionService servicio = new DispositivoInicioSesionService();
+        ReflectionTestUtils.setField(servicio, "repository", repository);
+        return servicio;
     }
 }

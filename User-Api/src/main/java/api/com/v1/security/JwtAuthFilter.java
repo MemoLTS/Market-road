@@ -2,6 +2,7 @@ package api.com.v1.security;
 
 import java.io.IOException;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -34,12 +35,10 @@ public class JwtAuthFilter extends HttpFilter {
     private static final String PREFIJO_USUARIOS = "/api/v1/usuarios";
     private static final String BEARER = "Bearer ";
 
-    private final JwtUtil jwtUtil;
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
-    public JwtAuthFilter(JwtUtil jwtUtil) {
-        this.jwtUtil = jwtUtil;
-    }
+    @Autowired
+    private JwtUtil jwtUtil;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Override
     protected void doFilter(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
