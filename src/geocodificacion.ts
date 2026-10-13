@@ -84,14 +84,29 @@ async function consultarNominatim<T>(ruta: string, signal?: AbortSignal): Promis
         if (signal?.aborted) throw new DOMException('Solicitud cancelada.', 'AbortError');
 
         ultimaSolicitud = Date.now();
-        const respuesta = await fetch(`${URL_NOMINATIM}${ruta}`, {
-            headers: { Accept: 'application/json' },
-            signal,
-        });
-        if (!respuesta.ok) {
-            throw new Error('No se pudo consultar el servicio de ubicaciones. Inténtalo nuevamente.');
+        const controlador = new AbortController();
+        const cancelar = () => controlador.abort();
+        signal?.addEventListener('abort', cancelar, { once: true });
+        const temporizador = setTimeout(cancelar, 12000);
+        try {
+            const respuesta = await fetch(`${URL_NOMINATIM}${ruta}`, {
+                headers: { Accept: 'application/json' },
+                signal: controlador.signal,
+            });
+            if (!respuesta.ok) {
+                throw new Error('No se pudo consultar el servicio de ubicaciones. Inténtalo nuevamente.');
+            }
+            return await respuesta.json() as T;
+        } catch (error) {
+            if (signal?.aborted) throw new DOMException('Solicitud cancelada.', 'AbortError');
+            if (controlador.signal.aborted) {
+                throw new Error('La búsqueda de localidades tardó demasiado. Comprueba tu conexión e inténtalo de nuevo.');
+            }
+            throw error;
+        } finally {
+            clearTimeout(temporizador);
+            signal?.removeEventListener('abort', cancelar);
         }
-        return await respuesta.json() as T;
     });
     colaSolicitudes = solicitud.then(() => undefined, () => undefined);
     return solicitud;

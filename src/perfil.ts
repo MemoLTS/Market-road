@@ -30,9 +30,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const alerta = opcionalPorId('perfilAlerta');
     const entradaCiudad = opcionalPorId<HTMLInputElement>('perfilCiudad');
     const resultadosCiudad = opcionalPorId('resultadosPerfilCiudad');
+    const botonAbrirCambioCorreo = opcionalPorId<HTMLButtonElement>('btnAbrirCambioCorreo');
+    const modalCorreo = opcionalPorId('modalCorreoPerfil');
     const formularioCorreo = opcionalPorId<HTMLFormElement>('formCorreoPerfil');
     const entradaCorreo = opcionalPorId<HTMLInputElement>('perfilCorreo');
     const correoActual = opcionalPorId('perfilCorreoActual');
+    const correoActualModal = opcionalPorId('perfilCorreoActualModal');
     const entradaContrasena = opcionalPorId<HTMLInputElement>('perfilContrasenaActual');
     const alertaCorreo = opcionalPorId('correoPerfilAlerta');
     const estadoDispositivos = opcionalPorId('perfilDispositivosEstado');
@@ -48,30 +51,65 @@ document.addEventListener('DOMContentLoaded', () => {
     let solicitudFoto: AbortController | null = null;
     let solicitudDispositivos = 0;
     let urlFotoGuardada: string | null = null;
+    let abrirCorreoAlCerrarPerfil = false;
+    let volverAlPerfilAlCerrarCorreo = false;
 
     boton?.addEventListener('click', () => {
-        const sesion = obtenerSesion();
-        if (!sesion) {
+        if (!obtenerSesion()) {
             mostrarMensaje('Inicia sesión para editar tu perfil.', true);
             return;
         }
+        prepararPerfil();
+    });
+
+    function prepararPerfil(): void {
+        const sesion = obtenerSesion();
+        if (!sesion) return;
         if (entradaApodo) entradaApodo.value = sesion.usuario.apodo ?? '';
         if (entradaCiudad) entradaCiudad.value = sesion.usuario.ciudad ?? '';
         ciudadSeleccionada = sesion.usuario.ciudad;
         if (correoActual) correoActual.textContent = sesion.usuario.correo;
         if (entradaCorreo) entradaCorreo.value = '';
         if (entradaContrasena) entradaContrasena.value = '';
+        if (correoActualModal) correoActualModal.textContent = sesion.usuario.correo;
         if (resultadosCiudad) resultadosCiudad.replaceChildren();
         ocultarAlerta(alertaCorreo);
         void cargarFotoPerfil(sesion.usuario.id);
         void cargarHistorialDispositivos(sesion.usuario.id);
         limpiarAlerta();
+    }
+
+    botonAbrirCambioCorreo?.addEventListener('click', () => {
+        if (!modal || !modalCorreo) return;
+        abrirCorreoAlCerrarPerfil = true;
+        bootstrap.Modal.getOrCreateInstance(modal).hide();
+    });
+
+    modal?.addEventListener('hidden.bs.modal', () => {
+        if (!abrirCorreoAlCerrarPerfil || !modalCorreo) return;
+        abrirCorreoAlCerrarPerfil = false;
+        volverAlPerfilAlCerrarCorreo = true;
+        formularioCorreo?.reset();
+        ocultarAlerta(alertaCorreo);
+        bootstrap.Modal.getOrCreateInstance(modalCorreo).show();
+    });
+
+    modalCorreo?.addEventListener('hidden.bs.modal', () => {
+        if (!volverAlPerfilAlCerrarCorreo || !modal) return;
+        volverAlPerfilAlCerrarCorreo = false;
+        prepararPerfil();
+        bootstrap.Modal.getOrCreateInstance(modal).show();
     });
 
     async function cargarFotoPerfil(usuarioId: number): Promise<void> {
         solicitudFoto?.abort();
         solicitudFoto = new AbortController();
         const solicitudActual = solicitudFoto;
+        let tiempoAgotado = false;
+        const temporizador = setTimeout(() => {
+            tiempoAgotado = true;
+            solicitudActual.abort();
+        }, 15000);
         liberarUrlFotoGuardada();
         vistaPrevia?.classList.add('d-none');
         fotoSinFoto?.classList.remove('d-none');
@@ -100,13 +138,22 @@ document.addEventListener('DOMContentLoaded', () => {
             fotoParaSubir = null;
             urlOriginal = URL.createObjectURL(blob);
             imagenOriginal = new Image();
+            const imagenGuardada = imagenOriginal;
+            const temporizadorImagen = setTimeout(() => {
+                if (imagenOriginal !== imagenGuardada || solicitudActual.signal.aborted) return;
+                fotoOriginal = null;
+                imagenOriginal = null;
+                if (estadoFoto) estadoFoto.textContent = 'La imagen guardada tardó demasiado en prepararse. Puedes elegir otra foto.';
+            }, 15000);
             imagenOriginal.onload = () => {
+                clearTimeout(temporizadorImagen);
                 if (solicitudActual.signal.aborted) return;
                 if (posicionX) posicionX.value = '50';
                 if (posicionY) posicionY.value = '50';
                 controlesRecorte?.classList.remove('d-none');
             };
             imagenOriginal.onerror = () => {
+                clearTimeout(temporizadorImagen);
                 if (solicitudActual.signal.aborted) return;
                 fotoOriginal = null;
                 imagenOriginal = null;
@@ -126,10 +173,17 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             vistaPrevia.src = urlFotoGuardada;
         } catch (error) {
-            if (error instanceof DOMException && error.name === 'AbortError') return;
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                if (tiempoAgotado && estadoFoto) {
+                    estadoFoto.textContent = 'La carga de la foto tardó demasiado. Comprueba tu conexión e inténtalo de nuevo.';
+                }
+                return;
+            }
             if (estadoFoto) {
                 estadoFoto.textContent = `No se pudo cargar la foto de perfil: ${mensajeDeError(error, 'error desconocido')}`;
             }
+        } finally {
+            clearTimeout(temporizador);
         }
     }
 
@@ -247,9 +301,23 @@ document.addEventListener('DOMContentLoaded', () => {
         liberarUrlFotoGuardada();
         fotoOriginal = archivo;
         fotoParaSubir = archivo;
+        if (estadoFoto) estadoFoto.textContent = 'Leyendo la imagen seleccionada...';
         urlOriginal = URL.createObjectURL(archivo);
         imagenOriginal = new Image();
+        const imagenSeleccionada = imagenOriginal;
+        const temporizadorImagen = setTimeout(() => {
+            if (imagenOriginal !== imagenSeleccionada) return;
+            fotoOriginal = null;
+            fotoParaSubir = null;
+            imagenOriginal = null;
+            vistaPrevia?.classList.add('d-none');
+            fotoSinFoto?.classList.remove('d-none');
+            controlesRecorte?.classList.add('d-none');
+            if (estadoFoto) estadoFoto.textContent = 'La imagen tardó demasiado en abrirse. Prueba con otro archivo.';
+        }, 15000);
         imagenOriginal.onload = () => {
+            clearTimeout(temporizadorImagen);
+            if (imagenOriginal !== imagenSeleccionada) return;
             if (!vistaPrevia) return;
             vistaPrevia.src = urlOriginal ?? '';
             vistaPrevia.style.objectPosition = '50% 50%';
@@ -261,6 +329,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (posicionY) posicionY.value = '50';
         };
         imagenOriginal.onerror = () => {
+            clearTimeout(temporizadorImagen);
+            if (imagenOriginal !== imagenSeleccionada) return;
             fotoOriginal = null;
             fotoParaSubir = null;
             vistaPrevia?.classList.add('d-none');
@@ -374,7 +444,9 @@ document.addEventListener('DOMContentLoaded', () => {
             window.dispatchEvent(new CustomEvent('mr:foto-perfil-actualizada'));
             if (modal) bootstrap.Modal.getOrCreateInstance(modal).hide();
         } catch (e) {
-            mostrarMensaje(mensajeDeError(e, 'No se pudo guardar el perfil.'), true);
+            const mensaje = mensajeDeError(e, 'No se pudo guardar el perfil.');
+            if (fotoParaSubir && estadoFoto) estadoFoto.textContent = `No se pudo guardar la foto: ${mensaje}`;
+            mostrarMensaje(mensaje, true);
         } finally {
             if (botonGuardar) botonGuardar.disabled = false;
         }
@@ -413,6 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             actualizarUsuarioSesion(usuario);
             if (correoActual) correoActual.textContent = usuario.correo;
+            if (correoActualModal) correoActualModal.textContent = usuario.correo;
             formularioCorreo?.reset();
             if (entradaContrasena) entradaContrasena.value = '';
             mostrarAlerta(alertaCorreo, 'Correo actualizado correctamente.', 'success');
@@ -482,27 +555,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function verificarFotoGuardada(usuarioId: number, fotoEnviada: File): Promise<void> {
-        const respuesta = await fetch(urlAbsoluta(`/api/v1/usuarios/${usuarioId}/foto?v=${Date.now()}`), {
-            cache: 'no-store',
-        });
-        if (!respuesta.ok) {
-            throw new Error(`La foto se envió, pero no se pudo confirmar su guardado (HTTP ${respuesta.status}).`);
-        }
+        const controlador = new AbortController();
+        const temporizador = setTimeout(() => controlador.abort(), 15000);
+        try {
+            const respuesta = await fetch(urlAbsoluta(`/api/v1/usuarios/${usuarioId}/foto?v=${Date.now()}`), {
+                cache: 'no-store',
+                signal: controlador.signal,
+            });
+            if (!respuesta.ok) {
+                throw new Error(`La foto se envió, pero no se pudo confirmar su guardado (HTTP ${respuesta.status}).`);
+            }
 
-        const fotoRecibida = await respuesta.blob();
-        if (!fotoRecibida.type.startsWith('image/') || fotoRecibida.type.includes('image/svg+xml')) {
-            throw new Error('La foto se envió, pero el servidor todavía devuelve la imagen predeterminada.');
-        }
+            const fotoRecibida = await respuesta.blob();
+            if (!fotoRecibida.type.startsWith('image/') || fotoRecibida.type.includes('image/svg+xml')) {
+                throw new Error('La foto se envió, pero el servidor todavía devuelve la imagen predeterminada.');
+            }
 
-        const [bytesEnviados, bytesGuardados] = await Promise.all([
-            fotoEnviada.arrayBuffer(),
-            fotoRecibida.arrayBuffer(),
-        ]);
-        const enviados = new Uint8Array(bytesEnviados);
-        const guardados = new Uint8Array(bytesGuardados);
-        if (enviados.length !== guardados.length
-            || enviados.some((byte, indice) => byte !== guardados[indice])) {
-            throw new Error('La foto se envió, pero el servidor no devolvió la misma imagen guardada. Inténtalo de nuevo.');
+            const [bytesEnviados, bytesGuardados] = await Promise.all([
+                fotoEnviada.arrayBuffer(),
+                fotoRecibida.arrayBuffer(),
+            ]);
+            const enviados = new Uint8Array(bytesEnviados);
+            const guardados = new Uint8Array(bytesGuardados);
+            if (enviados.length !== guardados.length
+                || enviados.some((byte, indice) => byte !== guardados[indice])) {
+                throw new Error('La foto se envió, pero el servidor no devolvió la misma imagen guardada. Inténtalo de nuevo.');
+            }
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                throw new Error('La verificación de la foto tardó demasiado. Comprueba tu conexión e inténtalo de nuevo.');
+            }
+            throw error;
+        } finally {
+            clearTimeout(temporizador);
         }
     }
 
