@@ -15,11 +15,11 @@
     <artifactId>servicio-usuarios</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>servicio-usuarios</name>
-    <description>API de Usuarios con PostgreSQL ejecutado en Java 25</description>
+    <description>API de Usuarios con MySQL ejecutado en Java 25</description>
 
     <properties>
-        <java.version>21</java.version>
-        <lombok.version>1.18.36</lombok.version>
+        <java.version>25</java.version>
+        <lombok.version>1.18.42</lombok.version>
     </properties>
 
     <dependencies>
@@ -33,9 +33,10 @@
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
+        <!-- MySQL: es la base que usa el docker-compose de la raíz -->
         <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -47,6 +48,26 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
+            <version>6.3.8</version>
+        </dependency>
+
+        <!-- JWT: usado solo para emitir/validar el token de sesión (login), no trae el starter completo de Spring Security. -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.12.6</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -54,13 +75,6 @@
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <scope>runtime</scope>
-            <optional>true</optional>
         </dependency>
 
         <dependency>

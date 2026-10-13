@@ -4,91 +4,248 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Market-Rode</title>
-    <!-- Carga de Bootstrap y Bootstrap Icons desde CDN -->
+    <title>Marketplace · Market-Road</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="Css/style.css">
 </head>
 
-<body class="home-page">
-    <!-- Header con Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom border-gray">
-        <div class="container-lg">
-            <a class="navbar-brand fw-bold" href="#">
-                <i class="bi bi-shop"></i> Market-Road
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu"
-                aria-controls="navbarMenu" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
+<body class="home-page mk-body">
+    <!-- Barra superior -->
+    <header class="mk-topbar">
+        <a class="mk-brand" href="index.html" aria-label="Market-Road, inicio">
+            <img class="mk-brand-logo" src="Assets/logo/WinkEmoji2.png" alt="">
+            <span class="mk-brand-text">Market-Road</span>
+        </a>
+
+        <label class="mk-search">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <span class="visually-hidden">Buscar en Marketplace</span>
+            <input id="filtroTexto" type="search" form="formFiltros" maxlength="100" placeholder="Buscar en Marketplace"
+                autocomplete="off">
+        </label>
+
+        <div class="mk-actions">
+            <button class="btn btn-light mk-icon-btn" type="button" id="btn-theme-toggle" aria-label="Cambiar tema">
+                <span id="icono-tema">🌙</span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarMenu">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" aria-current="page" href="#inicio">Inicio</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#productos">Productos</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#servicios">Servicios</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#contacto">Contacto</a>
-                    </li>
-                </ul>
-                <button class="btn btn-primary ms-lg-3" type="button" data-bs-toggle="modal"
-                    data-bs-target="#modalRegistro">
-                    Registrarse
-                </button>
+
+            <!-- Invitado -->
+            <div id="navAuthInvitado" class="d-flex align-items-center gap-2">
+                <button class="btn btn-light fw-semibold" type="button" data-bs-toggle="modal"
+                    data-bs-target="#modalLogin">Iniciar sesión</button>
+                <button class="btn btn-primary fw-semibold" type="button" data-bs-toggle="modal"
+                    data-bs-target="#modalRegistro">Registrarse</button>
+            </div>
+
+            <!-- Usuario con sesión -->
+            <div id="navAuthUsuario" class="d-flex align-items-center gap-2 d-none">
+                <a class="btn btn-light mk-icon-btn position-relative" href="mensajes.html" aria-label="Mensajes">
+                    <i class="bi bi-chat-dots-fill" aria-hidden="true"></i>
+                    <span id="badgeNoLeidos"
+                        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
+                </a>
+                <div class="dropdown">
+                    <button class="btn btn-light dropdown-toggle fw-semibold" type="button" data-bs-toggle="dropdown"
+                        aria-expanded="false">
+                        <span class="nav-avatar">
+                            <img id="navFotoPerfil" class="d-none" alt="">
+                            <i id="navIconoPerfil" class="bi bi-person-circle" aria-hidden="true"></i>
+                        </span>
+                        <span id="navApodoUsuario">Usuario</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button class="dropdown-item" type="button" id="btnPerfil" data-bs-toggle="modal"
+                                data-bs-target="#modalPerfil"><i
+                                    class="bi bi-person-gear" aria-hidden="true"></i> Perfil</button></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><button class="dropdown-item" type="button" id="btnMisPublicaciones"><i
+                                    class="bi bi-tags" aria-hidden="true"></i> Mis publicaciones</button></li>
+                        <li><a class="dropdown-item" href="mensajes.html"><i class="bi bi-chat-dots"
+                                    aria-hidden="true"></i> Mensajes</a></li>
+                        <li><button class="dropdown-item" type="button" data-bs-toggle="modal"
+                                data-bs-target="#modalSoporte"><i class="bi bi-life-preserver"
+                                    aria-hidden="true"></i> Soporte</button></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><button class="dropdown-item text-danger" type="button" id="btnCerrarSesion"><i
+                                    class="bi bi-box-arrow-right" aria-hidden="true"></i> Cerrar sesión</button></li>
+                    </ul>
+                </div>
             </div>
         </div>
-    </nav>
+    </header>
 
-    <!-- Contenedor principal con borde gris -->
-    <div class="container-lg border-start border-end border-2 border-gray-light"
-        style="min-height: calc(100vh - 70px);">
-        <!-- Contenido principal aquí -->
+    <div class="mk-layout">
+        <!-- Contenido -->
+        <main class="mk-main" id="inicio">
+            <div class="mk-main-head">
+                <div class="mk-main-toolbar">
+                    <h1 class="mk-main-title">Marketplace</h1>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#panelFiltros" aria-expanded="false" aria-controls="panelFiltros">
+                            <i class="bi bi-sliders" aria-hidden="true"></i> Filtros
+                        </button>
+                        <button class="btn btn-primary mk-crear d-none" type="button" id="btnNuevaPublicacion"
+                            data-bs-toggle="modal" data-bs-target="#modalPublicacion">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i> Crear publicación
+                        </button>
+                        <button class="btn btn-primary mk-crear" type="button" id="btnPublicarInvitado"
+                            data-bs-toggle="modal" data-bs-target="#modalLogin">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i> Inicia sesión para vender
+                        </button>
+                    </div>
+                </div>
+                <section id="panelFiltros" class="collapse" aria-labelledby="modalFiltrosTitulo">
+                    <form id="formFiltros" class="mk-filtros-panel" novalidate>
+                        <div class="mk-filtros-panel-head">
+                            <h2 class="h5 mb-0" id="modalFiltrosTitulo">Filtros de Marketplace</h2>
+                            <button class="btn-close" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#panelFiltros" aria-label="Cerrar filtros"></button>
+                        </div>
+                        <div id="filtroAlerta" class="alert d-none" role="alert"></div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold" for="filtroPrecioMin">Precio</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input id="filtroPrecioMin" type="text" inputmode="decimal" class="form-control form-control-sm"
+                                    placeholder="Mín." aria-label="Precio mínimo">
+                                <span class="text-muted">a</span>
+                                <input id="filtroPrecioMax" type="text" inputmode="decimal" class="form-control form-control-sm"
+                                    placeholder="Máx." aria-label="Precio máximo">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold" for="filtroOrden">Ordenar por</label>
+                            <select id="filtroOrden" class="form-select form-select-sm">
+                                <option value="RELEVANCIA">Relevancia / recientes</option>
+                                <option value="RECIENTES">Más recientes</option>
+                                <option value="PRECIO_ASC">Precio: menor a mayor</option>
+                                <option value="PRECIO_DESC">Precio: mayor a menor</option>
+                                <option value="DISTANCIA">Distancia</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <span class="form-label small fw-semibold d-block">Categorías</span>
+                            <div id="filtroCategorias" class="d-flex flex-wrap gap-1"></div>
+                        </div>
+                        <div class="mb-3">
+                            <span class="form-label small fw-semibold d-block">Ubicación</span>
+                            <button class="btn btn-outline-secondary btn-sm" type="button" id="btnUbicacion">
+                                <i class="bi bi-geo-alt" aria-hidden="true"></i> Compartir mi ubicación
+                            </button>
+                            <p class="small text-muted mt-2 mb-2" id="estadoUbicacion">Comparte tu ubicación para ordenar por distancia.</p>
+                            <div id="grupoRadio" class="d-none">
+                                <label class="form-label small" for="filtroRadio">Radio</label>
+                                <select id="filtroRadio" class="form-select form-select-sm">
+                                    <option value="">Sin límite</option>
+                                    <option value="2">2 km</option>
+                                    <option value="5">5 km</option>
+                                    <option value="10">10 km</option>
+                                    <option value="25">25 km</option>
+                                    <option value="50">50 km</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mk-filtros-panel-foot">
+                            <button class="btn btn-light btn-sm" type="button" id="btnLimpiarFiltros">Limpiar</button>
+                            <button class="btn btn-primary btn-sm" type="submit">Aplicar filtros</button>
+                        </div>
+                    </form>
+                </section>
+                <div class="mk-main-summary">
+                    <h2 class="mk-main-subtitle">Selecciones de hoy</h2>
+                    <span class="mk-resumen" id="resumenCatalogo" aria-live="polite"></span>
+                </div>
+            </div>
+            <div id="publicacionesAlerta" class="alert d-none" role="alert"></div>
+
+            <!-- 1 tarjeta de ejemplo y, a continuación, las publicaciones reales (4 por fila) -->
+            <section id="contenedor-publicaciones" class="mk-grid" aria-live="polite"
+                aria-label="Publicaciones"></section>
+            <nav id="paginacionCatalogo" class="mk-paginacion" aria-label="Paginación del catálogo"></nav>
+        </main>
     </div>
 
-    <!-- Modal de registro de usuario -->
-    <div class="modal fade" id="modalRegistro" tabindex="-1" aria-labelledby="modalRegistroLabel" aria-hidden="true">
-        <div class="modal-dialog">
+    <!-- Modal: iniciar sesión -->
+    <div class="modal fade" id="modalLogin" tabindex="-1" aria-labelledby="modalLoginLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <form id="formRegistro">
+                <form id="formLogin" novalidate>
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalLoginLabel">Iniciar sesión</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="loginAlerta" class="alert d-none" role="alert"></div>
+                        <div class="mb-3">
+                            <label for="loginCorreo" class="form-label">Correo</label>
+                            <input type="email" class="form-control" id="loginCorreo" autocomplete="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loginContrasena" class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" id="loginContrasena"
+                                autocomplete="current-password" required maxlength="32">
+                        </div>
+                        <p class="small text-muted mb-0">Tu sesión se mantiene iniciada en este dispositivo hasta que
+                            cierres sesión.</p>
+                    </div>
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn btn-link p-0" data-bs-dismiss="modal" data-bs-toggle="modal"
+                            data-bs-target="#modalRegistro">¿No tienes cuenta? Regístrate</button>
+                        <button type="submit" class="btn btn-primary" id="btnLogin">Entrar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: registro -->
+    <div class="modal fade" id="modalRegistro" tabindex="-1" aria-labelledby="modalRegistroLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formRegistro" novalidate>
                     <div class="modal-header">
                         <h5 class="modal-title" id="modalRegistroLabel">Crear cuenta</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
                     <div class="modal-body">
                         <div id="registroAlerta" class="alert d-none" role="alert"></div>
-
-                        <div class="mb-3">
-                            <label for="regNombre" class="form-label">Nombre</label>
-                            <input type="text" class="form-control" id="regNombre" required minlength="3"
-                                maxlength="32">
-                        </div>
-                        <div class="mb-3">
-                            <label for="regApellido" class="form-label">Apellido</label>
-                            <input type="text" class="form-control" id="regApellido" required minlength="3"
-                                maxlength="32">
-                        </div>
-                        <div class="mb-3">
-                            <label for="regApodo" class="form-label">Apodo</label>
-                            <input type="text" class="form-control" id="regApodo" required minlength="3" maxlength="20">
-                        </div>
-                        <div class="mb-3">
-                            <label for="regCorreo" class="form-label">Correo</label>
-                            <input type="email" class="form-control" id="regCorreo" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="regContrasena" class="form-label">Contraseña</label>
-                            <input type="password" class="form-control" id="regContrasena" required minlength="8"
-                                maxlength="32">
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label for="regNombre" class="form-label">Nombre</label>
+                                <input type="text" class="form-control" id="regNombre" required minlength="3"
+                                    maxlength="32">
+                            </div>
+                            <div class="col-sm-6">
+                                <label for="regApellido" class="form-label">Apellido</label>
+                                <input type="text" class="form-control" id="regApellido" required minlength="3"
+                                    maxlength="32">
+                            </div>
+                            <div class="col-12">
+                                <label for="regApodo" class="form-label">Apodo <span class="text-muted">(opcional)</span></label>
+                                <input type="text" class="form-control" id="regApodo"
+                                    maxlength="20">
+                            </div>
+                            <div class="col-12">
+                                <label for="regCorreo" class="form-label">Correo</label>
+                                <input type="email" class="form-control" id="regCorreo" autocomplete="username" required>
+                            </div>
+                            <div class="col-12">
+                                <label for="regContrasena" class="form-label">Contraseña</label>
+                                <input type="password" class="form-control" id="regContrasena" autocomplete="new-password"
+                                    required minlength="8" maxlength="32">
+                                <div class="form-text">8 a 32 caracteres, con al menos una letra y un número.</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn btn-link p-0" data-bs-dismiss="modal" data-bs-toggle="modal"
+                            data-bs-target="#modalLogin">¿Ya tienes cuenta? Inicia sesión</button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary" id="btnRegistrar">Crear cuenta</button>
                     </div>
@@ -97,10 +254,278 @@
         </div>
     </div>
 
+    <!-- Modal: crear publicación -->
+    <div class="modal fade" id="modalPublicacion" tabindex="-1" aria-labelledby="modalPublicacionLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+            <div class="modal-content">
+                <form id="formPublicacion" novalidate>
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalPublicacionLabel">Nueva publicación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="publicacionModalAlerta" class="alert d-none" role="alert"></div>
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label for="publicacionTitulo" class="form-label">Título</label>
+                                <input type="text" class="form-control" id="publicacionTitulo" minlength="3"
+                                    maxlength="100" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="publicacionPrecio" class="form-label">Precio</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="text" inputmode="decimal" class="form-control" id="publicacionPrecio"
+                                        placeholder="45000" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="publicacionCategoria" class="form-label">Categoría</label>
+                                <select id="publicacionCategoria" class="form-select" required>
+                                    <option value="" selected disabled>Selecciona una categoría</option>
+                                </select>
+                                <div class="form-text">Elige la categoría que mejor describe tu producto.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="publicacionUbicacion" class="form-label">Ubicación</label>
+                                <input type="search" class="form-control" id="publicacionUbicacion" minlength="2"
+                                    maxlength="120" placeholder="Ciudad o pueblo" autocomplete="off" required
+                                    aria-describedby="ayudaUbicacionPublicacion resultadosUbicacionPublicacion">
+                                <div class="form-text" id="ayudaUbicacionPublicacion">
+                                    Busca y selecciona una ciudad o pueblo real. Datos geográficos © OpenStreetMap contributors.
+                                </div>
+                                <div id="resultadosUbicacionPublicacion" class="list-group mt-1"
+                                    role="listbox" aria-label="Ciudades y pueblos encontrados"></div>
+                            </div>
+                            <div class="col-12">
+                                <fieldset id="grupoModalidadesEntrega" class="modalidades-entrega">
+                                    <legend class="form-label mb-1">Modalidades de entrega <span
+                                            class="text-danger">*</span></legend>
+                                    <p class="form-text mt-0">Selecciona una o más opciones disponibles para este producto.</p>
+                                    <div class="row g-2">
+                                        <div class="col-sm-4">
+                                            <input class="btn-check" type="checkbox" id="entregaPersonal"
+                                                name="modalidadesEntrega" value="ENTREGA_PERSONAL">
+                                            <label class="btn btn-outline-primary w-100 h-100 text-start"
+                                                for="entregaPersonal">
+                                                <i class="bi bi-person-walking me-1" aria-hidden="true"></i>
+                                                <span class="d-block fw-semibold">Entrega en persona</span>
+                                                <small class="text-body-secondary">Coordinada directamente</small>
+                                            </label>
+                                        </div>
+                                        <div class="col-sm-4">
+                                            <input class="btn-check" type="checkbox" id="entregaEnvio"
+                                                name="modalidadesEntrega" value="ENVIO">
+                                            <label class="btn btn-outline-primary w-100 h-100 text-start"
+                                                for="entregaEnvio">
+                                                <i class="bi bi-box-seam me-1" aria-hidden="true"></i>
+                                                <span class="d-block fw-semibold">Envío</span>
+                                                <small class="text-body-secondary">A domicilio o sucursal</small>
+                                            </label>
+                                        </div>
+                                        <div class="col-sm-4">
+                                            <input class="btn-check" type="checkbox" id="encuentroPublico"
+                                                name="modalidadesEntrega" value="ENCUENTRO_PUBLICO">
+                                            <label class="btn btn-outline-primary w-100 h-100 text-start"
+                                                for="encuentroPublico">
+                                                <i class="bi bi-geo-alt me-1" aria-hidden="true"></i>
+                                                <span class="d-block fw-semibold">Encuentro público</span>
+                                                <small class="text-body-secondary">En un lugar concurrido</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div id="modalidadesEntregaError" class="invalid-feedback">
+                                        Selecciona al menos una modalidad de entrega.
+                                    </div>
+                                </fieldset>
+                            </div>
+                            <div class="col-12">
+                                <label for="publicacionDescripcion" class="form-label">Descripción</label>
+                                <textarea class="form-control" id="publicacionDescripcion" rows="4" minlength="10"
+                                    maxlength="1000" required></textarea>
+                            </div>
+                            <div class="col-12">
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    id="btnUbicacionPublicacion"><i class="bi bi-geo-alt" aria-hidden="true"></i> Usar mi
+                                    ubicación</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm ms-1"
+                                    id="btnMapaPublicacion"><i class="bi bi-map" aria-hidden="true"></i> Elegir en el mapa</button>
+                                <small class="text-muted ms-2 d-block mt-1" id="estadoUbicacionPublicacion"
+                                    aria-live="polite">Selecciona una ciudad o pueblo para definir la zona.</small>
+                            </div>
+                            <div class="col-12 d-none" id="panelMapaPublicacion">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <p class="form-text mb-0">Haz clic en el mapa para marcar una zona. Se usará la ciudad o pueblo más cercano.</p>
+                                    <button type="button" class="btn-close ms-2" id="btnCerrarMapaPublicacion"
+                                        aria-label="Cerrar mapa"></button>
+                                </div>
+                                <div id="mapaPublicacion" class="mapa-publicacion"
+                                    role="application" aria-label="Mapa para seleccionar la zona de la publicación"></div>
+                                <small class="text-muted">Mapa y datos geográficos © OpenStreetMap contributors.</small>
+                            </div>
+                            <div class="col-12">
+                                <label for="publicacionFotos" class="form-label">Fotos (1 a 8, JPG, PNG o WEBP, máx. 5
+                                    MB)</label>
+                                <input type="file" class="form-control" id="publicacionFotos"
+                                    accept="image/jpeg,image/png,image/webp" multiple required>
+                                <div id="fotosPreview" class="row g-2 mt-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnPublicar">Publicar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: detalle de publicación -->
+    <div class="modal fade" id="modalDetallePublicacion" tabindex="-1" aria-label="Detalle de la publicación"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Detalle de la publicación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="detallePublicacionContenido"></div>
+                    <hr>
+                    <div id="panelContacto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalPerfil" tabindex="-1" aria-labelledby="modalPerfilTitulo"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formPerfil">
+                    <div class="modal-header">
+                        <h2 class="modal-title fs-5" id="modalPerfilTitulo">Perfil</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="perfilAlerta" class="alert d-none" role="alert"></div>
+                        <section aria-labelledby="perfilFotoTitulo">
+                            <h3 id="perfilFotoTitulo" class="fs-6">Foto de perfil</h3>
+                            <div class="perfil-foto-editor">
+                                <div class="foto-perfil-preview-contenedor">
+                                    <img id="fotoPerfilPreview" class="foto-perfil-preview d-none" alt="">
+                                    <div id="fotoPerfilSinFoto" class="foto-perfil-sin-foto" aria-hidden="true">
+                                        <i class="bi bi-person-fill"></i>
+                                    </div>
+                                </div>
+                                <div class="perfil-foto-controles">
+                                    <label for="fotoPerfilArchivo" class="form-label">Cambiar foto (JPG, PNG o WEBP, máximo 5 MB)</label>
+                                    <input id="fotoPerfilArchivo" class="form-control" type="file"
+                                        accept="image/jpeg,image/png,image/webp">
+                                    <div id="fotoPerfilEstado" class="form-text" role="status">Cargando foto de perfil...</div>
+                                </div>
+                            </div>
+                            <div id="fotoPerfilControlesRecorte" class="d-none mt-3">
+                                <div class="d-flex gap-2 mb-2">
+                                    <button class="btn btn-outline-secondary btn-sm" type="button"
+                                        id="btnCentrarFotoPerfil">Centrar</button>
+                                    <button class="btn btn-outline-primary btn-sm" type="button"
+                                        id="btnRecortarFotoPerfil">Recortar y usar</button>
+                                </div>
+                                <label for="fotoPerfilPosicionX" class="form-label small mb-0">Ajustar horizontalmente</label>
+                                <input id="fotoPerfilPosicionX" class="form-range" type="range" min="0" max="100" value="50">
+                                <label for="fotoPerfilPosicionY" class="form-label small mb-0">Ajustar verticalmente</label>
+                                <input id="fotoPerfilPosicionY" class="form-range" type="range" min="0" max="100" value="50">
+                                <div class="form-text">El encuadre seleccionado se aplicará al guardar el perfil.</div>
+                            </div>
+                        </section>
+                        <hr>
+                        <label for="perfilApodo" class="form-label">Apodo <span class="text-muted">(opcional)</span></label>
+                        <input id="perfilApodo" class="form-control" type="text" maxlength="20"
+                            pattern="[A-Za-z0-9][A-Za-z0-9_.\-]*" autocomplete="nickname"
+                            placeholder="Puedes dejarlo vacío">
+                        <div class="form-text">Hasta 20 caracteres: letras, números, punto, guion o guion bajo.</div>
+                        <label for="perfilCiudad" class="form-label mt-3">Ciudad o pueblo</label>
+                        <input id="perfilCiudad" class="form-control" type="search" maxlength="120"
+                            placeholder="Busca una ciudad o pueblo" autocomplete="off"
+                            aria-describedby="ayudaPerfilCiudad resultadosPerfilCiudad">
+                        <div class="form-text" id="ayudaPerfilCiudad">Selecciona una localidad real de los resultados.</div>
+                        <div id="resultadosPerfilCiudad" class="list-group mt-1"
+                            role="listbox" aria-label="Localidades encontradas"></div>
+                        <section class="mt-4" aria-labelledby="perfilCorreoTitulo">
+                            <h3 id="perfilCorreoTitulo" class="fs-6">Correo electrónico</h3>
+                            <p class="form-text">Correo actual: <strong id="perfilCorreoActual"></strong></p>
+                            <button type="button" class="btn btn-outline-primary" id="btnAbrirCambioCorreo">
+                                Cambiar correo electrónico
+                            </button>
+                        </section>
+                        <section class="mt-4" aria-labelledby="perfilDispositivosTitulo">
+                            <h3 id="perfilDispositivosTitulo" class="fs-6">Historial de inicio de sesión</h3>
+                            <p class="form-text">Cada navegador o perfil cuenta como un dispositivo. No guardamos tu dirección IP.</p>
+                            <p id="perfilDispositivosEstado" class="form-text mb-2" role="status">Cargando historial...</p>
+                            <ul id="perfilDispositivosLista" class="list-group small"></ul>
+                        </section>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardarPerfil">Guardar cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCorreoPerfil" tabindex="-1" aria-labelledby="modalCorreoPerfilTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formCorreoPerfil">
+                    <div class="modal-header">
+                        <h2 class="modal-title fs-5" id="modalCorreoPerfilTitulo">Cambiar correo electrónico</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="correoPerfilAlerta" class="alert d-none" role="alert"></div>
+                        <p class="form-text">Correo actual: <strong id="perfilCorreoActualModal"></strong></p>
+                        <label for="perfilCorreo" class="form-label">Nuevo correo</label>
+                        <input id="perfilCorreo" class="form-control" type="email" maxlength="100"
+                            autocomplete="email" placeholder="nuevo@ejemplo.com" required>
+                        <label for="perfilContrasenaActual" class="form-label mt-3">Contraseña actual</label>
+                        <input id="perfilContrasenaActual" class="form-control" type="password" maxlength="72"
+                            autocomplete="current-password" required>
+                        <div class="form-text">El cambio se confirma con tu contraseña actual.</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardarCorreo">Actualizar correo</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalSoporte" tabindex="-1" aria-labelledby="modalSoporteTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="modalSoporteTitulo">Soporte</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    El servicio de soporte todavía no está conectado. Esta opción quedará disponible cuando se implemente ese servicio.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
-    <script type="module" src="js/theme.js"></script>
-    <script type="module" src="js/catalogo.js"></script>
-    <script type="module" src="js/usuarios.js"></script>
+    <script type="module" src="Js/theme.js"></script>
+    <script type="module" src="Js/auth.js"></script>
+    <script type="module" src="Js/perfil.js"></script>
+    <script type="module" src="Js/usuarios.js"></script>
+    <script type="module" src="Js/publicaciones.js"></script>
 </body>
 
 </html>
