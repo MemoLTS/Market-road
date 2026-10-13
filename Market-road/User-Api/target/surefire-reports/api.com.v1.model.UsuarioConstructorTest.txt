@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: api.com.v1.model.UsuarioConstructorTest
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.110 s -- in api.com.v1.model.UsuarioConstructorTest
