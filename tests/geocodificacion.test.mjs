@@ -45,3 +45,23 @@ test('reconoce ciudades devueltas por Nominatim como boundary administrativo', a
         globalThis.fetch = fetchOriginal;
     }
 });
+
+test('cancela una búsqueda de localidad cuando se aborta la solicitud', async () => {
+    const fetchOriginal = globalThis.fetch;
+    let solicitudIniciada;
+    const iniciada = new Promise(resolve => { solicitudIniciada = resolve; });
+    globalThis.fetch = (_url, options) => new Promise((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(new DOMException('Solicitud cancelada.', 'AbortError')), { once: true });
+        solicitudIniciada();
+    });
+
+    const controlador = new AbortController();
+    try {
+        const busqueda = buscarLugares('Concepción', controlador.signal);
+        await iniciada;
+        controlador.abort();
+        await assert.rejects(busqueda, { name: 'AbortError' });
+    } finally {
+        globalThis.fetch = fetchOriginal;
+    }
+});

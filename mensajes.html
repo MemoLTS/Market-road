@@ -182,6 +182,13 @@
                         <div class="form-text" id="ayudaPerfilCiudad">Selecciona una localidad real de los resultados.</div>
                         <div id="resultadosPerfilCiudad" class="list-group mt-1"
                             role="listbox" aria-label="Localidades encontradas"></div>
+                        <section class="mt-4" aria-labelledby="perfilCorreoTitulo">
+                            <h3 id="perfilCorreoTitulo" class="fs-6">Correo electrónico</h3>
+                            <p class="form-text">Correo actual: <strong id="perfilCorreoActual"></strong></p>
+                            <button type="button" class="btn btn-outline-primary" id="btnAbrirCambioCorreo">
+                                Cambiar correo electrónico
+                            </button>
+                        </section>
                         <section class="mt-4" aria-labelledby="perfilDispositivosTitulo">
                             <h3 id="perfilDispositivosTitulo" class="fs-6">Historial de inicio de sesión</h3>
                             <p class="form-text">Cada navegador o perfil cuenta como un dispositivo. No guardamos tu dirección IP.</p>
@@ -194,21 +201,32 @@
                         <button type="submit" class="btn btn-primary" id="btnGuardarPerfil">Guardar cambios</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCorreoPerfil" tabindex="-1" aria-labelledby="modalCorreoPerfilTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
                 <form id="formCorreoPerfil">
-                    <div class="modal-body border-top">
-                        <h3 class="fs-6">Cambiar correo electrónico</h3>
+                    <div class="modal-header">
+                        <h2 class="modal-title fs-5" id="modalCorreoPerfilTitulo">Cambiar correo electrónico</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
                         <div id="correoPerfilAlerta" class="alert d-none" role="alert"></div>
-                        <p class="form-text">Correo actual: <strong id="perfilCorreoActual"></strong></p>
+                        <p class="form-text">Correo actual: <strong id="perfilCorreoActualModal"></strong></p>
                         <label for="perfilCorreo" class="form-label">Nuevo correo</label>
                         <input id="perfilCorreo" class="form-control" type="email" maxlength="100"
                             autocomplete="email" placeholder="nuevo@ejemplo.com" required>
                         <label for="perfilContrasenaActual" class="form-label mt-3">Contraseña actual</label>
                         <input id="perfilContrasenaActual" class="form-control" type="password" maxlength="72"
                             autocomplete="current-password" required>
-                        <div class="form-text">Por ahora, el cambio se confirma con tu contraseña actual.</div>
+                        <div class="form-text">El cambio se confirma con tu contraseña actual.</div>
                     </div>
                     <div class="modal-footer">
-                        <button type="submit" class="btn btn-outline-primary" id="btnGuardarCorreo">Actualizar correo</button>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardarCorreo">Actualizar correo</button>
                     </div>
                 </form>
             </div>
