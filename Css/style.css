@@ -285,7 +285,7 @@ body {
 
 .mensajes-layout {
     display: grid;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     grid-template-columns: 340px 1fr;
     height: min(720px, calc(100dvh - 56px));
     min-height: 0;
