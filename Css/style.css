@@ -262,7 +262,8 @@ body {
 /* Página de mensajes */
 
 .mensajes-page {
-    display: block;
+    display: flex;
+    flex-direction: column;
     width: 100%;
     min-height: 100vh;
     background: var(--page-background);
@@ -287,6 +288,7 @@ body {
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--border);
+    height: 100%;
     min-height: 0;
 }
 
