@@ -546,7 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fotoParaSubir = fotoOriginal;
         liberarUrlRecortada();
         vistaPrevia.src = urlOriginal;
-        const anchoVista = vistaPrevia.clientWidth || 144;
+        const anchoVista = vistaPrevia.parentElement?.clientWidth || 144;
         const lado = Math.min(imagenOriginal.naturalWidth, imagenOriginal.naturalHeight)
             / Number(zoomFoto?.value ?? 1);
         const escala = anchoVista / lado;
