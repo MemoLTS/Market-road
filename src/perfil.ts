@@ -154,7 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (posicionY) posicionY.value = '50';
                 if (zoomFoto) zoomFoto.value = '1';
                 actualizarEtiquetaZoom();
-                actualizarPosicion();
                 controlesRecorte?.classList.remove('d-none');
             };
             imagenOriginal.onerror = () => {

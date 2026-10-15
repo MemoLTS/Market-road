@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const entradaApodo = opcionalPorId('perfilApodo');
     const posicionX = opcionalPorId('fotoPerfilPosicionX');
     const posicionY = opcionalPorId('fotoPerfilPosicionY');
+    const zoomFoto = opcionalPorId('fotoPerfilZoom');
+    const valorZoomFoto = opcionalPorId('fotoPerfilZoomValor');
     const vistaPrevia = opcionalPorId('fotoPerfilPreview');
     const fotoSinFoto = opcionalPorId('fotoPerfilSinFoto');
     const estadoFoto = opcionalPorId('fotoPerfilEstado');
@@ -85,6 +87,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             const tipo = respuesta.headers.get('Content-Type') ?? blob.type;
             if (tipo.includes('image/svg+xml')) {
+                fotoOriginal = null;
+                fotoParaSubir = null;
+                imagenOriginal = null;
+                controlesRecorte?.classList.add('d-none');
                 if (estadoFoto)
                     estadoFoto.textContent = 'Aún no tienes una foto de perfil guardada.';
                 return;
@@ -92,6 +98,32 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!tipo.startsWith('image/')) {
                 throw new Error('El servidor no devolvió un archivo de imagen.');
             }
+            fotoOriginal = new File([blob], 'foto-perfil-guardada', { type: tipo });
+            fotoParaSubir = null;
+            urlOriginal = URL.createObjectURL(blob);
+            imagenOriginal = new Image();
+            const imagenGuardada = imagenOriginal;
+            imagenOriginal.onload = () => {
+                if (imagenOriginal !== imagenGuardada || solicitudActual.signal.aborted)
+                    return;
+                if (posicionX)
+                    posicionX.value = '50';
+                if (posicionY)
+                    posicionY.value = '50';
+                if (zoomFoto)
+                    zoomFoto.value = '1';
+                actualizarEtiquetaZoom();
+                controlesRecorte?.classList.remove('d-none');
+            };
+            imagenOriginal.onerror = () => {
+                if (imagenOriginal !== imagenGuardada || solicitudActual.signal.aborted)
+                    return;
+                fotoOriginal = null;
+                imagenOriginal = null;
+                if (estadoFoto)
+                    estadoFoto.textContent = 'No se pudo preparar la foto guardada para recortarla.';
+            };
+            imagenOriginal.src = urlOriginal;
             urlFotoGuardada = URL.createObjectURL(blob);
             if (!vistaPrevia)
                 return;
@@ -246,7 +278,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!vistaPrevia)
                 return;
             vistaPrevia.src = urlOriginal ?? '';
-            vistaPrevia.style.objectPosition = '50% 50%';
             vistaPrevia.classList.remove('d-none');
             fotoSinFoto?.classList.add('d-none');
             if (estadoFoto)
@@ -256,6 +287,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 posicionX.value = '50';
             if (posicionY)
                 posicionY.value = '50';
+            if (zoomFoto)
+                zoomFoto.value = '1';
+            actualizarEtiquetaZoom();
+            actualizarPosicion();
         };
         imagenOriginal.onerror = () => {
             fotoOriginal = null;
@@ -270,6 +305,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     posicionX?.addEventListener('input', actualizarPosicion);
     posicionY?.addEventListener('input', actualizarPosicion);
+    zoomFoto?.addEventListener('input', () => {
+        actualizarEtiquetaZoom();
+        actualizarPosicion();
+    });
     botonCentrar?.addEventListener('click', () => {
         if (posicionX)
             posicionX.value = '50';
@@ -284,13 +323,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         botonRecortar.disabled = true;
         try {
-            const recorte = await recortarImagen(imagenOriginal, Number(posicionX?.value ?? 50), Number(posicionY?.value ?? 50));
+            const recorte = await recortarImagen(imagenOriginal, Number(posicionX?.value ?? 50), Number(posicionY?.value ?? 50), Number(zoomFoto?.value ?? 1));
             liberarUrlRecortada();
             urlRecortada = URL.createObjectURL(recorte);
             fotoParaSubir = new File([recorte], 'foto-perfil.png', { type: 'image/png' });
             if (vistaPrevia) {
                 vistaPrevia.src = urlRecortada;
-                vistaPrevia.style.objectPosition = '50% 50%';
+                vistaPrevia.style.width = '100%';
+                vistaPrevia.style.height = '100%';
+                vistaPrevia.style.left = '0';
+                vistaPrevia.style.top = '0';
             }
             mostrarMensaje('Recorte aplicado. Guarda el perfil para conservarlo.', false);
         }
@@ -337,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
             botonGuardar.disabled = true;
         try {
             if (fotoOriginal && imagenOriginal?.naturalWidth && imagenOriginal.naturalHeight) {
-                const recorte = await recortarImagen(imagenOriginal, Number(posicionX?.value ?? 50), Number(posicionY?.value ?? 50));
+                const recorte = await recortarImagen(imagenOriginal, Number(posicionX?.value ?? 50), Number(posicionY?.value ?? 50), Number(zoomFoto?.value ?? 1));
                 fotoParaSubir = new File([recorte], 'foto-perfil.png', { type: 'image/png' });
             }
             else if (fotoOriginal) {
@@ -462,8 +504,29 @@ document.addEventListener('DOMContentLoaded', () => {
             return 'La imagen no puede superar los 5 MB.';
         return null;
     }
-    async function recortarImagen(imagen, x, y) {
-        const lado = Math.min(imagen.naturalWidth, imagen.naturalHeight);
+    function actualizarPosicion() {
+        if (!imagenOriginal || !vistaPrevia || !urlOriginal)
+            return;
+        fotoParaSubir = fotoOriginal;
+        liberarUrlRecortada();
+        vistaPrevia.src = urlOriginal;
+        const anchoVista = vistaPrevia.parentElement?.clientWidth || 144;
+        const lado = Math.min(imagenOriginal.naturalWidth, imagenOriginal.naturalHeight)
+            / Number(zoomFoto?.value ?? 1);
+        const escala = anchoVista / lado;
+        vistaPrevia.style.width = `${imagenOriginal.naturalWidth * escala}px`;
+        vistaPrevia.style.height = `${imagenOriginal.naturalHeight * escala}px`;
+        vistaPrevia.style.left = `${-(imagenOriginal.naturalWidth - lado)
+            * Number(posicionX?.value ?? 50) / 100 * escala}px`;
+        vistaPrevia.style.top = `${-(imagenOriginal.naturalHeight - lado)
+            * Number(posicionY?.value ?? 50) / 100 * escala}px`;
+    }
+    function actualizarEtiquetaZoom() {
+        if (valorZoomFoto)
+            valorZoomFoto.value = `${Number(zoomFoto?.value ?? 1).toFixed(1)}×`;
+    }
+    async function recortarImagen(imagen, x, y, zoom) {
+        const lado = Math.min(imagen.naturalWidth, imagen.naturalHeight) / zoom;
         const origenX = (imagen.naturalWidth - lado) * x / 100;
         const origenY = (imagen.naturalHeight - lado) * y / 100;
         const canvas = document.createElement('canvas');
