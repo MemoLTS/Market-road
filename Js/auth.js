@@ -1,4 +1,4 @@
-import { apiFetch, CLAVE_SESION, guardarSesion, limpiarSesion, obtenerSesion, urlAbsoluta, usuarioActual } from './api.js';
+import { apiFetch, CLAVE_SESION, esSuperusuario, guardarSesion, limpiarSesion, obtenerSesion, urlAbsoluta, usuarioActual } from './api.js';
 import { conBoton, mensajeDeError, mostrarAlerta, ocultarAlerta, opcionalPorId } from './util.js';
 import { LIMITES, primerError, validarCorreo } from './validaciones.js';
 const CLAVE_DISPOSITIVO = 'mr_device_id';
@@ -90,6 +90,7 @@ export function actualizarNavegacion() {
     const sesion = obtenerSesion();
     opcionalPorId('navAuthInvitado')?.classList.toggle('d-none', sesion !== null);
     opcionalPorId('navAuthUsuario')?.classList.toggle('d-none', sesion === null);
+    opcionalPorId('navAdminItem')?.classList.toggle('d-none', !esSuperusuario());
     const apodo = opcionalPorId('navApodoUsuario');
     if (apodo && sesion)
         apodo.textContent = usuarioActual()?.apodo || 'Usuario';

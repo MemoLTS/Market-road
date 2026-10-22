@@ -17,7 +17,7 @@ Microservicio Spring Boot de publicaciones de venta para Market-Road.
 
 Puerto: `8083`.
 
-La API se expone normalmente mediante `Getaway-Spring` en `http://localhost:8082/api/v1/publicaciones`.
+La API se expone normalmente mediante `Getaway-Spring` en `http://localhost:8081/api/v1/publicaciones`.
 
 
 ## Catálogo y mensajería

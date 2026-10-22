@@ -1,0 +1,44 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: servicio-usuarios
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/db_usuarios?useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:marketroad_app}
+    password: ${SPRING_DATASOURCE_PASSWORD:marketroad_local_dev}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+# Configuración del token de sesión (login).
+# jwt.secret DEBE sobreescribirse por variable de entorno en producción.
+jwt:
+  secret: ${JWT_SECRET:cambia-este-secreto-en-produccion-minimo-32-caracteres}
+  expiration-ms: ${JWT_EXPIRATION_MS:2592000000} # 30 días: el usuario queda "recordado" hasta que cierre sesión
+
+# Superusuario predeterminado (se crea al iniciar si no existe). Valores por defecto SOLO para desarrollo local:
+# en producción define SUPERUSUARIO_CORREO y SUPERUSUARIO_CONTRASENA (o SUPERUSUARIO_HABILITADO=false).
+superusuario:
+  habilitado: ${SUPERUSUARIO_HABILITADO:true}
+  correo: ${SUPERUSUARIO_CORREO:admin@marketroad.local}
+  contrasena: ${SUPERUSUARIO_CONTRASENA:Admin12345}
+  nombre: Super
+  apellido: Usuario
+  apodo: superadmin

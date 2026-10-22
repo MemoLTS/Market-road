@@ -29,6 +29,8 @@ public class JwtUtil {
         String subject = claims.getSubject();
         if (subject == null || subject.isBlank()) throw new IllegalArgumentException("El token no contiene id de usuario");
         Object apodo = claims.get("apodo");
-        return new Identidad(Long.valueOf(subject), apodo == null ? null : apodo.toString());
+        Object rol = claims.get("rol");
+        return new Identidad(Long.valueOf(subject), apodo == null ? null : apodo.toString(),
+                rol == null ? null : rol.toString());
     }
 }

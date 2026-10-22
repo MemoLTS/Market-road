@@ -1,3 +1,5 @@
+export type RolUsuario = 'USUARIO' | 'SUPERUSUARIO';
+
 export interface Usuario {
     id: number;
     nombre: string;
@@ -5,6 +7,8 @@ export interface Usuario {
     apodo: string | null;
     correo: string;
     ciudad: string | null;
+    /** Ausente en sesiones guardadas antes de existir los roles. */
+    rol?: RolUsuario;
 }
 
 export interface LoginRespuesta {
@@ -95,3 +99,20 @@ export interface ConversacionDetalle {
 }
 
 export type OrdenCatalogo = 'RELEVANCIA' | 'PRECIO_ASC' | 'PRECIO_DESC' | 'DISTANCIA' | 'RECIENTES';
+
+export interface AdminPublicacion {
+    id: number;
+    titulo: string;
+    precio: number;
+    categoria: string;
+    categoriaNombre: string;
+    ubicacion: string;
+    estado: EstadoPublicacion;
+    usuarioId: number;
+    vendedorApodo: string | null;
+    compradorId: number | null;
+    precioVenta: number | null;
+    fechaVenta: string | null;
+    fechaCreacion: string;
+    cantidadImagenes: number;
+}

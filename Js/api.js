@@ -54,6 +54,10 @@ export function estaAutenticado() {
 export function usuarioActual() {
     return obtenerSesion()?.usuario ?? null;
 }
+/** Solo decide qué se muestra en la UI: la autorización real la aplican las APIs con el token. */
+export function esSuperusuario() {
+    return usuarioActual()?.rol === 'SUPERUSUARIO';
+}
 export function actualizarUsuarioSesion(usuario) {
     const sesion = obtenerSesion();
     if (!sesion)

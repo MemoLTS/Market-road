@@ -1080,3 +1080,80 @@ body {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+/* =====================================================================
+   Panel de superusuario (admin.html)
+   ===================================================================== */
+
+.admin-page {
+    display: block;
+    min-height: 100vh;
+}
+
+.admin-contenedor {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+}
+
+.admin-tarjeta {
+    background: var(--mk-surface);
+    border-radius: 8px;
+    box-shadow: var(--mk-shadow);
+    padding: 12px 16px;
+}
+
+.admin-tarjeta-valor {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.admin-tarjeta-titulo {
+    color: var(--mk-muted);
+    font-size: .85rem;
+}
+
+.admin-panel {
+    background: var(--mk-surface);
+    border-radius: 0 0 8px 8px;
+    box-shadow: var(--mk-shadow);
+    padding: 16px;
+}
+
+.admin-herramientas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.admin-herramientas input {
+    flex: 1 1 260px;
+}
+
+.admin-herramientas select {
+    flex: 0 0 180px;
+}
+
+.admin-tabla {
+    --bs-table-bg: transparent;
+    color: var(--mk-text);
+    white-space: nowrap;
+}
+
+.admin-truncar {
+    display: inline-block;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+}
+
+.admin-paginacion {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+}

@@ -72,30 +72,11 @@ services:
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
       JWT_SECRET: cambia-este-secreto-en-produccion-minimo-32-caracteres
+      # Superusuario predeterminado (solo desarrollo local). Cambia estos valores en .env antes de desplegar.
+      SUPERUSUARIO_CORREO: ${SUPERUSUARIO_CORREO:-admin@marketroad.local}
+      SUPERUSUARIO_CONTRASENA: ${SUPERUSUARIO_CONTRASENA:-Admin12345}
     ports:
       - "127.0.0.1:8084:8084"
-    depends_on:
-      database-init:
-        condition: service_completed_successfully
-    networks:
-      - marketroad-net
-
-  # Microservicio Productos e Inventario
-  prod-api:
-    build:
-      context: ./Prod-api
-      dockerfile: Dockerfile
-    container_name: prod-api
-    restart: always
-    environment:
-      SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/inventario?useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-marketroad_app}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
-      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
-      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
-    ports:
-      - "127.0.0.1:8082:8082"
     depends_on:
       database-init:
         condition: service_completed_successfully
@@ -138,7 +119,6 @@ services:
       - "127.0.0.1:8081:8081"
     depends_on:
       - user-api
-      - prod-api
       - publication-api
     networks:
       - marketroad-net
