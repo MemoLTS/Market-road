@@ -1,0 +1,28 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: servicio-usuarios
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/db_usuarios}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+# Configuración del token de sesión (login).
+# jwt.secret DEBE sobreescribirse por variable de entorno en producción.
+jwt:
+  secret: ${JWT_SECRET:cambia-este-secreto-en-produccion-minimo-32-caracteres}
+  expiration-ms: ${JWT_EXPIRATION_MS:2592000000} # 30 días: el usuario queda "recordado" hasta que cierre sesión
