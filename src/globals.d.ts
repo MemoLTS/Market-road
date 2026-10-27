@@ -36,4 +36,5 @@ interface WindowEventMap {
     'mr:sesion-expirada': CustomEvent<void>;
     'mr:sesion-cambiada': CustomEvent<void>;
     'mr:foto-perfil-actualizada': CustomEvent<void>;
+    'mr:soporte-sesion-expirada': CustomEvent<void>;
 }

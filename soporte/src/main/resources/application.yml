@@ -1,0 +1,35 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: servicio-soporte
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/db_soporte?useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:marketroad_app}
+    password: ${SPRING_DATASOURCE_PASSWORD:marketroad_local_dev}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
+# Token de los usuarios comunes: lo emite User-Api, por eso es el MISMO secreto que usan las otras APIs.
+jwt:
+  secret: ${JWT_SECRET:cambia-este-secreto-en-produccion-minimo-32-caracteres}
+
+# Personal de soporte: usuarios propios de este servicio, con su propio token y su propio secreto.
+# Un token de usuario común no sirve en el panel, y uno del personal no sirve en el resto de la plataforma.
+soporte:
+  jwt:
+    secret: ${SOPORTE_JWT_SECRET:cambia-el-secreto-del-personal-de-soporte-minimo-32}
+    expiration-ms: ${SOPORTE_JWT_EXPIRATION_MS:28800000} # 8 horas
+  # Administrador inicial del panel (se crea al iniciar si no existe). Valores por defecto SOLO para desarrollo local.
+  admin:
+    habilitado: ${SOPORTE_ADMIN_HABILITADO:true}
+    correo: ${SOPORTE_ADMIN_CORREO:soporte-admin@marketroad.local}
+    contrasena: ${SOPORTE_ADMIN_CONTRASENA:Soporte12345}
+    nombre: Administrador de soporte

@@ -1157,3 +1157,68 @@ body {
     gap: 8px;
     margin-top: 12px;
 }
+
+/* ---------------------------------------------------------------------------
+   Soporte: panel del equipo (soporte-panel.html)
+   Reutiliza la lista y el chat de mensajes (.mensajes-layout, .bandeja-item, .chat-*).
+   --------------------------------------------------------------------------- */
+
+.sp-body {
+    display: block;
+    min-height: 100vh;
+    padding: 0;
+}
+
+.sp-login {
+    max-width: 420px;
+    margin: 6vh auto 0;
+    border-radius: 16px;
+}
+
+.sp-cuenta {
+    max-width: 460px;
+}
+
+.sp-layout {
+    height: calc(100dvh - 260px);
+    min-height: 520px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.sp-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sp-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: .75rem;
+    color: var(--text);
+    opacity: .85;
+    min-width: 130px;
+}
+
+.sp-datos {
+    padding: 6px 12px;
+    font-size: .85rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.sp-tarjeta {
+    border-radius: 12px;
+}
+
+@media (max-width: 767.98px) {
+    .sp-layout {
+        height: calc(100dvh - 130px);
+        min-height: 480px;
+    }
+}

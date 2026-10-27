@@ -106,6 +106,35 @@ services:
     networks:
       - marketroad-net
 
+  # Microservicio Soporte (tickets, chat y panel del equipo de soporte)
+  soporte-api:
+    build:
+      context: ./soporte
+      dockerfile: Dockerfile
+    container_name: soporte-api
+    restart: always
+    environment:
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/db_soporte?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-marketroad_app}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+      # Mismo secreto que user-api: valida los tokens de las personas usuarias.
+      JWT_SECRET: cambia-este-secreto-en-produccion-minimo-32-caracteres
+      # Secreto propio del personal de soporte (distinto al anterior). Cámbialo en .env antes de desplegar.
+      SOPORTE_JWT_SECRET: ${SOPORTE_JWT_SECRET:-cambia-el-secreto-del-personal-de-soporte-minimo-32}
+      # Administrador inicial del panel de soporte (solo desarrollo local). Cambia estos valores en .env antes de desplegar.
+      SOPORTE_ADMIN_CORREO: ${SOPORTE_ADMIN_CORREO:-soporte-admin@marketroad.local}
+      SOPORTE_ADMIN_CONTRASENA: ${SOPORTE_ADMIN_CONTRASENA:-Soporte12345}
+    ports:
+      - "127.0.0.1:8086:8086"
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
+    networks:
+      - marketroad-net
+
   # API Gateway
   gateway-service:
     build:
@@ -120,6 +149,7 @@ services:
     depends_on:
       - user-api
       - publication-api
+      - soporte-api
     networks:
       - marketroad-net
 
