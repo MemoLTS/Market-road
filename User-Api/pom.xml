@@ -15,13 +15,11 @@
     <artifactId>servicio-usuarios</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>servicio-usuarios</name>
-    <description>API de Usuarios con PostgreSQL ejecutado en Java 25</description>
+    <description>API de Usuarios con MySQL ejecutado en Java 25</description>
 
     <properties>
-        <java.version>17</java.version>
-        <maven.compiler.release>17</maven.compiler.release>
-        <spring-security.version>6.3.8</spring-security.version>
-        <lombok.version>1.18.36</lombok.version>
+        <java.version>25</java.version>
+        <lombok.version>1.18.42</lombok.version>
     </properties>
 
     <dependencies>
@@ -50,7 +48,7 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
-            <version>${spring-security.version}</version>
+            <version>6.3.8</version>
         </dependency>
 
         <!-- JWT: usado solo para emitir/validar el token de sesión (login), no trae el starter completo de Spring Security. -->
@@ -92,7 +90,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <release>${maven.compiler.release}</release>
+                    <release>21</release>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>

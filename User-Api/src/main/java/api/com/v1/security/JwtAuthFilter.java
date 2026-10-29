@@ -2,6 +2,7 @@ package api.com.v1.security;
 
 import java.io.IOException;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -23,6 +24,8 @@ import jakarta.servlet.http.HttpServletResponse;
  * - POST /api/v1/auth/login      -> inicio de sesión
  * - cualquier request OPTIONS    -> preflight CORS
  *
+ * /api/v1/admin/** siempre exige token; el rol de superusuario lo verifica el controller contra la BD.
+ *
  * Si el token es válido, se guarda el id del usuario autenticado en el
  * request como atributo "usuarioAutenticadoId" para que los controllers
  * puedan usarlo si lo necesitan.
@@ -32,14 +35,13 @@ import jakarta.servlet.http.HttpServletResponse;
 public class JwtAuthFilter extends HttpFilter {
 
     private static final String PREFIJO_USUARIOS = "/api/v1/usuarios";
+    private static final String PREFIJO_ADMIN = "/api/v1/admin";
     private static final String BEARER = "Bearer ";
 
-    private final JwtUtil jwtUtil;
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
-    public JwtAuthFilter(JwtUtil jwtUtil) {
-        this.jwtUtil = jwtUtil;
-    }
+    @Autowired
+    private JwtUtil jwtUtil;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Override
     protected void doFilter(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -77,12 +79,16 @@ public class JwtAuthFilter extends HttpFilter {
         if (path.startsWith("/api/v1/auth")) {
             return true;
         }
+        // Las fotos se pueden mostrar como avatar; solo la carga requiere sesión.
+        if ("GET".equalsIgnoreCase(metodo) && path.matches("/api/v1/usuarios/\\d+/foto")) {
+            return true;
+        }
         // Registro de usuario nuevo: POST exacto a /api/v1/usuarios
         if ("POST".equalsIgnoreCase(metodo) && PREFIJO_USUARIOS.equals(path)) {
             return true;
         }
-        // Rutas fuera de /api/v1/usuarios (ej. actuator, health) no se tocan
-        return !path.startsWith(PREFIJO_USUARIOS);
+        // Rutas fuera de /api/v1/usuarios y /api/v1/admin (ej. actuator, health) no se tocan
+        return !path.startsWith(PREFIJO_USUARIOS) && !path.startsWith(PREFIJO_ADMIN);
     }
 
     private void responderNoAutorizado(HttpServletResponse response, String mensaje) throws IOException {

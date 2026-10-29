@@ -6,7 +6,10 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -24,6 +27,19 @@ public class GlobalExceptionHandler {
             errores.put(error.getField(), error.getDefaultMessage());
         });
         return errores;
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> manejoEstadoHttp(ResponseStatusException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("mensaje", ex.getReason() == null ? "Solicitud inválida" : ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode()).body(error);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public Map<String, String> manejoFotoDemasiadoGrande() {
+        return Map.of("mensaje", "La imagen no puede superar los 5 MB");
     }
 
     @ExceptionHandler(RecursoNoEncontradoException.class)

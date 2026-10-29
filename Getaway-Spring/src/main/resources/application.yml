@@ -17,6 +17,11 @@ spring:
           predicates:
             - Path=/api/v1/publicaciones/**, /api/v1/conversaciones/**, /api/v1/admin/publicaciones/**
 
+        - id: soporte-service
+          uri: http://soporte-api:8086
+          predicates:
+            - Path=/api/v1/soporte/**
+
       globalcors:
         cors-configurations:
           "[/**]":

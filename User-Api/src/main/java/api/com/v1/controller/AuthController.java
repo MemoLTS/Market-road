@@ -15,7 +15,9 @@ import api.com.v1.exception.CredencialesInvalidasException;
 import api.com.v1.model.Usuario;
 import api.com.v1.repository.UsuarioRepository;
 import api.com.v1.security.JwtUtil;
+import api.com.v1.service.DispositivoInicioSesionService;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -27,9 +29,12 @@ public class AuthController {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private JwtUtil jwtUtil;
+    @Autowired
+    private DispositivoInicioSesionService dispositivoInicioSesionService;
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO dto) {
+    public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO dto,
+            HttpServletRequest request) {
         Usuario usuario = usuarioRepository.findByCorreo(dto.correo())
                 .orElseThrow(() -> new CredencialesInvalidasException("Correo o contraseña incorrectos"));
 
@@ -37,11 +42,13 @@ public class AuthController {
             throw new CredencialesInvalidasException("Correo o contraseña incorrectos");
         }
 
-        String token = jwtUtil.generarToken(usuario.getId(), usuario.getCorreo(), usuario.getApodo());
+        dispositivoInicioSesionService.registrar(
+                usuario.getId(), dto.dispositivoId(), request.getHeader("User-Agent"));
+        String token = jwtUtil.generarToken(usuario.getId(), usuario.getCorreo(), usuario.getApodo(), usuario.getRol());
 
         UsuarioResponseDTO usuarioDto = new UsuarioResponseDTO(
                 usuario.getId(), usuario.getNombre(), usuario.getApellido(),
-                usuario.getApodo(), usuario.getCorreo());
+                usuario.getApodo(), usuario.getCorreo(), usuario.getCiudad(), usuario.getRol().name());
 
         return ResponseEntity.ok(new LoginResponseDTO(token, jwtUtil.getExpiracionMs(), usuarioDto));
     }
