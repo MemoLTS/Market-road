@@ -23,7 +23,6 @@ import com.marketroad.soporte.repository.PersonalSoporteRepository;
 import com.marketroad.soporte.repository.TicketRepository;
 import com.marketroad.soporte.security.IdentidadPersonal;
 
-/** Datos agregados del soporte. Solo para el rol ADMIN. */
 @Service
 public class EstadisticasService {
     @Autowired
@@ -35,13 +34,17 @@ public class EstadisticasService {
     public EstadisticasDTO obtener(IdentidadPersonal yo) {
         yo.exigirAdmin();
 
-        // Se informan todos los valores posibles (con 0) para que el panel no tenga que adivinar los que faltan.
+        // Se informan todos los valores posibles (con 0) para que el panel no tenga que
+        // adivinar los que faltan.
         Map<String, Long> porEstado = new LinkedHashMap<>();
-        for (EstadoTicket e : EstadoTicket.values()) porEstado.put(e.name(), 0L);
+        for (EstadoTicket e : EstadoTicket.values())
+            porEstado.put(e.name(), 0L);
         Map<String, Long> porCategoria = new LinkedHashMap<>();
-        for (CategoriaTicket c : CategoriaTicket.values()) porCategoria.put(c.name(), 0L);
+        for (CategoriaTicket c : CategoriaTicket.values())
+            porCategoria.put(c.name(), 0L);
         Map<String, Long> porPrioridad = new LinkedHashMap<>();
-        for (PrioridadTicket p : PrioridadTicket.values()) porPrioridad.put(p.name(), 0L);
+        for (PrioridadTicket p : PrioridadTicket.values())
+            porPrioridad.put(p.name(), 0L);
 
         long total = 0;
         for (Object[] fila : tickets.contarPorEstado()) {
@@ -72,6 +75,7 @@ public class EstadisticasService {
 
         long sinAsignar = tickets.countByAsignadoIdIsNullAndEstadoIn(ReglasTicket.ESTADOS_QUE_OCUPAN_CUPO);
         long ultimos7 = tickets.countByFechaCreacionAfter(OffsetDateTime.now().minusDays(7));
-        return new EstadisticasDTO(total, sinAsignar, ultimos7, activos, porEstado, porCategoria, porPrioridad, cargaPersonal);
+        return new EstadisticasDTO(total, sinAsignar, ultimos7, activos, porEstado, porCategoria, porPrioridad,
+                cargaPersonal);
     }
 }

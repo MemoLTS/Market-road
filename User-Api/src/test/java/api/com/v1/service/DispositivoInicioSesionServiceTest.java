@@ -36,7 +36,8 @@ class DispositivoInicioSesionServiceTest {
 
     @Test
     void muestraComoMaximoCincoDispositivosYTresSesionesPorDispositivo() {
-        DispositivoInicioSesionRepository repository = org.mockito.Mockito.mock(DispositivoInicioSesionRepository.class);
+        DispositivoInicioSesionRepository repository = org.mockito.Mockito
+                .mock(DispositivoInicioSesionRepository.class);
         List<DispositivoInicioSesion> historial = new ArrayList<>();
         Instant ahora = Instant.now();
         long id = 1;
@@ -50,17 +51,18 @@ class DispositivoInicioSesionServiceTest {
                 .thenComparing(DispositivoInicioSesion::getId, Comparator.reverseOrder()));
         when(repository.findAllByUsuarioIdOrderByFechaInicioDescIdDesc(1L)).thenReturn(historial);
 
-        List<api.com.v1.dto.DispositivoInicioSesionDTO> resultado =
-                servicio(repository).obtenerHistorial(1L);
+        List<api.com.v1.dto.DispositivoInicioSesionDTO> resultado = servicio(repository).obtenerHistorial(1L);
 
         assertEquals(5, resultado.size());
         assertFalse(resultado.stream().anyMatch(dispositivo -> dispositivo.dispositivo().equals("Equipo 5")));
         resultado.forEach(dispositivo -> assertEquals(3, dispositivo.sesiones().size()));
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     void eliminaLasSesionesMasAntiguasDelMismoDispositivo() {
-        DispositivoInicioSesionRepository repository = org.mockito.Mockito.mock(DispositivoInicioSesionRepository.class);
+        DispositivoInicioSesionRepository repository = org.mockito.Mockito
+                .mock(DispositivoInicioSesionRepository.class);
         List<DispositivoInicioSesion> historial = new ArrayList<>();
         String dispositivoId = "123e4567-e89b-42d3-a456-426614174000";
         Instant ahora = Instant.now();
@@ -80,6 +82,7 @@ class DispositivoInicioSesionServiceTest {
 
         servicio(repository).registrar(1L, dispositivoId, "Chrome/126 Windows");
 
+        @SuppressWarnings("rawtypes")
         ArgumentCaptor<Iterable> captor = ArgumentCaptor.forClass(Iterable.class);
         verify(repository).deleteAll(captor.capture());
         List<Object> eliminadas = new ArrayList<>();
