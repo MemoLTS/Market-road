@@ -1,8 +1,3 @@
-/**
- * Validaciones puras (sin DOM) para dar feedback inmediato en el navegador.
- * Reflejan las reglas del backend, que sigue siendo la validación autoritativa.
- * Cada función devuelve un mensaje de error, o null si el valor es válido.
- */
 
 export type Resultado = string | null;
 
