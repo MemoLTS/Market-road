@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de superusuario · Market-Road</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="Css/style.css">
+</head>
+
+<body class="admin-page mk-body" data-requiere-sesion="true">
+    <header class="mk-topbar">
+        <a class="mk-brand" href="index.html" aria-label="Market-Road, inicio">
+            <img class="mk-brand-logo" src="Assets/logo/WinkEmoji2.png" alt="">
+            <span class="mk-brand-text">Market-Road</span>
+        </a>
+        <div class="mk-actions">
+            <a class="btn btn-light mk-icon-btn" href="index.html" aria-label="Volver al catálogo"
+                title="Volver al catálogo"><i class="bi bi-shop" aria-hidden="true"></i></a>
+            <button class="btn btn-light mk-icon-btn" type="button" id="btn-theme-toggle" aria-label="Cambiar tema">
+                <span id="icono-tema">🌙</span>
+            </button>
+            <div id="navAuthInvitado" class="d-none"></div>
+            <div id="navAuthUsuario" class="d-flex align-items-center gap-2 d-none">
+                <div class="dropdown">
+                    <button class="btn btn-light dropdown-toggle fw-semibold" type="button" data-bs-toggle="dropdown"
+                        aria-expanded="false">
+                        <span class="nav-avatar">
+                            <img id="navFotoPerfil" class="d-none" alt="">
+                            <i id="navIconoPerfil" class="bi bi-person-circle" aria-hidden="true"></i>
+                        </span>
+                        <span id="navApodoUsuario">Usuario</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="index.html"><i class="bi bi-shop" aria-hidden="true"></i>
+                                Catálogo</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item text-danger" type="button" id="btnCerrarSesion"><i
+                                    class="bi bi-box-arrow-right" aria-hidden="true"></i> Cerrar sesión</button></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="admin-contenedor">
+        <!-- Sin permiso -->
+        <div id="adminSinAcceso" class="d-none text-center p-5">
+            <i class="bi bi-shield-lock display-4 text-muted" aria-hidden="true"></i>
+            <h1 class="h5 mt-3">Acceso restringido</h1>
+            <p class="text-muted mb-3">Esta ventana es solo para el superusuario.</p>
+            <a class="btn btn-primary" href="index.html">Ir al inicio</a>
+        </div>
+
+        <div id="adminContenido" class="d-none">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <h1 class="h4 mb-0"><i class="bi bi-shield-lock" aria-hidden="true"></i> Panel de superusuario</h1>
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="btnRecargarAdmin">
+                    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Actualizar datos
+                </button>
+            </div>
+
+            <div class="row g-3 mb-3" id="adminResumen" aria-live="polite"></div>
+
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tabUsuarios" data-bs-toggle="tab" data-bs-target="#panelUsuarios"
+                        type="button" role="tab" aria-controls="panelUsuarios" aria-selected="true">
+                        Usuarios <span class="badge text-bg-secondary" id="contadorUsuarios">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tabPublicaciones" data-bs-toggle="tab"
+                        data-bs-target="#panelPublicaciones" type="button" role="tab"
+                        aria-controls="panelPublicaciones" aria-selected="false">
+                        Publicaciones <span class="badge text-bg-secondary" id="contadorPublicaciones">0</span>
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content admin-panel">
+                <section class="tab-pane fade show active" id="panelUsuarios" role="tabpanel"
+                    aria-labelledby="tabUsuarios">
+                    <div class="admin-herramientas">
+                        <input id="buscarUsuarios" type="search" class="form-control form-control-sm" maxlength="100"
+                            placeholder="Buscar por nombre, apodo, correo o ciudad" aria-label="Buscar usuarios">
+                    </div>
+                    <div id="usuariosAlerta" class="alert d-none" role="alert"></div>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm align-middle admin-tabla mb-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Nombre</th>
+                                    <th scope="col">Apodo</th>
+                                    <th scope="col">Correo</th>
+                                    <th scope="col">Ciudad</th>
+                                    <th scope="col">Rol</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usuariosCuerpo"></tbody>
+                        </table>
+                    </div>
+                    <nav class="admin-paginacion" id="usuariosPaginacion" aria-label="Paginación de usuarios"></nav>
+                </section>
+
+                <section class="tab-pane fade" id="panelPublicaciones" role="tabpanel"
+                    aria-labelledby="tabPublicaciones">
+                    <div class="admin-herramientas">
+                        <input id="buscarPublicaciones" type="search" class="form-control form-control-sm"
+                            maxlength="100" placeholder="Buscar por título, vendedor, categoría o ubicación"
+                            aria-label="Buscar publicaciones">
+                        <select id="filtroEstadoPublicaciones" class="form-select form-select-sm"
+                            aria-label="Filtrar por estado">
+                            <option value="">Todos los estados</option>
+                            <option value="ACTIVA">Activas</option>
+                            <option value="VENDIDA">Vendidas</option>
+                            <option value="ELIMINADA">Eliminadas</option>
+                        </select>
+                    </div>
+                    <div id="publicacionesAdminAlerta" class="alert d-none" role="alert"></div>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm align-middle admin-tabla mb-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">ID</th>
+                                    <th scope="col">Título</th>
+                                    <th scope="col">Precio</th>
+                                    <th scope="col">Categoría</th>
+                                    <th scope="col">Estado</th>
+                                    <th scope="col">Vendedor</th>
+                                    <th scope="col">Ubicación</th>
+                                    <th scope="col">Fotos</th>
+                                    <th scope="col">Creada</th>
+                                </tr>
+                            </thead>
+                            <tbody id="publicacionesCuerpo"></tbody>
+                        </table>
+                    </div>
+                    <nav class="admin-paginacion" id="publicacionesPaginacion"
+                        aria-label="Paginación de publicaciones"></nav>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="Js/theme.js"></script>
+    <script type="module" src="Js/auth.js"></script>
+    <script type="module" src="Js/admin.js"></script>
+</body>
+
+</html>

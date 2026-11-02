@@ -1,0 +1,2858 @@
+diff --git a/.env.example b/.env.example
+index 159236a..d849eba 100644
+--- a/.env.example
++++ b/.env.example
+@@ -12,3 +12,10 @@ SUPERUSUARIO_CONTRASENA=Admin12345
+ SOPORTE_JWT_SECRET=cambia-el-secreto-del-personal-de-soporte-minimo-32
+ SOPORTE_ADMIN_CORREO=soporte-admin@marketroad.local
+ SOPORTE_ADMIN_CONTRASENA=Soporte12345
++# Base de datos PROPIA de soporte (servidor MySQL aparte: servicio mysql-soporte). Cambia estas credenciales fuera de desarrollo local.
++SOPORTE_MYSQL_ROOT_PASSWORD=rootpassword_soporte
++SOPORTE_DB_USERNAME=soporte_app
++SOPORTE_DB_PASSWORD=soporte_local_dev
++# Cuenta inicial con rol SOPORTE (atiende tickets en soporte-panel.html). Misma política de contraseña que el administrador.
++SOPORTE_AGENTE_CORREO=soporte@marketroad.local
++SOPORTE_AGENTE_CONTRASENA=Agente12345
+diff --git a/Js/admin.js b/Js/admin.js
+index 86a1efe..08ede8d 100644
+--- a/Js/admin.js
++++ b/Js/admin.js
+@@ -1,6 +1,7 @@
+ import { apiFetch, esSuperusuario } from './api.js';
+ import { escapeHtml, formatoFechaCorta, formatoPrecio, mensajeDeError, mostrarAlerta, ocultarAlerta, opcionalPorId, porId, } from './util.js';
+ const FILAS_POR_PAGINA = 15;
++const TICKETS_POR_PAGINA = 15;
+ /** Tabla con búsqueda y paginación en el cliente sobre la lista completa que entrega la API. */
+ class TablaAdmin {
+     cuerpoId;
+@@ -78,13 +79,26 @@ const tablaPublicaciones = new TablaAdmin('publicacionesCuerpo', 'publicacionesP
+     { celda: p => String(p.cantidadImagenes) },
+     { celda: p => escapeHtml(formatoFechaCorta(p.fechaCreacion)) },
+ ], 'No hay publicaciones que coincidan.');
++const COLOR_ESTADO_TICKET = {
++    ABIERTO: 'warning', EN_PROGRESO: 'primary', RESUELTO: 'success', CERRADO: 'secondary',
++};
++const COLOR_PRIORIDAD_TICKET = {
++    BAJA: 'light border', NORMAL: 'light border', ALTA: 'warning', URGENTE: 'danger',
++};
+ let usuarios = [];
+ let publicaciones = [];
++const soporte = { pagina: 0, totalPaginas: 0, total: 0, secuencia: 0, temporizador: 0 };
+ document.addEventListener('DOMContentLoaded', () => {
+     opcionalPorId('btnRecargarAdmin')?.addEventListener('click', () => void cargarDatos());
+     opcionalPorId('buscarUsuarios')?.addEventListener('input', aplicarFiltroUsuarios);
+     opcionalPorId('buscarPublicaciones')?.addEventListener('input', aplicarFiltroPublicaciones);
+     opcionalPorId('filtroEstadoPublicaciones')?.addEventListener('change', aplicarFiltroPublicaciones);
++    // Los tickets se filtran y paginan en el servidor: se espera un momento al escribir para no saturarlo.
++    opcionalPorId('buscarSoporte')?.addEventListener('input', () => {
++        window.clearTimeout(soporte.temporizador);
++        soporte.temporizador = window.setTimeout(() => void cargarSoporte(0), 350);
++    });
++    opcionalPorId('filtroEstadoSoporte')?.addEventListener('change', () => void cargarSoporte(0));
+     iniciar();
+ });
+ // Si la sesión cambia o expira con la ventana abierta, se vuelve a evaluar el acceso.
+@@ -138,6 +152,8 @@ async function cargarDatos() {
+         mostrarAlerta(alertaPublicaciones, mensajeDeError(resPublicaciones.reason, 'No se pudieron cargar las publicaciones.'));
+     }
+     dibujarResumen();
++    // El soporte vive en otro servicio y otra base de datos: si falla, el resto del panel sigue funcionando.
++    await cargarSoporte(soporte.pagina);
+ }
+ function tarjeta(titulo, valor) {
+     return `<div class="col-6 col-md-3"><div class="admin-tarjeta">
+@@ -155,3 +171,104 @@ function dibujarResumen() {
+     porId('contadorUsuarios').textContent = String(usuarios.length);
+     porId('contadorPublicaciones').textContent = String(publicaciones.length);
+ }
++// ================================================================ Soporte (solo lectura)
++async function cargarSoporte(pagina) {
++    const alerta = opcionalPorId('soporteAlerta');
++    ocultarAlerta(alerta);
++    const secuencia = ++soporte.secuencia;
++    const parametros = new URLSearchParams({ pagina: String(pagina), tamano: String(TICKETS_POR_PAGINA) });
++    const q = opcionalPorId('buscarSoporte')?.value.trim() ?? '';
++    const estado = opcionalPorId('filtroEstadoSoporte')?.value ?? '';
++    if (q)
++        parametros.set('q', q);
++    if (estado)
++        parametros.set('estado', estado);
++    const [resLista, resResumen] = await Promise.allSettled([
++        apiFetch(`/soporte/admin/tickets?${parametros.toString()}`),
++        apiFetch('/soporte/admin/tickets/resumen'),
++    ]);
++    if (secuencia !== soporte.secuencia)
++        return; // llegó una búsqueda más nueva
++    if (resLista.status === 'fulfilled') {
++        soporte.pagina = resLista.value.pagina;
++        soporte.totalPaginas = resLista.value.totalPaginas;
++        soporte.total = resLista.value.totalElementos;
++        dibujarTicketsSoporte(resLista.value.contenido);
++    }
++    else {
++        porId('soporteCuerpo').innerHTML = '';
++        porId('soportePaginacion').innerHTML = '';
++        mostrarAlerta(alerta, mensajeDeError(resLista.reason, 'No se pudieron cargar los tickets de soporte.'));
++    }
++    if (resResumen.status === 'fulfilled') {
++        const r = resResumen.value;
++        porId('contadorSoporte').textContent = String(r.total);
++        porId('soporteResumen').textContent = `${r.total} ticket(s) en total · ${r.sinAsignar} activo(s) sin asignar · `
++            + `${r.porEstado.ABIERTO ?? 0} abierto(s) · ${r.porEstado.EN_PROGRESO ?? 0} en progreso · `
++            + `${r.porEstado.RESUELTO ?? 0} resuelto(s) · ${r.porEstado.CERRADO ?? 0} cerrado(s)`;
++    }
++}
++function dibujarTicketsSoporte(tickets) {
++    porId('soporteCuerpo').innerHTML = tickets.length === 0
++        ? '<tr><td colspan="9" class="text-center text-muted py-4">No hay tickets que coincidan.</td></tr>'
++        : tickets.map(t => `<tr>
++            <td>${t.id}</td>
++            <td><span class="admin-truncar" title="${escapeHtml(t.asunto)}">${escapeHtml(t.asunto)}</span></td>
++            <td>${escapeHtml(t.categoriaNombre)}</td>
++            <td><span class="badge text-bg-${COLOR_ESTADO_TICKET[t.estado] ?? 'secondary'}">${escapeHtml(t.estadoNombre)}</span></td>
++            <td><span class="badge text-bg-${COLOR_PRIORIDAD_TICKET[t.prioridad] ?? 'light border'}">${escapeHtml(t.prioridadNombre)}</span></td>
++            <td>${escapeHtml(t.usuarioApodo)}</td>
++            <td>${t.asignadoNombre ? escapeHtml(t.asignadoNombre) : '<span class="text-muted">Sin asignar</span>'}</td>
++            <td>${escapeHtml(formatoFechaCorta(t.fechaActualizacion))}</td>
++            <td><button type="button" class="btn btn-outline-secondary btn-sm" data-ticket="${t.id}"
++                aria-label="Ver el ticket ${t.id}"><i class="bi bi-eye" aria-hidden="true"></i></button></td>
++        </tr>`).join('');
++    porId('soporteCuerpo').querySelectorAll('button[data-ticket]').forEach(boton => {
++        boton.addEventListener('click', () => void abrirTicketSoporte(Number(boton.dataset['ticket'])));
++    });
++    const nav = porId('soportePaginacion');
++    if (soporte.totalPaginas <= 1) {
++        nav.innerHTML = `<span class="small text-muted">${soporte.total} registro(s)</span>`;
++        return;
++    }
++    nav.innerHTML = `
++        <button type="button" class="btn btn-outline-secondary btn-sm" data-dir="-1" ${soporte.pagina === 0 ? 'disabled' : ''}>
++            <i class="bi bi-chevron-left" aria-hidden="true"></i> Anterior</button>
++        <span class="small text-muted">Página ${soporte.pagina + 1} de ${soporte.totalPaginas} · ${soporte.total} registros</span>
++        <button type="button" class="btn btn-outline-secondary btn-sm" data-dir="1" ${soporte.pagina >= soporte.totalPaginas - 1 ? 'disabled' : ''}>
++            Siguiente <i class="bi bi-chevron-right" aria-hidden="true"></i></button>`;
++    nav.querySelectorAll('button[data-dir]').forEach(boton => {
++        boton.addEventListener('click', () => void cargarSoporte(soporte.pagina + Number(boton.dataset['dir'])));
++    });
++}
++async function abrirTicketSoporte(id) {
++    const alerta = opcionalPorId('ticketSoporteAlerta');
++    ocultarAlerta(alerta);
++    porId('tituloTicketSoporte').textContent = `Ticket #${id}`;
++    porId('ticketSoporteDatos').textContent = 'Cargando...';
++    porId('ticketSoporteMensajes').innerHTML = '';
++    bootstrap.Modal.getOrCreateInstance(porId('modalTicketSoporte')).show();
++    try {
++        const detalle = await apiFetch(`/soporte/admin/tickets/${id}`);
++        const t = detalle.ticket;
++        porId('tituloTicketSoporte').textContent = `Ticket #${t.id} · ${t.asunto}`;
++        const persona = detalle.usuario.correo
++            ? `${detalle.usuario.apodo} (#${detalle.usuario.id ?? '—'} · ${detalle.usuario.correo})`
++            : detalle.usuario.apodo;
++        porId('ticketSoporteDatos').innerHTML = `${escapeHtml(t.categoriaNombre)} · ${escapeHtml(t.estadoNombre)} · `
++            + `Prioridad ${escapeHtml(t.prioridadNombre)}<br>Abierto por ${escapeHtml(persona)} · Atiende: `
++            + `${t.asignadoNombre ? escapeHtml(t.asignadoNombre) : 'sin asignar'}`;
++        porId('ticketSoporteMensajes').innerHTML = detalle.mensajes.map(m => {
++            const clase = m.autorTipo === 'SISTEMA' ? 'text-bg-light border text-muted fst-italic'
++                : m.autorTipo === 'PERSONAL' ? 'text-bg-primary' : 'text-bg-secondary';
++            const alineacion = m.autorTipo === 'PERSONAL' ? 'align-self-end' : 'align-self-start';
++            return `<div class="${alineacion} rounded p-2 ${clase}" style="max-width:85%">
++                <div class="small opacity-75">${escapeHtml(m.autorNombre)} · ${escapeHtml(formatoFechaCorta(m.fecha))}</div>
++                <div style="white-space:pre-wrap">${escapeHtml(m.contenido)}</div></div>`;
++        }).join('');
++    }
++    catch (error) {
++        porId('ticketSoporteDatos').textContent = '';
++        mostrarAlerta(alerta, mensajeDeError(error, 'No se pudo cargar el ticket.'));
++    }
++}
+diff --git a/Publication-Api/src/main/java/com/marketroad/publication/catalogo/CatalogoProcesador.java b/Publication-Api/src/main/java/com/marketroad/publication/catalogo/CatalogoProcesador.java
+index 6616084..8001ff3 100644
+--- a/Publication-Api/src/main/java/com/marketroad/publication/catalogo/CatalogoProcesador.java
++++ b/Publication-Api/src/main/java/com/marketroad/publication/catalogo/CatalogoProcesador.java
+@@ -6,19 +6,24 @@ import java.util.Collection;
+ import java.util.Comparator;
+ import java.util.List;
+ 
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Component;
++
+ /**
+  * Aplica filtros (categoría, precio, texto, radio) y el orden pedido a un conjunto de candidatos.
+- * Es lógica pura: no toca base de datos, así se puede probar sin Spring.
++ * Es lógica pura: no toca base de datos, así se puede probar sin levantar Spring. Bean de Spring.
+  */
+-public final class CatalogoProcesador {
+-    private CatalogoProcesador() {}
++@Component
++public class CatalogoProcesador {
++    @Autowired
++    private Relevancia relevancia;
+ 
+-    private static final Comparator<Resultado> RECIENTES = Comparator
++    private final Comparator<Resultado> recientes = Comparator
+             .<Resultado, OffsetDateTime>comparing(r -> r.candidato().fecha(), Comparator.reverseOrder())
+             .thenComparing(r -> r.candidato().id(), Comparator.reverseOrder());
+ 
+-    public static List<Resultado> procesar(Collection<Candidato> candidatos, CatalogoConsulta consulta) {
+-        List<String> terminos = Relevancia.terminos(consulta.texto());
++    public List<Resultado> procesar(Collection<Candidato> candidatos, CatalogoConsulta consulta) {
++        List<String> terminos = relevancia.terminos(consulta.texto());
+         List<Resultado> resultados = new ArrayList<>();
+ 
+         for (Candidato c : candidatos) {
+@@ -42,7 +47,7 @@ public final class CatalogoProcesador {
+ 
+             int puntaje = 0;
+             if (!terminos.isEmpty()) {
+-                puntaje = Relevancia.puntaje(terminos, c);
++                puntaje = relevancia.puntaje(terminos, c);
+                 if (puntaje < 0) {
+                     continue;
+                 }
+@@ -54,26 +59,26 @@ public final class CatalogoProcesador {
+         return resultados;
+     }
+ 
+-    static Comparator<Resultado> comparador(OrdenCatalogo orden) {
++    Comparator<Resultado> comparador(OrdenCatalogo orden) {
+         switch (orden) {
+             case PRECIO_ASC:
+-                return Comparator.<Resultado, java.math.BigDecimal>comparing(r -> r.candidato().precio()).thenComparing(RECIENTES);
++                return Comparator.<Resultado, java.math.BigDecimal>comparing(r -> r.candidato().precio()).thenComparing(recientes);
+             case PRECIO_DESC:
+                 return Comparator.<Resultado, java.math.BigDecimal>comparing(r -> r.candidato().precio(), Comparator.reverseOrder())
+-                        .thenComparing(RECIENTES);
++                        .thenComparing(recientes);
+             case DISTANCIA:
+                 return Comparator.<Resultado, Double>comparing(Resultado::distanciaKm, Comparator.nullsLast(Comparator.naturalOrder()))
+-                        .thenComparing(RECIENTES);
++                        .thenComparing(recientes);
+             case RECIENTES:
+-                return RECIENTES;
++                return recientes;
+             case RELEVANCIA:
+             default:
+                 return Comparator.<Resultado, Integer>comparing(Resultado::puntaje, Comparator.reverseOrder())
+-                        .thenComparing(RECIENTES);
++                        .thenComparing(recientes);
+         }
+     }
+ 
+-    public static <T> List<T> pagina(List<T> lista, int pagina, int tamano) {
++    public <T> List<T> pagina(List<T> lista, int pagina, int tamano) {
+         long desde = (long) pagina * tamano;
+         if (desde >= lista.size()) {
+             return List.of();
+@@ -82,7 +87,7 @@ public final class CatalogoProcesador {
+         return lista.subList((int) desde, hasta);
+     }
+ 
+-    public static int totalPaginas(long total, int tamano) {
++    public int totalPaginas(long total, int tamano) {
+         return (int) ((total + tamano - 1) / tamano);
+     }
+ }
+diff --git a/Publication-Api/src/main/java/com/marketroad/publication/catalogo/Relevancia.java b/Publication-Api/src/main/java/com/marketroad/publication/catalogo/Relevancia.java
+index 9662a3b..386e8f6 100644
+--- a/Publication-Api/src/main/java/com/marketroad/publication/catalogo/Relevancia.java
++++ b/Publication-Api/src/main/java/com/marketroad/publication/catalogo/Relevancia.java
+@@ -5,12 +5,14 @@ import java.util.ArrayList;
+ import java.util.List;
+ import java.util.Locale;
+ 
+-/** Puntaje de coincidencia entre un texto de búsqueda y una publicación. */
+-final class Relevancia {
+-    private Relevancia() {}
++import org.springframework.stereotype.Component;
++
++/** Puntaje de coincidencia entre un texto de búsqueda y una publicación. Bean de Spring. */
++@Component
++class Relevancia {
+ 
+     /** Minúsculas, sin tildes ni signos; palabras separadas por un espacio. */
+-    static String normalizar(String texto) {
++    String normalizar(String texto) {
+         if (texto == null) {
+             return "";
+         }
+@@ -18,7 +20,7 @@ final class Relevancia {
+         return sinTildes.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").trim();
+     }
+ 
+-    static List<String> terminos(String texto) {
++    List<String> terminos(String texto) {
+         String limpio = normalizar(texto);
+         List<String> terminos = new ArrayList<>();
+         if (!limpio.isEmpty()) {
+@@ -33,7 +35,7 @@ final class Relevancia {
+      * @return -1 si algún término no aparece en título, descripción o categoría (la publicación no coincide);
+      *         en otro caso un puntaje positivo: más alto = mejor coincidencia.
+      */
+-    static int puntaje(List<String> terminos, Candidato c) {
++    int puntaje(List<String> terminos, Candidato c) {
+         String titulo = normalizar(c.titulo());
+         String descripcion = normalizar(c.descripcion());
+         String categoria = normalizar(c.categoria().getNombre());
+diff --git a/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/ConversacionService.java b/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/ConversacionService.java
+index f5b3afe..3bc3441 100644
+--- a/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/ConversacionService.java
++++ b/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/ConversacionService.java
+@@ -49,6 +49,8 @@ public class ConversacionService {
+     private PublicacionRepository publicaciones;
+     @Autowired
+     private LimitadorMensajes limitador;
++    @Autowired
++    private ReglasMensajeria reglas;
+ 
+     // ------------------------------------------------------------------ consultas
+ 
+@@ -102,7 +104,7 @@ public class ConversacionService {
+         if (p.getUsuarioId().equals(yo.usuarioId())) {
+             throw new IllegalArgumentException("No puedes iniciar una conversación en tu propia publicación");
+         }
+-        String texto = ReglasMensajeria.normalizarContenido(contenido);
++        String texto = reglas.normalizarContenido(contenido);
+ 
+         Conversacion c = conversaciones.findByPublicacionIdAndCompradorId(p.getId(), yo.usuarioId()).orElse(null);
+         if (c == null) {
+@@ -127,7 +129,7 @@ public class ConversacionService {
+         if (c.getPublicacion().getEstado() == EstadoPublicacion.ELIMINADA) {
+             throw new OperacionNoPermitidaException("La publicación fue eliminada");
+         }
+-        String texto = ReglasMensajeria.normalizarContenido(contenido);
++        String texto = reglas.normalizarContenido(contenido);
+         agregarMensaje(c, yo.usuarioId(), TipoMensaje.TEXTO, texto, null, null);
+         return detalle(c, yo);
+     }
+@@ -138,7 +140,7 @@ public class ConversacionService {
+         Conversacion c = cargar(id, yo);
+         exigirRol(c, yo, Rol.COMPRADOR, "Solo el comprador puede hacer ofertas");
+         exigirPublicacionActiva(c);
+-        BigDecimal oferta = ReglasMensajeria.validarMonto(monto);
++        BigDecimal oferta = reglas.validarMonto(monto);
+ 
+         // Una oferta nueva reemplaza a la pendiente (y a una aceptada anterior: se renegoció).
+         for (MensajeConversacion previa : mensajes.findByConversacionIdAndTipoAndEstadoOfertaIn(
+@@ -147,7 +149,7 @@ public class ConversacionService {
+         }
+         c.setMontoAcordado(null);
+         agregarMensaje(c, yo.usuarioId(), TipoMensaje.OFERTA,
+-                "Ofertó " + ReglasMensajeria.formatearMonto(oferta), oferta, EstadoOferta.PENDIENTE);
++                "Ofertó " + reglas.formatearMonto(oferta), oferta, EstadoOferta.PENDIENTE);
+         return detalle(c, yo);
+     }
+ 
+@@ -166,7 +168,7 @@ public class ConversacionService {
+             throw new OperacionNoPermitidaException("Esta oferta ya fue respondida o reemplazada");
+         }
+ 
+-        String monto = ReglasMensajeria.formatearMonto(oferta.getMonto());
++        String monto = reglas.formatearMonto(oferta.getMonto());
+         if (aceptar) {
+             oferta.setEstadoOferta(EstadoOferta.ACEPTADA);
+             c.setMontoAcordado(oferta.getMonto());
+@@ -199,7 +201,7 @@ public class ConversacionService {
+         publicaciones.save(p);
+ 
+         agregarMensaje(c, yo.usuarioId(), TipoMensaje.SISTEMA,
+-                "Marcó la publicación como vendida por " + ReglasMensajeria.formatearMonto(precioFinal) + ".", null, null);
++                "Marcó la publicación como vendida por " + reglas.formatearMonto(precioFinal) + ".", null, null);
+ 
+         for (Conversacion otra : conversaciones.findByPublicacionId(p.getId())) {
+             if (otra.getId().equals(c.getId())) {
+@@ -219,7 +221,7 @@ public class ConversacionService {
+     private Conversacion cargar(Long id, Identidad yo) {
+         Conversacion c = conversaciones.findConPublicacion(id)
+                 .orElseThrow(() -> new ConversacionNoEncontradaException("No se encontró la conversación"));
+-        if (ReglasMensajeria.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId()) == null) {
++        if (reglas.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId()) == null) {
+             throw new ConversacionNoEncontradaException("No se encontró la conversación");
+         }
+         sincronizarApodo(c, yo);
+@@ -227,7 +229,7 @@ public class ConversacionService {
+     }
+ 
+     private void exigirRol(Conversacion c, Identidad yo, Rol requerido, String mensajeError) {
+-        if (ReglasMensajeria.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId()) != requerido) {
++        if (reglas.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId()) != requerido) {
+             throw new OperacionNoPermitidaException(mensajeError);
+         }
+     }
+@@ -248,7 +250,7 @@ public class ConversacionService {
+         m.setMonto(monto);
+         m.setEstadoOferta(estadoOferta);
+         MensajeConversacion guardado = mensajes.save(m);
+-        c.setUltimoMensaje(ReglasMensajeria.vistaPrevia(contenido));
++        c.setUltimoMensaje(reglas.vistaPrevia(contenido));
+         c.setUltimaActividad(guardado.getFechaEnvio());
+         conversaciones.save(c);
+         return guardado;
+@@ -269,7 +271,7 @@ public class ConversacionService {
+         }
+     }
+ 
+-    private static String limpiarApodo(String apodo) {
++    private String limpiarApodo(String apodo) {
+         if (apodo == null || apodo.isBlank()) {
+             return null;
+         }
+@@ -279,7 +281,7 @@ public class ConversacionService {
+ 
+     private ConversacionDetalleDTO detalle(Conversacion c, Identidad yo) {
+         List<MensajeDTO> lista = mensajes.findByConversacionIdOrderByIdAsc(c.getId()).stream()
+-                .map(ConversacionService::aDTO)
++                .map(this::aDTO)
+                 .toList();
+         long noLeidos = mensajes.countByConversacionIdAndRemitenteIdNotAndLeidoFalse(c.getId(), yo.usuarioId());
+         return new ConversacionDetalleDTO(resumen(c, yo, noLeidos), lista);
+@@ -287,18 +289,18 @@ public class ConversacionService {
+ 
+     private ConversacionResumenDTO resumen(Conversacion c, Identidad yo, long noLeidos) {
+         Publicacion p = c.getPublicacion();
+-        Rol rol = ReglasMensajeria.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId());
++        Rol rol = reglas.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId());
+         boolean soyComprador = rol == Rol.COMPRADOR;
+         Long otroId = soyComprador ? c.getVendedorId() : c.getCompradorId();
+         String otroApodo = soyComprador ? c.getVendedorApodo() : c.getCompradorApodo();
+         return new ConversacionResumenDTO(
+                 c.getId(), p.getId(), p.getTitulo(), p.getPrecio(), p.getEstado().name(),
+                 "/api/v1/publicaciones/" + p.getId() + "/imagenes/0",
+-                rol.name(), otroId, ReglasMensajeria.apodoODefecto(otroApodo, otroId),
++                rol.name(), otroId, reglas.apodoODefecto(otroApodo, otroId),
+                 c.getMontoAcordado(), c.getUltimoMensaje(), c.getUltimaActividad(), noLeidos);
+     }
+ 
+-    private static MensajeDTO aDTO(MensajeConversacion m) {
++    private MensajeDTO aDTO(MensajeConversacion m) {
+         return new MensajeDTO(m.getId(), m.getRemitenteId(), m.getTipo().name(), m.getContenido(), m.getMonto(),
+                 m.getEstadoOferta() == null ? null : m.getEstadoOferta().name(), m.isLeido(), m.getFechaEnvio());
+     }
+diff --git a/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/LimitadorMensajes.java b/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/LimitadorMensajes.java
+index 5414212..499c572 100644
+--- a/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/LimitadorMensajes.java
++++ b/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/LimitadorMensajes.java
+@@ -6,6 +6,7 @@ import java.util.Deque;
+ import java.util.Map;
+ import java.util.concurrent.ConcurrentHashMap;
+ 
++import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.stereotype.Component;
+ 
+ import com.marketroad.publication.exception.DemasiadasSolicitudesException;
+@@ -16,8 +17,11 @@ import com.marketroad.publication.exception.DemasiadasSolicitudesException;
+  */
+ @Component
+ public class LimitadorMensajes {
+-    public static final int MAXIMO = 20;
+-    public static final long VENTANA_MS = 60_000;
++    /** Acciones permitidas por ventana y duración de la ventana: se configuran en application.yml (mensajeria.limite.*). */
++    @Value("${mensajeria.limite.maximo:20}")
++    private int maximo;
++    @Value("${mensajeria.limite.ventana-ms:60000}")
++    private long ventanaMs;
+ 
+     private final Map<Long, Deque<Long>> acciones = new ConcurrentHashMap<>();
+     private final Clock reloj;
+@@ -26,18 +30,26 @@ public class LimitadorMensajes {
+         this(Clock.systemUTC());
+     }
+ 
++    /** Para pruebas: permite controlar el reloj. */
+     LimitadorMensajes(Clock reloj) {
+         this.reloj = reloj;
+     }
+ 
++    /** Para pruebas: fija el límite sin levantar Spring. */
++    LimitadorMensajes(Clock reloj, int maximo, long ventanaMs) {
++        this(reloj);
++        this.maximo = maximo;
++        this.ventanaMs = ventanaMs;
++    }
++
+     public void registrar(Long usuarioId) {
+         long ahora = reloj.millis();
+         Deque<Long> cola = acciones.computeIfAbsent(usuarioId, k -> new ArrayDeque<>());
+         synchronized (cola) {
+-            while (!cola.isEmpty() && ahora - cola.peekFirst() >= VENTANA_MS) {
++            while (!cola.isEmpty() && ahora - cola.peekFirst() >= ventanaMs) {
+                 cola.pollFirst();
+             }
+-            if (cola.size() >= MAXIMO) {
++            if (cola.size() >= maximo) {
+                 throw new DemasiadasSolicitudesException("Estás enviando mensajes muy rápido. Espera un momento e inténtalo de nuevo");
+             }
+             cola.addLast(ahora);
+@@ -45,7 +57,7 @@ public class LimitadorMensajes {
+         if (acciones.size() > 10_000) {
+             acciones.entrySet().removeIf(e -> {
+                 synchronized (e.getValue()) {
+-                    return e.getValue().isEmpty() || ahora - e.getValue().peekLast() >= VENTANA_MS;
++                    return e.getValue().isEmpty() || ahora - e.getValue().peekLast() >= ventanaMs;
+                 }
+             });
+         }
+diff --git a/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/ReglasMensajeria.java b/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/ReglasMensajeria.java
+index cb1f53c..e0090d6 100644
+--- a/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/ReglasMensajeria.java
++++ b/Publication-Api/src/main/java/com/marketroad/publication/mensajeria/ReglasMensajeria.java
+@@ -5,20 +5,29 @@ import java.math.RoundingMode;
+ import java.text.NumberFormat;
+ import java.util.Locale;
+ 
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.stereotype.Component;
++
+ import com.marketroad.publication.validacion.Textos;
+ 
+-/** Reglas puras de la mensajería (sin base de datos), separadas para poder probarlas fácilmente. */
+-public final class ReglasMensajeria {
++/** Reglas puras de la mensajería (sin base de datos), separadas para poder probarlas fácilmente. Bean de Spring. */
++@Component
++public class ReglasMensajeria {
+     public static final int MAX_CONTENIDO = 1000;
+     public static final int MAX_VISTA_PREVIA = 120;
+-    private static final BigDecimal MONTO_MAXIMO = new BigDecimal("9999999999.99");
+ 
+     public enum Rol { COMPRADOR, VENDEDOR }
+ 
+-    private ReglasMensajeria() {}
++    @Autowired
++    private Textos textos;
++
++    /** Monto máximo de una oferta (cabe en la columna DECIMAL(12,2)); configurable en application.yml. */
++    @Value("${mensajeria.monto-maximo:9999999999.99}")
++    private BigDecimal montoMaximo;
+ 
+-    public static String normalizarContenido(String contenido) {
+-        String limpio = Textos.limpiar(contenido, true, "El mensaje");
++    public String normalizarContenido(String contenido) {
++        String limpio = textos.limpiar(contenido, true, "El mensaje");
+         if (limpio.isEmpty()) {
+             throw new IllegalArgumentException("El mensaje no puede estar vacío");
+         }
+@@ -29,21 +38,21 @@ public final class ReglasMensajeria {
+     }
+ 
+     /** Monto de una oferta: mayor que 0, hasta 2 decimales y hasta 10 dígitos enteros. Devuelve el monto con escala 2. */
+-    public static BigDecimal validarMonto(BigDecimal monto) {
++    public BigDecimal validarMonto(BigDecimal monto) {
+         if (monto == null || monto.signum() <= 0) {
+             throw new IllegalArgumentException("La oferta debe ser mayor que 0");
+         }
+         if (monto.stripTrailingZeros().scale() > 2) {
+             throw new IllegalArgumentException("La oferta puede tener como máximo 2 decimales");
+         }
+-        if (monto.compareTo(MONTO_MAXIMO) > 0) {
++        if (monto.compareTo(montoMaximo) > 0) {
+             throw new IllegalArgumentException("La oferta es demasiado alta");
+         }
+         return monto.setScale(2, RoundingMode.UNNECESSARY);
+     }
+ 
+     /** Texto corto para la lista de conversaciones. */
+-    public static String vistaPrevia(String texto) {
++    public String vistaPrevia(String texto) {
+         if (texto == null) {
+             return "";
+         }
+@@ -55,7 +64,7 @@ public final class ReglasMensajeria {
+     }
+ 
+     /** Rol del usuario en la conversación, o null si no participa. */
+-    public static Rol rolDe(Long usuarioId, Long compradorId, Long vendedorId) {
++    public Rol rolDe(Long usuarioId, Long compradorId, Long vendedorId) {
+         if (usuarioId == null) {
+             return null;
+         }
+@@ -69,14 +78,14 @@ public final class ReglasMensajeria {
+     }
+ 
+     /** Ej.: 450000 -> "$450.000" (formato chileno). */
+-    public static String formatearMonto(BigDecimal monto) {
++    public String formatearMonto(BigDecimal monto) {
+         NumberFormat formato = NumberFormat.getNumberInstance(Locale.forLanguageTag("es-CL"));
+         formato.setMinimumFractionDigits(0);
+         formato.setMaximumFractionDigits(2);
+         return "$" + formato.format(monto);
+     }
+ 
+-    public static String apodoODefecto(String apodo, Long usuarioId) {
++    public String apodoODefecto(String apodo, Long usuarioId) {
+         return apodo == null || apodo.isBlank() ? "Usuario #" + usuarioId : apodo;
+     }
+ }
+diff --git a/Publication-Api/src/main/java/com/marketroad/publication/service/AdminPublicacionService.java b/Publication-Api/src/main/java/com/marketroad/publication/service/AdminPublicacionService.java
+index 82b6526..1b644ec 100644
+--- a/Publication-Api/src/main/java/com/marketroad/publication/service/AdminPublicacionService.java
++++ b/Publication-Api/src/main/java/com/marketroad/publication/service/AdminPublicacionService.java
+@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
+ 
+ import com.marketroad.publication.dto.AdminPublicacionDTO;
+ import com.marketroad.publication.model.Publicacion;
+-import com.marketroad.publication.repository.ImagenPublicacionRepository;
+ import com.marketroad.publication.repository.PublicacionRepository;
+ 
+ /** Consultas de solo lectura para el panel de superusuario (incluye publicaciones vendidas y eliminadas). */
+@@ -19,13 +18,13 @@ public class AdminPublicacionService {
+     @Autowired
+     private PublicacionRepository repository;
+     @Autowired
+-    private ImagenPublicacionRepository imagenRepository;
++    private PublicacionMapper mapper;
+ 
+     @Transactional(readOnly = true)
+     public List<AdminPublicacionDTO> listarTodas() {
+         List<Publicacion> publicaciones = repository.findAll(Sort.by(Sort.Direction.DESC, "fechaCreacion"));
+-        Map<Long, Integer> imagenes = PublicacionMapper.contarImagenes(
+-                imagenRepository, publicaciones.stream().map(Publicacion::getId).toList());
++        Map<Long, Integer> imagenes = mapper.contarImagenes(
++                publicaciones.stream().map(Publicacion::getId).toList());
+         return publicaciones.stream()
+                 .map(p -> new AdminPublicacionDTO(
+                         p.getId(), p.getTitulo(), p.getPrecio(),
+diff --git a/Publication-Api/src/main/java/com/marketroad/publication/service/CatalogoService.java b/Publication-Api/src/main/java/com/marketroad/publication/service/CatalogoService.java
+index e76e4ad..7dd07d1 100644
+--- a/Publication-Api/src/main/java/com/marketroad/publication/service/CatalogoService.java
++++ b/Publication-Api/src/main/java/com/marketroad/publication/service/CatalogoService.java
+@@ -20,7 +20,6 @@ import com.marketroad.publication.dto.PublicacionResponseDTO;
+ import com.marketroad.publication.model.CategoriaPublicacion;
+ import com.marketroad.publication.model.EstadoPublicacion;
+ import com.marketroad.publication.model.Publicacion;
+-import com.marketroad.publication.repository.ImagenPublicacionRepository;
+ import com.marketroad.publication.repository.PublicacionRepository;
+ 
+ @Service
+@@ -28,7 +27,9 @@ public class CatalogoService {
+         @Autowired
+         private PublicacionRepository repository;
+         @Autowired
+-        private ImagenPublicacionRepository imagenRepository;
++        private PublicacionMapper mapper;
++        @Autowired
++        private CatalogoProcesador procesador;
+ 
+         public List<CategoriaDTO> categorias() {
+                 return Arrays.stream(CategoriaPublicacion.values())
+@@ -48,23 +49,23 @@ public class CatalogoService {
+                                         p.getPrecio(), p.getLatitud(), p.getLongitud(), p.getFechaCreacion()));
+                 }
+ 
+-                List<Resultado> ordenados = CatalogoProcesador.procesar(candidatos, consulta);
+-                List<Resultado> pagina = CatalogoProcesador.pagina(ordenados, consulta.pagina(), consulta.tamano());
++                List<Resultado> ordenados = procesador.procesar(candidatos, consulta);
++                List<Resultado> pagina = procesador.pagina(ordenados, consulta.pagina(), consulta.tamano());
+ 
+-                Map<Long, Integer> imagenes = PublicacionMapper.contarImagenes(imagenRepository,
++                Map<Long, Integer> imagenes = mapper.contarImagenes(
+                                 pagina.stream().map(r -> r.candidato().id()).toList());
+ 
+                 List<PublicacionResponseDTO> contenido = pagina.stream()
+-                                .map(r -> PublicacionMapper.aDTO(porId.get(r.candidato().id()),
++                                .map(r -> mapper.aDTO(porId.get(r.candidato().id()),
+                                                 imagenes.getOrDefault(r.candidato().id(), 0),
+                                                 redondear(r.distanciaKm())))
+                                 .toList();
+ 
+                 return new PaginaDTO<>(contenido, consulta.pagina(), consulta.tamano(), ordenados.size(),
+-                                CatalogoProcesador.totalPaginas(ordenados.size(), consulta.tamano()));
++                                procesador.totalPaginas(ordenados.size(), consulta.tamano()));
+         }
+ 
+-        private static Double redondear(Double km) {
++        private Double redondear(Double km) {
+                 return km == null ? null : Math.round(km * 10.0) / 10.0;
+         }
+ }
+diff --git a/Publication-Api/src/main/java/com/marketroad/publication/service/PublicacionMapper.java b/Publication-Api/src/main/java/com/marketroad/publication/service/PublicacionMapper.java
+index 386ae96..44312da 100644
+--- a/Publication-Api/src/main/java/com/marketroad/publication/service/PublicacionMapper.java
++++ b/Publication-Api/src/main/java/com/marketroad/publication/service/PublicacionMapper.java
+@@ -6,6 +6,9 @@ import java.util.List;
+ import java.util.Map;
+ import java.util.stream.IntStream;
+ 
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Component;
++
+ import com.marketroad.publication.dto.ModalidadEntregaDTO;
+ import com.marketroad.publication.dto.PublicacionResponseDTO;
+ import com.marketroad.publication.model.Publicacion;
+@@ -14,11 +17,14 @@ import com.marketroad.publication.repository.ImagenPublicacionRepository;
+ /**
+  * Conversión Publicacion -> DTO. Las URLs de imágenes se arman a partir de la cantidad de fotos
+  * (las posiciones son siempre 0..n-1), así nunca hay que cargar los bytes de las fotos para listar.
++ * Bean de Spring: los servicios lo reciben con @Autowired.
+  */
+-public final class PublicacionMapper {
+-    private PublicacionMapper() {}
++@Component
++public class PublicacionMapper {
++    @Autowired
++    private ImagenPublicacionRepository imagenRepository;
+ 
+-    public static PublicacionResponseDTO aDTO(Publicacion p, int cantidadImagenes, Double distanciaKm) {
++    public PublicacionResponseDTO aDTO(Publicacion p, int cantidadImagenes, Double distanciaKm) {
+         List<String> urls = IntStream.range(0, cantidadImagenes)
+                 .mapToObj(i -> "/api/v1/publicaciones/" + p.getId() + "/imagenes/" + i)
+                 .toList();
+@@ -33,12 +39,12 @@ public final class PublicacionMapper {
+                 p.getEstado().name(), p.getFechaCreacion(), urls);
+     }
+ 
+-    public static Map<Long, Integer> contarImagenes(ImagenPublicacionRepository repositorio, Collection<Long> ids) {
++    public Map<Long, Integer> contarImagenes(Collection<Long> ids) {
+         Map<Long, Integer> cantidades = new HashMap<>();
+         if (ids.isEmpty()) {
+             return cantidades;
+         }
+-        for (Object[] fila : repositorio.contarPorPublicacion(ids)) {
++        for (Object[] fila : imagenRepository.contarPorPublicacion(ids)) {
+             cantidades.put(((Number) fila[0]).longValue(), ((Number) fila[1]).intValue());
+         }
+         return cantidades;
+diff --git a/Publication-Api/src/main/java/com/marketroad/publication/service/PublicacionServiceImpl.java b/Publication-Api/src/main/java/com/marketroad/publication/service/PublicacionServiceImpl.java
+index d697bce..ad1b054 100644
+--- a/Publication-Api/src/main/java/com/marketroad/publication/service/PublicacionServiceImpl.java
++++ b/Publication-Api/src/main/java/com/marketroad/publication/service/PublicacionServiceImpl.java
+@@ -8,6 +8,7 @@ import javax.imageio.ImageIO;
+ import java.awt.image.BufferedImage;
+ 
+ import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ import org.springframework.web.multipart.MultipartFile;
+@@ -25,14 +26,22 @@ import com.marketroad.publication.validacion.Textos;
+ 
+ @Service
+ public class PublicacionServiceImpl implements PublicacionService {
+-    private static final int MAX_FOTOS = 8;
+-    private static final long MAX_BYTES_POR_FOTO = 5L * 1024 * 1024;
+-    private static final List<String> TIPOS_PERMITIDOS = List.of("image/jpeg", "image/png", "image/webp");
+-
+     @Autowired
+     private PublicacionRepository repository;
+     @Autowired
+     private ImagenPublicacionRepository imagenRepository;
++    @Autowired
++    private PublicacionMapper mapper;
++    @Autowired
++    private Textos textos;
++
++    /** Límites de las fotos: se configuran en application.yml (publicaciones.fotos.*). */
++    @Value("${publicaciones.fotos.maximo:8}")
++    private int maxFotos;
++    @Value("${publicaciones.fotos.max-bytes:5242880}")
++    private long maxBytesPorFoto;
++    @Value("${publicaciones.fotos.tipos-permitidos:image/jpeg,image/png,image/webp}")
++    private List<String> tiposPermitidos;
+ 
+     @Override
+     @Transactional
+@@ -41,15 +50,15 @@ public class PublicacionServiceImpl implements PublicacionService {
+             throw new IllegalArgumentException("Usuario autenticado inválido");
+         }
+         if (datos == null) throw new IllegalArgumentException("Faltan los datos de la publicación");
+-        String tituloNormalizado = Textos.limpiar(datos.titulo(), false, "El título");
++        String tituloNormalizado = textos.limpiar(datos.titulo(), false, "El título");
+         if (tituloNormalizado.length() < 3 || tituloNormalizado.length() > 100) {
+             throw new IllegalArgumentException("El título debe tener entre 3 y 100 caracteres");
+         }
+-        String descripcionNormalizada = Textos.limpiar(datos.descripcion(), true, "La descripción");
++        String descripcionNormalizada = textos.limpiar(datos.descripcion(), true, "La descripción");
+         if (descripcionNormalizada.length() < 10 || descripcionNormalizada.length() > 1000) {
+             throw new IllegalArgumentException("La descripción debe tener entre 10 y 1000 caracteres");
+         }
+-        String ubicacionNormalizada = Textos.limpiar(datos.ubicacion(), false, "La ubicación");
++        String ubicacionNormalizada = textos.limpiar(datos.ubicacion(), false, "La ubicación");
+         if (ubicacionNormalizada.length() < 2 || ubicacionNormalizada.length() > 120) {
+             throw new IllegalArgumentException("La ubicación debe tener entre 2 y 120 caracteres");
+         }
+@@ -92,8 +101,8 @@ public class PublicacionServiceImpl implements PublicacionService {
+         }
+         precio = precio.setScale(2, RoundingMode.UNNECESSARY);
+ 
+-        if (fotos == null || fotos.isEmpty() || fotos.size() > MAX_FOTOS) {
+-            throw new IllegalArgumentException("Debes subir entre 1 y 8 fotos");
++        if (fotos == null || fotos.isEmpty() || fotos.size() > maxFotos) {
++            throw new IllegalArgumentException("Debes subir entre 1 y " + maxFotos + " fotos");
+         }
+ 
+         Publicacion publicacion = new Publicacion();
+@@ -123,14 +132,14 @@ public class PublicacionServiceImpl implements PublicacionService {
+         }
+ 
+         Publicacion guardada = repository.save(publicacion);
+-        return PublicacionMapper.aDTO(guardada, fotos.size(), null);
++        return mapper.aDTO(guardada, fotos.size(), null);
+     }
+ 
+     private void validarFoto(MultipartFile foto) {
+         if (foto == null || foto.isEmpty()) throw new IllegalArgumentException("Las fotos no pueden estar vacías");
+-        if (foto.getSize() > MAX_BYTES_POR_FOTO) throw new IllegalArgumentException("Cada foto puede pesar como máximo 5 MB");
++        if (foto.getSize() > maxBytesPorFoto) throw new IllegalArgumentException("Cada foto puede pesar como máximo " + (maxBytesPorFoto / (1024 * 1024)) + " MB");
+         String tipo = foto.getContentType();
+-        if (!TIPOS_PERMITIDOS.contains(tipo)) {
++        if (!tiposPermitidos.contains(tipo)) {
+             throw new IllegalArgumentException("Solo se permiten imágenes JPG, PNG o WEBP");
+         }
+         try {
+@@ -159,10 +168,10 @@ public class PublicacionServiceImpl implements PublicacionService {
+     @Transactional(readOnly = true)
+     public List<PublicacionResponseDTO> obtenerPorUsuario(Long usuarioId) {
+         List<Publicacion> propias = repository.findByUsuarioIdAndEstadoNotOrderByFechaCreacionDesc(usuarioId, EstadoPublicacion.ELIMINADA);
+-        Map<Long, Integer> cantidades = PublicacionMapper.contarImagenes(imagenRepository,
++        Map<Long, Integer> cantidades = mapper.contarImagenes(
+                 propias.stream().map(Publicacion::getId).toList());
+         return propias.stream()
+-                .map(p -> PublicacionMapper.aDTO(p, cantidades.getOrDefault(p.getId(), 0), null))
++                .map(p -> mapper.aDTO(p, cantidades.getOrDefault(p.getId(), 0), null))
+                 .toList();
+     }
+ 
+@@ -173,8 +182,8 @@ public class PublicacionServiceImpl implements PublicacionService {
+         if (p.getEstado() == EstadoPublicacion.ELIMINADA) {
+             throw new PublicacionNoEncontradaException("No se encontró la publicación con id " + id);
+         }
+-        int cantidad = PublicacionMapper.contarImagenes(imagenRepository, List.of(p.getId())).getOrDefault(p.getId(), 0);
+-        return PublicacionMapper.aDTO(p, cantidad, null);
++        int cantidad = mapper.contarImagenes(List.of(p.getId())).getOrDefault(p.getId(), 0);
++        return mapper.aDTO(p, cantidad, null);
+     }
+ 
+     @Override
+@@ -200,7 +209,7 @@ public class PublicacionServiceImpl implements PublicacionService {
+                 .orElseThrow(() -> new PublicacionNoEncontradaException("No se encontró la publicación con id " + id));
+     }
+ 
+-    private static String apodoLimpio(String apodo) {
++    private String apodoLimpio(String apodo) {
+         if (apodo == null || apodo.isBlank()) return null;
+         String limpio = apodo.trim();
+         return limpio.length() > 40 ? limpio.substring(0, 40) : limpio;
+diff --git a/Publication-Api/src/main/java/com/marketroad/publication/validacion/Textos.java b/Publication-Api/src/main/java/com/marketroad/publication/validacion/Textos.java
+index fe14582..935cb0a 100644
+--- a/Publication-Api/src/main/java/com/marketroad/publication/validacion/Textos.java
++++ b/Publication-Api/src/main/java/com/marketroad/publication/validacion/Textos.java
+@@ -1,14 +1,16 @@
+ package com.marketroad.publication.validacion;
+ 
+-/** Validación y limpieza de textos escritos por personas (título, descripción, mensajes). */
+-public final class Textos {
+-    private Textos() {}
++import org.springframework.stereotype.Component;
++
++/** Validación y limpieza de textos escritos por personas (título, descripción, mensajes). Bean de Spring: se inyecta con @Autowired. */
++@Component
++public class Textos {
+ 
+     /**
+      * Recorta el texto y rechaza caracteres de control (salvo salto de línea y tabulación cuando se permiten
+      * varias líneas), el carácter nulo y los caracteres de dirección invisibles usados para falsear texto.
+      */
+-    public static String limpiar(String texto, boolean permiteSaltos, String campo) {
++    public String limpiar(String texto, boolean permiteSaltos, String campo) {
+         String limpio = texto == null ? "" : texto.strip();
+         for (int i = 0; i < limpio.length(); i++) {
+             char c = limpio.charAt(i);
+diff --git a/Publication-Api/src/main/resources/application.yml b/Publication-Api/src/main/resources/application.yml
+index 7681271..ea88802 100644
+--- a/Publication-Api/src/main/resources/application.yml
++++ b/Publication-Api/src/main/resources/application.yml
+@@ -23,3 +23,16 @@ spring:
+ 
+ jwt:
+   secret: ${JWT_SECRET:cambia-este-secreto-en-produccion-minimo-32-caracteres}
++
++# Límites operativos de la plataforma (se inyectan con @Value; ajústalos aquí sin recompilar).
++publicaciones:
++  fotos:
++    maximo: 8
++    max-bytes: 5242880 # 5 MB por foto
++    tipos-permitidos: image/jpeg,image/png,image/webp
++
++mensajeria:
++  limite:
++    maximo: 20          # mensajes/ofertas por persona
++    ventana-ms: 60000   # en una ventana de 1 minuto
++  monto-maximo: 9999999999.99
+diff --git a/Publication-Api/src/test/java/com/marketroad/publication/catalogo/CatalogoProcesadorTest.java b/Publication-Api/src/test/java/com/marketroad/publication/catalogo/CatalogoProcesadorTest.java
+index 3640526..e50d115 100644
+--- a/Publication-Api/src/test/java/com/marketroad/publication/catalogo/CatalogoProcesadorTest.java
++++ b/Publication-Api/src/test/java/com/marketroad/publication/catalogo/CatalogoProcesadorTest.java
+@@ -13,10 +13,19 @@ import java.util.EnumSet;
+ import java.util.List;
+ 
+ import org.junit.jupiter.api.Test;
++import org.springframework.test.util.ReflectionTestUtils;
+ 
+ import com.marketroad.publication.model.CategoriaPublicacion;
+ 
+ class CatalogoProcesadorTest {
++    private final CatalogoProcesador procesador = nuevoProcesador();
++
++    /** Arma el procesador igual que Spring: con su colaborador inyectado. */
++    private static CatalogoProcesador nuevoProcesador() {
++        CatalogoProcesador procesador = new CatalogoProcesador();
++        ReflectionTestUtils.setField(procesador, "relevancia", new Relevancia());
++        return procesador;
++    }
+ 
+     // Coordenadas de referencia
+     private static final double SCL_LAT = -33.4489, SCL_LON = -70.6693;   // Santiago
+@@ -77,30 +86,30 @@ class CatalogoProcesadorTest {
+ 
+     @Test
+     void filtraPorCategoria() {
+-        var r = CatalogoProcesador.procesar(muestra(),
++        var r = procesador.procesar(muestra(),
+                 consulta("", EnumSet.of(CategoriaPublicacion.ELECTRONICA), null, null, null, null, null, OrdenCatalogo.RECIENTES));
+         assertEquals(List.of(2L, 1L), ids(r));
+     }
+ 
+     @Test
+     void filtraPorVariasCategorias() {
+-        var r = CatalogoProcesador.procesar(muestra(),
++        var r = procesador.procesar(muestra(),
+                 consulta("", EnumSet.of(CategoriaPublicacion.DEPORTES, CategoriaPublicacion.HOGAR), null, null, null, null, null, OrdenCatalogo.RECIENTES));
+         assertEquals(List.of(4L, 3L), ids(r));
+     }
+ 
+     @Test
+     void filtraPorRangoDePrecioInclusivo() {
+-        var r = CatalogoProcesador.procesar(muestra(),
++        var r = procesador.procesar(muestra(),
+                 consulta("", EnumSet.noneOf(CategoriaPublicacion.class), "150000", "220000", null, null, null, OrdenCatalogo.PRECIO_ASC));
+         assertEquals(List.of(2L, 3L), ids(r));
+     }
+ 
+     @Test
+     void ordenaPorPrecioAscendenteYDescendente() {
+-        var asc = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_ASC));
++        var asc = procesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_ASC));
+         assertEquals(List.of(4L, 2L, 3L, 1L), ids(asc));
+-        var desc = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_DESC));
++        var desc = procesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_DESC));
+         assertEquals(List.of(1L, 3L, 2L, 4L), ids(desc));
+     }
+ 
+@@ -109,14 +118,14 @@ class CatalogoProcesadorTest {
+         List<Candidato> l = List.of(
+                 item(10, "Mesa", "Mesa de comedor", CategoriaPublicacion.HOGAR, "50000", null, null, 1),
+                 item(11, "Silla", "Silla de comedor", CategoriaPublicacion.HOGAR, "50000", null, null, 5));
+-        var r = CatalogoProcesador.procesar(l, consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_ASC));
++        var r = procesador.procesar(l, consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_ASC));
+         assertEquals(List.of(11L, 10L), ids(r));
+     }
+ 
+     @Test
+     void ordenaPorDistanciaConSinCoordenadasAlFinal() {
+         // Usuario en Santiago: Cámara (0 km) < Bicicleta (~100 km) < Notebook (~430 km) < Sofá (sin coordenadas)
+-        var r = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, SCL_LAT, SCL_LON, null, OrdenCatalogo.DISTANCIA));
++        var r = procesador.procesar(muestra(), consulta("", null, null, null, SCL_LAT, SCL_LON, null, OrdenCatalogo.DISTANCIA));
+         assertEquals(List.of(2L, 3L, 1L, 4L), ids(r));
+         assertNull(r.get(3).distanciaKm());
+         assertEquals(0.0, r.get(0).distanciaKm(), 0.01);
+@@ -124,39 +133,39 @@ class CatalogoProcesadorTest {
+ 
+     @Test
+     void radioExcluyeLosLejanosYLosSinCoordenadas() {
+-        var r = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, SCL_LAT, SCL_LON, 150.0, OrdenCatalogo.DISTANCIA));
++        var r = procesador.procesar(muestra(), consulta("", null, null, null, SCL_LAT, SCL_LON, 150.0, OrdenCatalogo.DISTANCIA));
+         assertEquals(List.of(2L, 3L), ids(r));
+     }
+ 
+     @Test
+     void sinUbicacionNoSeCalculaDistancia() {
+-        var r = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.RECIENTES));
++        var r = procesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.RECIENTES));
+         r.forEach(x -> assertNull(x.distanciaKm()));
+     }
+ 
+     @Test
+     void busquedaIgnoraTildesYMayusculas() {
+-        var r = CatalogoProcesador.procesar(muestra(), consulta("CAMARA", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
++        var r = procesador.procesar(muestra(), consulta("CAMARA", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+         assertEquals(List.of(2L), ids(r));
+     }
+ 
+     @Test
+     void busquedaExigeTodosLosTerminos() {
+-        var r = CatalogoProcesador.procesar(muestra(), consulta("notebook lenovo", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
++        var r = procesador.procesar(muestra(), consulta("notebook lenovo", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+         assertEquals(List.of(1L), ids(r));
+-        var ninguno = CatalogoProcesador.procesar(muestra(), consulta("notebook sofa", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
++        var ninguno = procesador.procesar(muestra(), consulta("notebook sofa", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+         assertTrue(ninguno.isEmpty());
+     }
+ 
+     @Test
+     void busquedaPorPrefijoDePalabraDelTitulo() {
+-        var r = CatalogoProcesador.procesar(muestra(), consulta("bici", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
++        var r = procesador.procesar(muestra(), consulta("bici", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+         assertEquals(List.of(3L), ids(r));
+     }
+ 
+     @Test
+     void busquedaTambienCoincideConElNombreDeLaCategoria() {
+-        var r = CatalogoProcesador.procesar(muestra(), consulta("deportes", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
++        var r = procesador.procesar(muestra(), consulta("deportes", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+         assertEquals(List.of(3L), ids(r));
+     }
+ 
+@@ -165,20 +174,20 @@ class CatalogoProcesadorTest {
+         List<Candidato> l = List.of(
+                 item(20, "Funda protectora", "Sirve para guardar tu cámara", CategoriaPublicacion.ELECTRONICA, "5000", null, null, 10),
+                 item(21, "Cámara Canon", "Poco uso", CategoriaPublicacion.ELECTRONICA, "200000", null, null, 1));
+-        var r = CatalogoProcesador.procesar(l, consulta("camara", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
++        var r = procesador.procesar(l, consulta("camara", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+         assertEquals(List.of(21L, 20L), ids(r));
+         assertTrue(r.get(0).puntaje() > r.get(1).puntaje());
+     }
+ 
+     @Test
+     void sinTextoLaRelevanciaEsPorRecencia() {
+-        var r = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
++        var r = procesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+         assertEquals(List.of(4L, 3L, 2L, 1L), ids(r));
+     }
+ 
+     @Test
+     void combinaCategoriaPrecioYTexto() {
+-        var r = CatalogoProcesador.procesar(muestra(),
++        var r = procesador.procesar(muestra(),
+                 consulta("usado", EnumSet.of(CategoriaPublicacion.ELECTRONICA), null, "400000", null, null, null, OrdenCatalogo.PRECIO_ASC));
+         assertEquals(List.of(1L), ids(r));
+     }
+@@ -251,14 +260,14 @@ class CatalogoProcesadorTest {
+     void paginaLaListaOrdenada() {
+         List<Integer> l = new ArrayList<>();
+         for (int i = 0; i < 25; i++) l.add(i);
+-        assertEquals(10, CatalogoProcesador.pagina(l, 0, 10).size());
+-        assertEquals(10, CatalogoProcesador.pagina(l, 1, 10).size());
+-        assertEquals(5, CatalogoProcesador.pagina(l, 2, 10).size());
+-        assertEquals(0, CatalogoProcesador.pagina(l, 3, 10).size());
+-        assertEquals(20, CatalogoProcesador.pagina(l, 2, 10).get(0).intValue());
+-        assertEquals(3, CatalogoProcesador.totalPaginas(25, 10));
+-        assertEquals(0, CatalogoProcesador.totalPaginas(0, 10));
+-        assertEquals(1, CatalogoProcesador.totalPaginas(10, 10));
++        assertEquals(10, procesador.pagina(l, 0, 10).size());
++        assertEquals(10, procesador.pagina(l, 1, 10).size());
++        assertEquals(5, procesador.pagina(l, 2, 10).size());
++        assertEquals(0, procesador.pagina(l, 3, 10).size());
++        assertEquals(20, procesador.pagina(l, 2, 10).get(0).intValue());
++        assertEquals(3, procesador.totalPaginas(25, 10));
++        assertEquals(0, procesador.totalPaginas(0, 10));
++        assertEquals(1, procesador.totalPaginas(10, 10));
+     }
+ 
+     @Test
+diff --git a/Publication-Api/src/test/java/com/marketroad/publication/mensajeria/LimitadorMensajesTest.java b/Publication-Api/src/test/java/com/marketroad/publication/mensajeria/LimitadorMensajesTest.java
+index b6c497d..0e14c41 100644
+--- a/Publication-Api/src/test/java/com/marketroad/publication/mensajeria/LimitadorMensajesTest.java
++++ b/Publication-Api/src/test/java/com/marketroad/publication/mensajeria/LimitadorMensajesTest.java
+@@ -23,11 +23,13 @@ class LimitadorMensajesTest {
+     @Test
+     void bloqueaAlSuperarElMaximoYSeLiberaConElTiempo() {
+         AtomicLong ahora = new AtomicLong(1_000);
+-        LimitadorMensajes limitador = new LimitadorMensajes(reloj(ahora));
+-        for (int i = 0; i < LimitadorMensajes.MAXIMO; i++) limitador.registrar(1L);
++        final int maximo = 20;
++        final long ventanaMs = 60_000;
++        LimitadorMensajes limitador = new LimitadorMensajes(reloj(ahora), maximo, ventanaMs);
++        for (int i = 0; i < maximo; i++) limitador.registrar(1L);
+         assertThrows(DemasiadasSolicitudesException.class, () -> limitador.registrar(1L));
+         assertDoesNotThrow(() -> limitador.registrar(2L)); // otro usuario no se ve afectado
+-        ahora.addAndGet(LimitadorMensajes.VENTANA_MS + 1);
++        ahora.addAndGet(ventanaMs + 1);
+         assertDoesNotThrow(() -> limitador.registrar(1L));
+     }
+ }
+diff --git a/Publication-Api/src/test/java/com/marketroad/publication/mensajeria/ReglasMensajeriaTest.java b/Publication-Api/src/test/java/com/marketroad/publication/mensajeria/ReglasMensajeriaTest.java
+index 234a8b3..522b30a 100644
+--- a/Publication-Api/src/test/java/com/marketroad/publication/mensajeria/ReglasMensajeriaTest.java
++++ b/Publication-Api/src/test/java/com/marketroad/publication/mensajeria/ReglasMensajeriaTest.java
+@@ -5,39 +5,52 @@ import static org.junit.jupiter.api.Assertions.*;
+ import java.math.BigDecimal;
+ 
+ import org.junit.jupiter.api.Test;
++import org.springframework.test.util.ReflectionTestUtils;
++
++import com.marketroad.publication.validacion.Textos;
+ 
+ class ReglasMensajeriaTest {
++    private final ReglasMensajeria reglas = nuevas();
++
++    /** Arma la regla igual que Spring: con sus colaboradores y su configuración inyectados. */
++    private static ReglasMensajeria nuevas() {
++        ReglasMensajeria reglas = new ReglasMensajeria();
++        ReflectionTestUtils.setField(reglas, "textos", new Textos());
++        ReflectionTestUtils.setField(reglas, "montoMaximo", new BigDecimal("9999999999.99"));
++        return reglas;
++    }
++
+     @Test
+     void normalizaYRechazaMensajes() {
+-        assertEquals("hola", ReglasMensajeria.normalizarContenido("  hola  "));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasMensajeria.normalizarContenido("   "));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasMensajeria.normalizarContenido(null));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasMensajeria.normalizarContenido("a".repeat(1001)));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasMensajeria.normalizarContenido("hola\u0000mundo"));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasMensajeria.normalizarContenido("texto \u202E invertido"));
++        assertEquals("hola", reglas.normalizarContenido("  hola  "));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarContenido("   "));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarContenido(null));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarContenido("a".repeat(1001)));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarContenido("hola\u0000mundo"));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarContenido("texto \u202E invertido"));
+     }
+ 
+     @Test
+     void permiteSaltosDeLinea() {
+-        assertEquals("uno\ndos", ReglasMensajeria.normalizarContenido("uno\r\ndos"));
+-        assertEquals("a\n\n\nb", ReglasMensajeria.normalizarContenido("a\n\n\n\n\n\nb"));
++        assertEquals("uno\ndos", reglas.normalizarContenido("uno\r\ndos"));
++        assertEquals("a\n\n\nb", reglas.normalizarContenido("a\n\n\n\n\n\nb"));
+     }
+ 
+     @Test
+     void validaMontos() {
+-        assertEquals(new BigDecimal("100.00"), ReglasMensajeria.validarMonto(new BigDecimal("100")));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasMensajeria.validarMonto(BigDecimal.ZERO));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasMensajeria.validarMonto(new BigDecimal("-5")));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasMensajeria.validarMonto(new BigDecimal("10.999")));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasMensajeria.validarMonto(new BigDecimal("99999999999")));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasMensajeria.validarMonto(null));
++        assertEquals(new BigDecimal("100.00"), reglas.validarMonto(new BigDecimal("100")));
++        assertThrows(IllegalArgumentException.class, () -> reglas.validarMonto(BigDecimal.ZERO));
++        assertThrows(IllegalArgumentException.class, () -> reglas.validarMonto(new BigDecimal("-5")));
++        assertThrows(IllegalArgumentException.class, () -> reglas.validarMonto(new BigDecimal("10.999")));
++        assertThrows(IllegalArgumentException.class, () -> reglas.validarMonto(new BigDecimal("99999999999")));
++        assertThrows(IllegalArgumentException.class, () -> reglas.validarMonto(null));
+     }
+ 
+     @Test
+     void determinaRol() {
+-        assertEquals(ReglasMensajeria.Rol.COMPRADOR, ReglasMensajeria.rolDe(1L, 1L, 2L));
+-        assertEquals(ReglasMensajeria.Rol.VENDEDOR, ReglasMensajeria.rolDe(2L, 1L, 2L));
+-        assertNull(ReglasMensajeria.rolDe(3L, 1L, 2L));
+-        assertNull(ReglasMensajeria.rolDe(null, 1L, 2L));
++        assertEquals(ReglasMensajeria.Rol.COMPRADOR, reglas.rolDe(1L, 1L, 2L));
++        assertEquals(ReglasMensajeria.Rol.VENDEDOR, reglas.rolDe(2L, 1L, 2L));
++        assertNull(reglas.rolDe(3L, 1L, 2L));
++        assertNull(reglas.rolDe(null, 1L, 2L));
+     }
+ }
+diff --git a/Publication-Api/src/test/java/com/marketroad/publication/service/PublicacionServiceValidationTest.java b/Publication-Api/src/test/java/com/marketroad/publication/service/PublicacionServiceValidationTest.java
+index 6099617..29c316d 100644
+--- a/Publication-Api/src/test/java/com/marketroad/publication/service/PublicacionServiceValidationTest.java
++++ b/Publication-Api/src/test/java/com/marketroad/publication/service/PublicacionServiceValidationTest.java
+@@ -14,6 +14,7 @@ import com.marketroad.publication.dto.NuevaPublicacionDTO;
+ import com.marketroad.publication.repository.ImagenPublicacionRepository;
+ import com.marketroad.publication.repository.PublicacionRepository;
+ import com.marketroad.publication.security.Identidad;
++import com.marketroad.publication.validacion.Textos;
+ 
+ class PublicacionServiceValidationTest {
+ 
+@@ -25,6 +26,12 @@ class PublicacionServiceValidationTest {
+         PublicacionServiceImpl servicio = new PublicacionServiceImpl();
+         ReflectionTestUtils.setField(servicio, "repository", org.mockito.Mockito.mock(PublicacionRepository.class));
+         ReflectionTestUtils.setField(servicio, "imagenRepository", org.mockito.Mockito.mock(ImagenPublicacionRepository.class));
++        ReflectionTestUtils.setField(servicio, "mapper", org.mockito.Mockito.mock(PublicacionMapper.class));
++        ReflectionTestUtils.setField(servicio, "textos", new Textos());
++        // Valores que Spring inyecta con @Value desde application.yml.
++        ReflectionTestUtils.setField(servicio, "maxFotos", 8);
++        ReflectionTestUtils.setField(servicio, "maxBytesPorFoto", 5L * 1024 * 1024);
++        ReflectionTestUtils.setField(servicio, "tiposPermitidos", List.of("image/jpeg", "image/png", "image/webp"));
+         return servicio;
+     }
+ 
+diff --git a/Publication-Api/src/test/java/com/marketroad/publication/validacion/TextosTest.java b/Publication-Api/src/test/java/com/marketroad/publication/validacion/TextosTest.java
+index ead4546..b96e0dd 100644
+--- a/Publication-Api/src/test/java/com/marketroad/publication/validacion/TextosTest.java
++++ b/Publication-Api/src/test/java/com/marketroad/publication/validacion/TextosTest.java
+@@ -5,20 +5,22 @@ import static org.junit.jupiter.api.Assertions.*;
+ import org.junit.jupiter.api.Test;
+ 
+ class TextosTest {
++    private final Textos textos = new Textos();
++
+     @Test
+     void recortaYAceptaTextoNormal() {
+-        assertEquals("Bicicleta ñandú", Textos.limpiar("  Bicicleta ñandú ", false, "El título"));
++        assertEquals("Bicicleta ñandú", textos.limpiar("  Bicicleta ñandú ", false, "El título"));
+     }
+ 
+     @Test
+     void rechazaControlYSaltosCuandoNoSePermiten() {
+-        assertThrows(IllegalArgumentException.class, () -> Textos.limpiar("a\nb", false, "El título"));
+-        assertThrows(IllegalArgumentException.class, () -> Textos.limpiar("a\u0007b", true, "La descripción"));
+-        assertThrows(IllegalArgumentException.class, () -> Textos.limpiar("a\u200Bb", true, "La descripción"));
++        assertThrows(IllegalArgumentException.class, () -> textos.limpiar("a\nb", false, "El título"));
++        assertThrows(IllegalArgumentException.class, () -> textos.limpiar("a\u0007b", true, "La descripción"));
++        assertThrows(IllegalArgumentException.class, () -> textos.limpiar("a\u200Bb", true, "La descripción"));
+     }
+ 
+     @Test
+     void aceptaSaltosCuandoSePermiten() {
+-        assertEquals("a\nb", Textos.limpiar("a\nb", true, "La descripción"));
++        assertEquals("a\nb", textos.limpiar("a\nb", true, "La descripción"));
+     }
+ }
+diff --git a/README.md b/README.md
+index 24a12ea..be1f374 100644
+--- a/README.md
++++ b/README.md
+@@ -8,9 +8,10 @@ Proyecto de pagina web que funciona como mercado entre personas (como marketplac
+ 
+ ## Bases de datos locales con Docker Compose y phpMyAdmin
+ 
+-Las APIs guardan sus datos en bases MySQL independientes: `db_usuarios` (User-Api),
+-`marketroad_db` (Publication-Api) y `db_soporte` (Soporte). El MySQL del proyecto vive en la red interna de Docker: no publica el
+-puerto `3306` ni requiere abrirlo en el firewall.
++Cada API guarda sus datos en su propia base MySQL: `db_usuarios` (User-Api) y `marketroad_db` (Publication-Api) viven en
++el servidor `mysql-db`; **Soporte tiene su propio servidor MySQL** (`mysql-soporte`, base `db_soporte`, volumen
++`market-road_mysql_soporte_data`, usuario `soporte_app` que solo ve esa base; ver [`soporte/database/init.sql`](soporte/database/init.sql)).
++Los MySQL viven en la red interna de Docker: no publican el puerto `3306` ni requieren abrirlo en el firewall.
+ 
+ Desde PowerShell, en la raíz del proyecto:
+ 
+@@ -19,8 +20,8 @@ docker compose up --build -d
+ docker compose ps
+ ```
+ 
+-Compose inicia phpMyAdmin para administrar el MySQL del proyecto. En phpMyAdmin selecciona
+-el servidor `mysql-db` e inicia sesión con `marketroad_app` / `marketroad_local_dev`. Compose
++Compose inicia phpMyAdmin para administrar el MySQL del proyecto. En phpMyAdmin elige el servidor
++`mysql-db` (inicia sesión con `marketroad_app` / `marketroad_local_dev`) o `mysql-soporte` (con `soporte_app` / `soporte_local_dev`). Compose
+ crea las bases y ese usuario con
+ [`database/init.sql`](database/init.sql), incluso si reutiliza el volumen existente.
+ Para navegar las bases, abre [phpMyAdmin](http://localhost:8085); para probar la aplicación,
+@@ -40,7 +41,9 @@ productos: los datos del artículo viven dentro de cada publicación (`Publicati
+ 
+ `user-api` crea al iniciar un superusuario predeterminado (`admin@marketroad.local` /
+ `Admin12345`, configurable con `SUPERUSUARIO_CORREO` y `SUPERUSUARIO_CONTRASENA` en `.env`).
+-Solo esta cuenta ve el enlace "Panel de superusuario" y puede abrir `admin.html`.
++Solo esta cuenta ve el enlace "Panel de superusuario" y puede abrir `admin.html`, que tiene tres pestañas:
++Usuarios, Publicaciones y **Soporte** (todos los tickets y sus chats, con búsqueda y filtro por estado; es de solo lectura:
++para responder o gestionar se usa el panel de soporte, al que lleva el botón "Panel de soporte").
+ Cambia la contraseña y `JWT_SECRET` antes de desplegar.
+ 
+ ## Soporte (tickets y chat)
+@@ -58,9 +61,14 @@ El personal **no** existe en `user-api`: sus cuentas viven en `db_soporte`. Un t
+ panel y uno del personal no sirve en el resto de la plataforma. El rol y el estado activo se consultan en la base
+ en cada petición, así que desactivar o degradar a alguien surte efecto de inmediato.
+ 
+-Al iniciar, el servicio crea un administrador inicial (`soporte-admin@marketroad.local` / `Soporte12345`,
+-configurable con `SOPORTE_ADMIN_CORREO` y `SOPORTE_ADMIN_CONTRASENA` en `.env`). **Cambia esa contraseña y
+-`SOPORTE_JWT_SECRET` antes de desplegar.** Desde el panel (pestaña Equipo) el administrador crea al resto.
++Al iniciar, el servicio crea dos cuentas iniciales si no existen (se entra en `soporte-panel.html`):
++
++| Cuenta | Rol | Correo / contraseña por defecto | Variables en `.env` |
++| --- | --- | --- | --- |
++| Administrador | `ADMIN` | `soporte-admin@marketroad.local` / `Soporte12345` | `SOPORTE_ADMIN_CORREO`, `SOPORTE_ADMIN_CONTRASENA` |
++| Usuario de soporte | `SOPORTE` | `soporte@marketroad.local` / `Agente12345` | `SOPORTE_AGENTE_CORREO`, `SOPORTE_AGENTE_CONTRASENA` |
++
++**Cambia esas contraseñas y `SOPORTE_JWT_SECRET` antes de desplegar.** Desde el panel (pestaña Equipo) el administrador crea al resto.
+ 
+ Ciclo de un ticket: `ABIERTO` → `EN_PROGRESO` (al tomarlo o responderlo) → `RESUELTO` → `CERRADO`.
+ Si la persona usuaria escribe en un ticket resuelto, se reabre. Un ticket cerrado solo lo reabre un administrador.
+@@ -75,5 +83,14 @@ Endpoints principales (todos bajo `/api/v1/soporte`):
+   `GET /panel/tickets` (filtros `estado`, `prioridad`, `categoria`, `asignacion`, `q`, `pagina`, `tamano`),
+   `GET /panel/tickets/{id}`, `POST /panel/tickets/{id}/{mensajes|tomar|estado|prioridad|asignacion}`,
+   y solo `ADMIN`: `GET|POST /panel/personal`, `PATCH /panel/personal/{id}`, `GET /panel/estadisticas`.
++- Superusuario de la plataforma (token de `user-api`, solo lectura): `GET /admin/tickets` (mismos filtros que el panel),
++  `GET /admin/tickets/resumen`, `GET /admin/tickets/{id}`.
+ 
+ Pruebas: `cd soporte && mvn test` (reglas del servicio) y `npm test` (frontend, incluye la sesión del panel).
++
++## Configuración inyectada con `@Value`
++
++Los límites operativos ya no son constantes `static final`; se leen de `application.yml` (y se pueden sobrescribir con
++variables de entorno): `publicaciones.fotos.*` y `mensajeria.*` (Publication-Api), `sesiones.*` y `usuarios.foto.max-bytes`
++(User-Api). Los colaboradores (`Textos`, `ReglasTicket`, `ReglasMensajeria`, `CatalogoProcesador`, `PublicacionMapper`) son
++beans de Spring que los servicios reciben con `@Autowired`.
+diff --git a/User-Api/src/main/java/api/com/v1/controller/UsuarioController.java b/User-Api/src/main/java/api/com/v1/controller/UsuarioController.java
+index 924774c..86e6cf1 100644
+--- a/User-Api/src/main/java/api/com/v1/controller/UsuarioController.java
++++ b/User-Api/src/main/java/api/com/v1/controller/UsuarioController.java
+@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
+ import java.util.List;
+ 
+ import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.http.CacheControl;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.MediaType;
+@@ -37,7 +38,6 @@ import jakarta.validation.Valid;
+ @RequestMapping("/api/v1/usuarios")
+ public class UsuarioController {
+ 
+-    private static final long TAMANO_MAXIMO_FOTO = 5L * 1024 * 1024;
+     private static final byte[] FOTO_PERFIL_PREDETERMINADA = (
+             "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 40 40\">"
+                     + "<circle cx=\"20\" cy=\"20\" r=\"20\" fill=\"#e4e6eb\"/>"
+@@ -50,6 +50,10 @@ public class UsuarioController {
+     @Autowired
+     private DispositivoInicioSesionService dispositivoInicioSesionService;
+ 
++    /** Peso máximo de la foto de perfil: se configura en application.yml (usuarios.foto.max-bytes). */
++    @Value("${usuarios.foto.max-bytes:5242880}")
++    private long tamanoMaximoFoto;
++
+     @GetMapping("/{id}/dispositivos")
+     public ResponseEntity<List<DispositivoInicioSesionDTO>> obtenerDispositivos(
+             @PathVariable Long id,
+@@ -120,7 +124,7 @@ public class UsuarioController {
+         if (!id.equals(usuarioAutenticadoId)) {
+             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo puedes cambiar tu propia foto de perfil");
+         }
+-        if (foto.isEmpty() || foto.getSize() > TAMANO_MAXIMO_FOTO) {
++        if (foto.isEmpty() || foto.getSize() > tamanoMaximoFoto) {
+             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La imagen debe pesar entre 1 byte y 5 MB");
+         }
+ 
+diff --git a/User-Api/src/main/java/api/com/v1/service/DispositivoInicioSesionService.java b/User-Api/src/main/java/api/com/v1/service/DispositivoInicioSesionService.java
+index 9c01c0a..04d404b 100644
+--- a/User-Api/src/main/java/api/com/v1/service/DispositivoInicioSesionService.java
++++ b/User-Api/src/main/java/api/com/v1/service/DispositivoInicioSesionService.java
+@@ -10,6 +10,7 @@ import java.util.Set;
+ import java.util.UUID;
+ 
+ import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.beans.factory.annotation.Value;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ 
+@@ -20,12 +21,15 @@ import api.com.v1.repository.DispositivoInicioSesionRepository;
+ @Service
+ public class DispositivoInicioSesionService {
+ 
+-    private static final int MAXIMO_DISPOSITIVOS = 5;
+-    private static final int MAXIMO_SESIONES_POR_DISPOSITIVO = 3;
+-
+     @Autowired
+     private DispositivoInicioSesionRepository repository;
+ 
++    /** Cuántos dispositivos y sesiones por dispositivo se recuerdan: se configuran en application.yml (sesiones.*). */
++    @Value("${sesiones.maximo-dispositivos:5}")
++    private int maximoDispositivos;
++    @Value("${sesiones.maximo-por-dispositivo:3}")
++    private int maximoSesionesPorDispositivo;
++
+     @Transactional
+     public void registrar(Long usuarioId, String dispositivoId, String agenteUsuario) {
+         DispositivoInicioSesion registro = new DispositivoInicioSesion();
+@@ -42,11 +46,11 @@ public class DispositivoInicioSesionService {
+         Map<String, Integer> sesionesPorDispositivo = new LinkedHashMap<>();
+         for (DispositivoInicioSesion sesion : historial) {
+             String id = sesion.getDispositivoId();
+-            if (!sesionesPorDispositivo.containsKey(id) && sesionesPorDispositivo.size() == MAXIMO_DISPOSITIVOS) {
++            if (!sesionesPorDispositivo.containsKey(id) && sesionesPorDispositivo.size() == maximoDispositivos) {
+                 continue;
+             }
+             int sesionesConservadas = sesionesPorDispositivo.getOrDefault(id, 0);
+-            if (sesionesConservadas < MAXIMO_SESIONES_POR_DISPOSITIVO) {
++            if (sesionesConservadas < maximoSesionesPorDispositivo) {
+                 idsConservar.add(sesion.getId());
+                 sesionesPorDispositivo.put(id, sesionesConservadas + 1);
+             }
+@@ -65,11 +69,11 @@ public class DispositivoInicioSesionService {
+         Map<String, List<Instant>> sesionesPorDispositivo = new LinkedHashMap<>();
+         for (DispositivoInicioSesion sesion : repository.findAllByUsuarioIdOrderByFechaInicioDescIdDesc(usuarioId)) {
+             String id = sesion.getDispositivoId();
+-            if (!sesionesPorDispositivo.containsKey(id) && sesionesPorDispositivo.size() == MAXIMO_DISPOSITIVOS) {
++            if (!sesionesPorDispositivo.containsKey(id) && sesionesPorDispositivo.size() == maximoDispositivos) {
+                 continue;
+             }
+             List<Instant> sesiones = sesionesPorDispositivo.computeIfAbsent(id, key -> new ArrayList<>());
+-            if (sesiones.size() < MAXIMO_SESIONES_POR_DISPOSITIVO) {
++            if (sesiones.size() < maximoSesionesPorDispositivo) {
+                 etiquetas.putIfAbsent(id, sesion.getDispositivo());
+                 sesiones.add(sesion.getFechaInicio());
+             }
+@@ -79,7 +83,7 @@ public class DispositivoInicioSesionService {
+                 .toList();
+     }
+ 
+-    static String describirDispositivo(String agenteUsuario) {
++    String describirDispositivo(String agenteUsuario) {
+         String agente = agenteUsuario == null ? "" : agenteUsuario;
+         String navegador;
+         if (agente.contains("Edg/")) {
+diff --git a/User-Api/src/main/resources/application.yml b/User-Api/src/main/resources/application.yml
+index d9d0968..ee0ff6a 100644
+--- a/User-Api/src/main/resources/application.yml
++++ b/User-Api/src/main/resources/application.yml
+@@ -42,3 +42,12 @@ superusuario:
+   nombre: Super
+   apellido: Usuario
+   apodo: superadmin
++
++# Historial de inicios de sesión que se conserva por persona (se inyecta con @Value).
++sesiones:
++  maximo-dispositivos: 5
++  maximo-por-dispositivo: 3
++
++usuarios:
++  foto:
++    max-bytes: 5242880 # 5 MB
+diff --git a/User-Api/src/test/java/api/com/v1/service/DispositivoInicioSesionServiceTest.java b/User-Api/src/test/java/api/com/v1/service/DispositivoInicioSesionServiceTest.java
+index 86047f6..bc5b5bc 100644
+--- a/User-Api/src/test/java/api/com/v1/service/DispositivoInicioSesionServiceTest.java
++++ b/User-Api/src/test/java/api/com/v1/service/DispositivoInicioSesionServiceTest.java
+@@ -22,16 +22,16 @@ class DispositivoInicioSesionServiceTest {
+ 
+     @Test
+     void identificaNavegadorYSistemaOperativo() {
+-        assertEquals("Chrome en Windows", DispositivoInicioSesionService.describirDispositivo(
++        assertEquals("Chrome en Windows", servicio(null).describirDispositivo(
+                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36"));
+-        assertEquals("Safari en iPhone", DispositivoInicioSesionService.describirDispositivo(
++        assertEquals("Safari en iPhone", servicio(null).describirDispositivo(
+                 "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Safari/604.1"));
+     }
+ 
+     @Test
+     void toleraAgenteDeUsuarioAusente() {
+         assertEquals("Navegador desconocido en dispositivo no identificado",
+-                DispositivoInicioSesionService.describirDispositivo(null));
++                servicio(null).describirDispositivo(null));
+     }
+ 
+     @Test
+@@ -104,6 +104,9 @@ class DispositivoInicioSesionServiceTest {
+     private DispositivoInicioSesionService servicio(DispositivoInicioSesionRepository repository) {
+         DispositivoInicioSesionService servicio = new DispositivoInicioSesionService();
+         ReflectionTestUtils.setField(servicio, "repository", repository);
++        // Valores que Spring inyecta con @Value desde application.yml.
++        ReflectionTestUtils.setField(servicio, "maximoDispositivos", 5);
++        ReflectionTestUtils.setField(servicio, "maximoSesionesPorDispositivo", 3);
+         return servicio;
+     }
+ }
+diff --git a/admin.html b/admin.html
+index 6c886da..b014124 100644
+--- a/admin.html
++++ b/admin.html
+@@ -78,6 +78,12 @@
+                         Publicaciones <span class="badge text-bg-secondary" id="contadorPublicaciones">0</span>
+                     </button>
+                 </li>
++                <li class="nav-item" role="presentation">
++                    <button class="nav-link" id="tabSoporte" data-bs-toggle="tab" data-bs-target="#panelSoporte"
++                        type="button" role="tab" aria-controls="panelSoporte" aria-selected="false">
++                        Soporte <span class="badge text-bg-secondary" id="contadorSoporte">0</span>
++                    </button>
++                </li>
+             </ul>
+ 
+             <div class="tab-content admin-panel">
+@@ -142,10 +148,71 @@
+                     <nav class="admin-paginacion" id="publicacionesPaginacion"
+                         aria-label="Paginación de publicaciones"></nav>
+                 </section>
++
++                <section class="tab-pane fade" id="panelSoporte" role="tabpanel" aria-labelledby="tabSoporte">
++                    <div class="admin-herramientas">
++                        <input id="buscarSoporte" type="search" class="form-control form-control-sm" maxlength="100"
++                            placeholder="Buscar por asunto, persona o mensaje" aria-label="Buscar tickets">
++                        <select id="filtroEstadoSoporte" class="form-select form-select-sm"
++                            aria-label="Filtrar por estado">
++                            <option value="">Todos los estados</option>
++                            <option value="ACTIVOS">Necesitan atención</option>
++                            <option value="ABIERTO">Abiertos</option>
++                            <option value="EN_PROGRESO">En progreso</option>
++                            <option value="RESUELTO">Resueltos</option>
++                            <option value="CERRADO">Cerrados</option>
++                        </select>
++                        <a class="btn btn-outline-primary btn-sm text-nowrap" href="soporte-panel.html" target="_blank"
++                            rel="noopener"><i class="bi bi-headset" aria-hidden="true"></i> Panel de soporte</a>
++                    </div>
++                    <div id="soporteResumen" class="small text-muted mb-2" aria-live="polite"></div>
++                    <div id="soporteAlerta" class="alert d-none" role="alert"></div>
++                    <div class="table-responsive">
++                        <table class="table table-hover table-sm align-middle admin-tabla mb-0">
++                            <thead>
++                                <tr>
++                                    <th scope="col">ID</th>
++                                    <th scope="col">Asunto</th>
++                                    <th scope="col">Categoría</th>
++                                    <th scope="col">Estado</th>
++                                    <th scope="col">Prioridad</th>
++                                    <th scope="col">Persona</th>
++                                    <th scope="col">Atiende</th>
++                                    <th scope="col">Actualizado</th>
++                                    <th scope="col"><span class="visually-hidden">Ver</span></th>
++                                </tr>
++                            </thead>
++                            <tbody id="soporteCuerpo"></tbody>
++                        </table>
++                    </div>
++                    <nav class="admin-paginacion" id="soportePaginacion" aria-label="Paginación de tickets"></nav>
++                </section>
+             </div>
+         </div>
+     </main>
+ 
++    <!-- Detalle de un ticket (solo lectura) -->
++    <div class="modal fade" id="modalTicketSoporte" tabindex="-1" aria-labelledby="tituloTicketSoporte"
++        aria-hidden="true">
++        <div class="modal-dialog modal-lg modal-dialog-scrollable">
++            <div class="modal-content">
++                <div class="modal-header">
++                    <h2 class="modal-title h5" id="tituloTicketSoporte">Ticket</h2>
++                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
++                </div>
++                <div class="modal-body">
++                    <div id="ticketSoporteAlerta" class="alert d-none" role="alert"></div>
++                    <div id="ticketSoporteDatos" class="small text-muted mb-3"></div>
++                    <div id="ticketSoporteMensajes" class="d-flex flex-column gap-2"></div>
++                </div>
++                <div class="modal-footer justify-content-between">
++                    <span class="small text-muted">Vista de solo lectura. Para responder usa el panel de soporte.</span>
++                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
++                </div>
++            </div>
++        </div>
++    </div>
++
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+     <script type="module" src="Js/theme.js"></script>
+     <script type="module" src="Js/auth.js"></script>
+diff --git a/database/init.sql b/database/init.sql
+index 5c0789f..5b25efa 100644
+--- a/database/init.sql
++++ b/database/init.sql
+@@ -4,12 +4,10 @@ CREATE DATABASE IF NOT EXISTS db_usuarios
+ CREATE DATABASE IF NOT EXISTS marketroad_db
+     CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ 
+-CREATE DATABASE IF NOT EXISTS db_soporte
+-    CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
++-- La base db_soporte vive en su propio servidor MySQL (ver soporte/database/init.sql y el servicio mysql-soporte).
+ 
+ CREATE USER IF NOT EXISTS 'marketroad_app'@'%'
+     IDENTIFIED BY 'marketroad_local_dev';
+ 
+ GRANT ALL PRIVILEGES ON db_usuarios.* TO 'marketroad_app'@'%';
+ GRANT ALL PRIVILEGES ON marketroad_db.* TO 'marketroad_app'@'%';
+-GRANT ALL PRIVILEGES ON db_soporte.* TO 'marketroad_app'@'%';
+diff --git a/docker-compose.yml b/docker-compose.yml
+index d2eaac4..e51fd82 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -5,6 +5,8 @@ networks:
+ volumes:
+   mysql_data:
+     name: market-road_mysql_data
++  mysql_soporte_data:
++    name: market-road_mysql_soporte_data
+ 
+ services:
+   # Base de datos privada: solo accesible desde la red interna de Compose.
+@@ -24,6 +26,27 @@ services:
+     networks:
+       - marketroad-net
+ 
++  # Base de datos PROPIA de Soporte (usuarios, publicaciones y soporte no comparten servidor MySQL ni credenciales).
++  mysql-soporte:
++    image: mysql:8.0
++    container_name: marketroad-soporte-db
++    restart: always
++    environment:
++      MYSQL_ROOT_PASSWORD: ${SOPORTE_MYSQL_ROOT_PASSWORD:-rootpassword_soporte}
++      MYSQL_DATABASE: db_soporte
++      MYSQL_USER: ${SOPORTE_DB_USERNAME:-soporte_app}
++      MYSQL_PASSWORD: ${SOPORTE_DB_PASSWORD:-soporte_local_dev}
++    volumes:
++      - mysql_soporte_data:/var/lib/mysql
++      - ./soporte/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
++    healthcheck:
++      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysqladmin ping --host=127.0.0.1 --user=root --silent"]
++      interval: 5s
++      timeout: 5s
++      retries: 20
++    networks:
++      - marketroad-net
++
+   # Crea las bases/permisos también cuando se reutiliza un volumen MySQL existente.
+   database-init:
+     image: mysql:8.0
+@@ -46,7 +69,8 @@ services:
+     container_name: marketroad-phpmyadmin
+     restart: always
+     environment:
+-      PMA_HOST: mysql-db
++      # Dos servidores: el de usuarios/publicaciones y el de soporte (se elige en la pantalla de inicio).
++      PMA_HOSTS: mysql-db,mysql-soporte
+       PMA_PORT: 3306
+       UPLOAD_LIMIT: 16M
+     ports:
+@@ -54,6 +78,8 @@ services:
+     depends_on:
+       mysql-db:
+         condition: service_healthy
++      mysql-soporte:
++        condition: service_healthy
+     networks:
+       - marketroad-net
+ 
+@@ -115,9 +141,9 @@ services:
+     restart: always
+     environment:
+       SERVER_PORT: 8086
+-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/db_soporte?useSSL=false&allowPublicKeyRetrieval=true
+-      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-marketroad_app}
+-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
++      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-soporte:3306/db_soporte?useSSL=false&allowPublicKeyRetrieval=true
++      SPRING_DATASOURCE_USERNAME: ${SOPORTE_DB_USERNAME:-soporte_app}
++      SPRING_DATASOURCE_PASSWORD: ${SOPORTE_DB_PASSWORD:-soporte_local_dev}
+       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+       # Mismo secreto que user-api: valida los tokens de las personas usuarias.
+@@ -127,11 +153,14 @@ services:
+       # Administrador inicial del panel de soporte (solo desarrollo local). Cambia estos valores en .env antes de desplegar.
+       SOPORTE_ADMIN_CORREO: ${SOPORTE_ADMIN_CORREO:-soporte-admin@marketroad.local}
+       SOPORTE_ADMIN_CONTRASENA: ${SOPORTE_ADMIN_CONTRASENA:-Soporte12345}
++      # Cuenta inicial con rol SOPORTE (atiende tickets desde soporte-panel.html).
++      SOPORTE_AGENTE_CORREO: ${SOPORTE_AGENTE_CORREO:-soporte@marketroad.local}
++      SOPORTE_AGENTE_CONTRASENA: ${SOPORTE_AGENTE_CONTRASENA:-Agente12345}
+     ports:
+       - "127.0.0.1:8086:8086"
+     depends_on:
+-      database-init:
+-        condition: service_completed_successfully
++      mysql-soporte:
++        condition: service_healthy
+     networks:
+       - marketroad-net
+ 
+diff --git a/soporte/database/init.sql b/soporte/database/init.sql
+new file mode 100644
+index 0000000..3747f21
+--- /dev/null
++++ b/soporte/database/init.sql
+@@ -0,0 +1,6 @@
++-- Base de datos propia del microservicio de soporte (instancia MySQL dedicada: servicio "mysql-soporte").
++-- Docker ejecuta este script solo la primera vez que se crea el volumen. Las tablas (tickets, mensajes_ticket,
++-- personal_soporte) las crea el servicio al iniciar (spring.jpa.hibernate.ddl-auto=update).
++-- El usuario y la contraseña los crea la imagen a partir de MYSQL_USER / MYSQL_PASSWORD (ver docker-compose.yml).
++CREATE DATABASE IF NOT EXISTS db_soporte
++    CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+diff --git a/soporte/src/main/java/com/marketroad/soporte/config/PersonalInicializador.java b/soporte/src/main/java/com/marketroad/soporte/config/PersonalInicializador.java
+new file mode 100644
+index 0000000..b0ee6c8
+--- /dev/null
++++ b/soporte/src/main/java/com/marketroad/soporte/config/PersonalInicializador.java
+@@ -0,0 +1,90 @@
++package com.marketroad.soporte.config;
++
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.boot.ApplicationArguments;
++import org.springframework.boot.ApplicationRunner;
++import org.springframework.security.crypto.password.PasswordEncoder;
++import org.springframework.stereotype.Component;
++
++import com.marketroad.soporte.model.PersonalSoporte;
++import com.marketroad.soporte.model.RolPersonal;
++import com.marketroad.soporte.reglas.ReglasTicket;
++import com.marketroad.soporte.repository.PersonalSoporteRepository;
++
++/**
++ * Crea las cuentas iniciales del panel de soporte si todavía no existen, para poder entrar la primera vez:
++ * <ul>
++ *   <li>un <b>administrador</b> ({@code soporte.admin.*}), que ve todos los tickets y gestiona el equipo;</li>
++ *   <li>una cuenta de <b>soporte</b> ({@code soporte.agente.*}), que atiende los tickets sin asignar y los suyos.</li>
++ * </ul>
++ * Nunca modifica una cuenta existente.
++ */
++@Component
++public class PersonalInicializador implements ApplicationRunner {
++    private static final Logger log = LoggerFactory.getLogger(PersonalInicializador.class);
++    // Deben ser constantes de compilación: se usan como valor por defecto dentro de las anotaciones @Value.
++    static final String CONTRASENA_ADMIN_PREDETERMINADA = "Soporte12345";
++    static final String CONTRASENA_AGENTE_PREDETERMINADA = "Agente12345";
++
++    @Autowired
++    private PersonalSoporteRepository personal;
++    @Autowired
++    private PasswordEncoder passwordEncoder;
++    @Autowired
++    private ReglasTicket reglas;
++
++    @Value("${soporte.admin.habilitado:true}")
++    private boolean adminHabilitado;
++    @Value("${soporte.admin.correo:soporte-admin@marketroad.local}")
++    private String adminCorreo;
++    @Value("${soporte.admin.contrasena:" + CONTRASENA_ADMIN_PREDETERMINADA + "}")
++    private String adminContrasena;
++    @Value("${soporte.admin.nombre:Administrador de soporte}")
++    private String adminNombre;
++
++    @Value("${soporte.agente.habilitado:true}")
++    private boolean agenteHabilitado;
++    @Value("${soporte.agente.correo:soporte@marketroad.local}")
++    private String agenteCorreo;
++    @Value("${soporte.agente.contrasena:" + CONTRASENA_AGENTE_PREDETERMINADA + "}")
++    private String agenteContrasena;
++    @Value("${soporte.agente.nombre:Agente de soporte}")
++    private String agenteNombre;
++
++    @Override
++    public void run(ApplicationArguments args) {
++        crearSiFalta(RolPersonal.ADMIN, adminHabilitado, adminCorreo, adminContrasena, adminNombre,
++                CONTRASENA_ADMIN_PREDETERMINADA, "SOPORTE_ADMIN_CONTRASENA", "soporte.admin.habilitado");
++        crearSiFalta(RolPersonal.SOPORTE, agenteHabilitado, agenteCorreo, agenteContrasena, agenteNombre,
++                CONTRASENA_AGENTE_PREDETERMINADA, "SOPORTE_AGENTE_CONTRASENA", "soporte.agente.habilitado");
++    }
++
++    private void crearSiFalta(RolPersonal rol, boolean habilitado, String correo, String contrasena, String nombre,
++            String contrasenaPredeterminada, String variableContrasena, String propiedadHabilitado) {
++        if (!habilitado) {
++            log.info("Cuenta inicial de soporte ({}) deshabilitada ({}=false)", rol, propiedadHabilitado);
++            return;
++        }
++        String correoNormalizado = reglas.normalizarCorreo(correo);
++        if (personal.existsByCorreo(correoNormalizado)) {
++            return;
++        }
++        reglas.validarContrasena(contrasena);
++
++        PersonalSoporte cuenta = new PersonalSoporte();
++        cuenta.setNombre(reglas.normalizarNombre(nombre));
++        cuenta.setCorreo(correoNormalizado);
++        cuenta.setContrasenaHash(passwordEncoder.encode(contrasena));
++        cuenta.setRol(rol);
++        personal.save(cuenta);
++
++        log.info("Cuenta inicial de soporte creada ({}): {}", rol, correoNormalizado);
++        if (contrasenaPredeterminada.equals(contrasena)) {
++            log.warn("La cuenta de soporte {} usa la contraseña predeterminada de desarrollo. "
++                    + "Define {} (y cámbiala) antes de desplegar.", correoNormalizado, variableContrasena);
++        }
++    }
++}
+diff --git a/soporte/src/main/java/com/marketroad/soporte/controller/AdminTicketController.java b/soporte/src/main/java/com/marketroad/soporte/controller/AdminTicketController.java
+new file mode 100644
+index 0000000..83abd4e
+--- /dev/null
++++ b/soporte/src/main/java/com/marketroad/soporte/controller/AdminTicketController.java
+@@ -0,0 +1,60 @@
++package com.marketroad.soporte.controller;
++
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.http.ResponseEntity;
++import org.springframework.validation.annotation.Validated;
++import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.PathVariable;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.RequestParam;
++import org.springframework.web.bind.annotation.RestController;
++
++import com.marketroad.soporte.dto.PaginaDTO;
++import com.marketroad.soporte.dto.ResumenSoporteDTO;
++import com.marketroad.soporte.dto.TicketPanelDetalleDTO;
++import com.marketroad.soporte.dto.TicketPanelResumenDTO;
++import com.marketroad.soporte.security.IdentidadUsuario;
++import com.marketroad.soporte.service.TicketService;
++
++import jakarta.servlet.http.HttpServletRequest;
++import jakarta.validation.constraints.Positive;
++
++/**
++ * Tickets de soporte vistos desde el panel del SUPERUSUARIO de la plataforma (admin.html), solo lectura.
++ * Se entra con la sesión normal de la tienda: SoporteAuthFilter valida el token de User-Api y aquí se comprueba el
++ * claim "rol" (firmado por User-Api). Para responder o gestionar tickets se usa el panel del personal de soporte.
++ */
++@Validated
++@RestController
++@RequestMapping("/api/v1/soporte/admin/tickets")
++public class AdminTicketController {
++    @Autowired
++    private TicketService service;
++
++    @GetMapping
++    public ResponseEntity<PaginaDTO<TicketPanelResumenDTO>> listar(
++            @RequestParam(value = "estado", required = false) String estado,
++            @RequestParam(value = "prioridad", required = false) String prioridad,
++            @RequestParam(value = "categoria", required = false) String categoria,
++            @RequestParam(value = "asignacion", required = false) String asignacion,
++            @RequestParam(value = "q", required = false) String q,
++            @RequestParam(value = "pagina", defaultValue = "0") int pagina,
++            @RequestParam(value = "tamano", defaultValue = "20") int tamano,
++            HttpServletRequest request) {
++        IdentidadUsuario.de(request).exigirSuperusuario();
++        return ResponseEntity.ok(service.listarParaSuperusuario(estado, prioridad, categoria, asignacion, q, pagina, tamano));
++    }
++
++    @GetMapping("/resumen")
++    public ResponseEntity<ResumenSoporteDTO> resumen(HttpServletRequest request) {
++        IdentidadUsuario.de(request).exigirSuperusuario();
++        return ResponseEntity.ok(service.resumenParaSuperusuario());
++    }
++
++    @GetMapping("/{id}")
++    public ResponseEntity<TicketPanelDetalleDTO> obtener(
++            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id, HttpServletRequest request) {
++        IdentidadUsuario.de(request).exigirSuperusuario();
++        return ResponseEntity.ok(service.obtenerParaSuperusuario(id));
++    }
++}
+diff --git a/soporte/src/main/java/com/marketroad/soporte/dto/ResumenSoporteDTO.java b/soporte/src/main/java/com/marketroad/soporte/dto/ResumenSoporteDTO.java
+new file mode 100644
+index 0000000..d4798ac
+--- /dev/null
++++ b/soporte/src/main/java/com/marketroad/soporte/dto/ResumenSoporteDTO.java
+@@ -0,0 +1,11 @@
++package com.marketroad.soporte.dto;
++
++import java.util.Map;
++
++/** Totales de tickets para el panel del superusuario de la plataforma. */
++public record ResumenSoporteDTO(
++        long total,
++        /** Tickets que necesitan atención (abiertos o en progreso) y nadie lleva todavía. */
++        long sinAsignar,
++        /** Cantidad por estado (todos los estados, con 0 si no hay). */
++        Map<String, Long> porEstado) {}
+diff --git a/soporte/src/main/java/com/marketroad/soporte/reglas/ReglasTicket.java b/soporte/src/main/java/com/marketroad/soporte/reglas/ReglasTicket.java
+index 241bdcf..44ff524 100644
+--- a/soporte/src/main/java/com/marketroad/soporte/reglas/ReglasTicket.java
++++ b/soporte/src/main/java/com/marketroad/soporte/reglas/ReglasTicket.java
+@@ -1,17 +1,22 @@
+ package com.marketroad.soporte.reglas;
+ 
++import java.util.Collections;
+ import java.util.EnumSet;
+ import java.util.List;
+ import java.util.Set;
+ import java.util.regex.Pattern;
+ 
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.stereotype.Component;
++
+ import com.marketroad.soporte.exception.OperacionNoPermitidaException;
+ import com.marketroad.soporte.model.EstadoTicket;
+ import com.marketroad.soporte.model.RolPersonal;
+ import com.marketroad.soporte.validacion.Textos;
+ 
+-/** Reglas puras del soporte (sin base de datos), separadas para poder probarlas fácilmente. */
+-public final class ReglasTicket {
++/** Reglas puras del soporte (sin base de datos), separadas para poder probarlas fácilmente. Bean de Spring. */
++@Component
++public class ReglasTicket {
+     public static final int MIN_ASUNTO = 3;
+     public static final int MAX_ASUNTO = 120;
+     public static final int MAX_CONTENIDO = 1000;
+@@ -24,19 +29,31 @@ public final class ReglasTicket {
+     public static final int MIN_CONTRASENA = 8;
+     public static final int MAX_CONTRASENA = 32;
+ 
+-    /** Estados que cuentan contra el cupo del usuario: un ticket resuelto o cerrado ya no ocupa lugar. */
+-    public static final Set<EstadoTicket> ESTADOS_QUE_OCUPAN_CUPO = EnumSet.of(EstadoTicket.ABIERTO, EstadoTicket.EN_PROGRESO);
++    @Autowired
++    private Textos textos;
+ 
+-    private static final Pattern CORREO = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+-    private static final Pattern LETRA = Pattern.compile(".*\\p{L}.*");
+-    private static final Pattern NUMERO = Pattern.compile(".*\\d.*");
++    /** Estados que necesitan atención del equipo (y que cuentan contra el cupo del usuario). */
++    private final Set<EstadoTicket> estadosActivos = Collections.unmodifiableSet(
++            EnumSet.of(EstadoTicket.ABIERTO, EstadoTicket.EN_PROGRESO));
+ 
+-    private ReglasTicket() {}
++    private final Pattern patronCorreo = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
++    private final Pattern patronLetra = Pattern.compile(".*\\p{L}.*");
++    private final Pattern patronNumero = Pattern.compile(".*\\d.*");
++
++    /** Estados que necesitan atención: abiertos y en progreso. */
++    public Set<EstadoTicket> estadosActivos() {
++        return estadosActivos;
++    }
++
++    /** Estados que cuentan contra el cupo del usuario: un ticket resuelto o cerrado ya no ocupa lugar. */
++    public Set<EstadoTicket> estadosQueOcupanCupo() {
++        return estadosActivos;
++    }
+ 
+     // ---------- Textos ----------
+ 
+-    public static String normalizarAsunto(String asunto) {
+-        String limpio = Textos.limpiar(asunto, false, "El asunto");
++    public String normalizarAsunto(String asunto) {
++        String limpio = textos.limpiar(asunto, false, "El asunto");
+         if (limpio.length() < MIN_ASUNTO) {
+             throw new IllegalArgumentException("El asunto debe tener al menos " + MIN_ASUNTO + " caracteres");
+         }
+@@ -46,8 +63,8 @@ public final class ReglasTicket {
+         return limpio;
+     }
+ 
+-    public static String normalizarContenido(String contenido) {
+-        String limpio = Textos.limpiar(contenido, true, "El mensaje");
++    public String normalizarContenido(String contenido) {
++        String limpio = textos.limpiar(contenido, true, "El mensaje");
+         if (limpio.isEmpty()) {
+             throw new IllegalArgumentException("El mensaje no puede estar vacío");
+         }
+@@ -58,7 +75,7 @@ public final class ReglasTicket {
+     }
+ 
+     /** Texto corto para las listas de tickets. */
+-    public static String vistaPrevia(String texto) {
++    public String vistaPrevia(String texto) {
+         if (texto == null) {
+             return "";
+         }
+@@ -71,14 +88,14 @@ public final class ReglasTicket {
+ 
+     // ---------- Cupos ----------
+ 
+-    public static void validarCupo(long ticketsActivos) {
++    public void validarCupo(long ticketsActivos) {
+         if (ticketsActivos >= MAX_TICKETS_ACTIVOS) {
+             throw new OperacionNoPermitidaException("Ya tienes " + MAX_TICKETS_ACTIVOS
+                     + " tickets en curso. Espera a que se resuelvan o ciérralos antes de abrir otro");
+         }
+     }
+ 
+-    public static void validarLimiteMensajes(long mensajesActuales) {
++    public void validarLimiteMensajes(long mensajesActuales) {
+         if (mensajesActuales >= MAX_MENSAJES_POR_TICKET) {
+             throw new OperacionNoPermitidaException(
+                     "Este ticket llegó al máximo de mensajes. Cierra este ticket y abre uno nuevo si necesitas seguir");
+@@ -87,12 +104,12 @@ public final class ReglasTicket {
+ 
+     // ---------- Estados ----------
+ 
+-    public static boolean usuarioPuedeEscribir(EstadoTicket estado) {
++    public boolean usuarioPuedeEscribir(EstadoTicket estado) {
+         return estado != EstadoTicket.CERRADO;
+     }
+ 
+     /** Si el usuario escribe en un ticket resuelto, se reabre (con el agente que lo llevaba, si había). */
+-    public static EstadoTicket estadoTrasMensajeUsuario(EstadoTicket actual, Long asignadoId) {
++    public EstadoTicket estadoTrasMensajeUsuario(EstadoTicket actual, Long asignadoId) {
+         if (actual == EstadoTicket.RESUELTO) {
+             return asignadoId != null ? EstadoTicket.EN_PROGRESO : EstadoTicket.ABIERTO;
+         }
+@@ -100,12 +117,12 @@ public final class ReglasTicket {
+     }
+ 
+     /** Al responder el personal, un ticket recién abierto pasa a "en progreso". */
+-    public static EstadoTicket estadoTrasRespuestaPersonal(EstadoTicket actual) {
++    public EstadoTicket estadoTrasRespuestaPersonal(EstadoTicket actual) {
+         return actual == EstadoTicket.ABIERTO ? EstadoTicket.EN_PROGRESO : actual;
+     }
+ 
+     /** Estados a los que el personal puede mover un ticket. Solo ADMIN puede reabrir un ticket cerrado. */
+-    public static List<EstadoTicket> siguientesEstados(EstadoTicket desde, boolean esAdmin) {
++    public List<EstadoTicket> siguientesEstados(EstadoTicket desde, boolean esAdmin) {
+         return switch (desde) {
+             case ABIERTO -> List.of(EstadoTicket.EN_PROGRESO, EstadoTicket.RESUELTO, EstadoTicket.CERRADO);
+             case EN_PROGRESO -> List.of(EstadoTicket.ABIERTO, EstadoTicket.RESUELTO, EstadoTicket.CERRADO);
+@@ -114,14 +131,14 @@ public final class ReglasTicket {
+         };
+     }
+ 
+-    public static boolean transicionPermitida(EstadoTicket desde, EstadoTicket hacia, boolean esAdmin) {
++    public boolean transicionPermitida(EstadoTicket desde, EstadoTicket hacia, boolean esAdmin) {
+         return desde != null && hacia != null && siguientesEstados(desde, esAdmin).contains(hacia);
+     }
+ 
+     // ---------- Permisos del personal ----------
+ 
+     /** ADMIN ve todos los tickets; SOPORTE ve los sin asignar y los que lleva él. */
+-    public static boolean personalPuedeVer(RolPersonal rol, Long personalId, Long asignadoId) {
++    public boolean personalPuedeVer(RolPersonal rol, Long personalId, Long asignadoId) {
+         if (rol == RolPersonal.ADMIN) {
+             return true;
+         }
+@@ -129,7 +146,7 @@ public final class ReglasTicket {
+     }
+ 
+     /** Responder o cambiar el estado: ADMIN siempre; SOPORTE solo si el ticket es suyo. */
+-    public static boolean personalPuedeGestionar(RolPersonal rol, Long personalId, Long asignadoId) {
++    public boolean personalPuedeGestionar(RolPersonal rol, Long personalId, Long asignadoId) {
+         if (rol == RolPersonal.ADMIN) {
+             return true;
+         }
+@@ -138,16 +155,16 @@ public final class ReglasTicket {
+ 
+     // ---------- Datos del personal ----------
+ 
+-    public static String normalizarCorreo(String correo) {
+-        String limpio = Textos.limpiar(correo, false, "El correo").toLowerCase();
+-        if (limpio.isEmpty() || limpio.length() > MAX_CORREO || !CORREO.matcher(limpio).matches()) {
++    public String normalizarCorreo(String correo) {
++        String limpio = textos.limpiar(correo, false, "El correo").toLowerCase();
++        if (limpio.isEmpty() || limpio.length() > MAX_CORREO || !patronCorreo.matcher(limpio).matches()) {
+             throw new IllegalArgumentException("El correo indicado no es válido");
+         }
+         return limpio;
+     }
+ 
+-    public static String normalizarNombre(String nombre) {
+-        String limpio = Textos.limpiar(nombre, false, "El nombre");
++    public String normalizarNombre(String nombre) {
++        String limpio = textos.limpiar(nombre, false, "El nombre");
+         if (limpio.length() < 2 || limpio.length() > MAX_NOMBRE) {
+             throw new IllegalArgumentException("El nombre debe tener entre 2 y " + MAX_NOMBRE + " caracteres");
+         }
+@@ -155,12 +172,12 @@ public final class ReglasTicket {
+     }
+ 
+     /** 8 a 32 caracteres, con al menos una letra y un número (misma política que el superusuario de la plataforma). */
+-    public static void validarContrasena(String contrasena) {
++    public void validarContrasena(String contrasena) {
+         if (contrasena == null || contrasena.length() < MIN_CONTRASENA || contrasena.length() > MAX_CONTRASENA) {
+             throw new IllegalArgumentException(
+                     "La contraseña debe tener entre " + MIN_CONTRASENA + " y " + MAX_CONTRASENA + " caracteres");
+         }
+-        if (!LETRA.matcher(contrasena).matches() || !NUMERO.matcher(contrasena).matches()) {
++        if (!patronLetra.matcher(contrasena).matches() || !patronNumero.matcher(contrasena).matches()) {
+             throw new IllegalArgumentException("La contraseña debe tener al menos una letra y un número");
+         }
+     }
+diff --git a/soporte/src/main/java/com/marketroad/soporte/security/IdentidadUsuario.java b/soporte/src/main/java/com/marketroad/soporte/security/IdentidadUsuario.java
+index e50a853..8d29f50 100644
+--- a/soporte/src/main/java/com/marketroad/soporte/security/IdentidadUsuario.java
++++ b/soporte/src/main/java/com/marketroad/soporte/security/IdentidadUsuario.java
+@@ -5,8 +5,20 @@ import com.marketroad.soporte.exception.NoAutorizadoException;
+ import jakarta.servlet.http.HttpServletRequest;
+ 
+ /** Persona usuaria de la plataforma, según el JWT emitido por User-Api (subject = id, claims "apodo", "correo" y "rol"). */
+-public record IdentidadUsuario(Long usuarioId, String apodo, String correo) {
++public record IdentidadUsuario(Long usuarioId, String apodo, String correo, String rol) {
+     public static final String ATRIBUTO = "identidadUsuarioAutenticada";
++    public static final String ROL_SUPERUSUARIO = "SUPERUSUARIO";
++
++    public boolean esSuperusuario() {
++        return ROL_SUPERUSUARIO.equals(rol);
++    }
++
++    /** Para endpoints solo del superusuario de la plataforma (el rol viene firmado en el token de User-Api). */
++    public void exigirSuperusuario() {
++        if (!esSuperusuario()) {
++            throw new NoAutorizadoException("Acceso restringido al superusuario");
++        }
++    }
+ 
+     public static IdentidadUsuario de(HttpServletRequest request) {
+         Object valor = request.getAttribute(ATRIBUTO);
+diff --git a/soporte/src/main/java/com/marketroad/soporte/security/JwtUsuarioUtil.java b/soporte/src/main/java/com/marketroad/soporte/security/JwtUsuarioUtil.java
+index b606119..dc219ab 100644
+--- a/soporte/src/main/java/com/marketroad/soporte/security/JwtUsuarioUtil.java
++++ b/soporte/src/main/java/com/marketroad/soporte/security/JwtUsuarioUtil.java
+@@ -36,7 +36,8 @@ public class JwtUsuarioUtil {
+         }
+         Object apodo = claims.get("apodo");
+         Object correo = claims.get("correo");
++        Object rol = claims.get("rol");
+         return new IdentidadUsuario(Long.valueOf(subject), apodo == null ? null : apodo.toString(),
+-                correo == null ? null : correo.toString());
++                correo == null ? null : correo.toString(), rol == null ? null : rol.toString());
+     }
+ }
+diff --git a/soporte/src/main/java/com/marketroad/soporte/service/EstadisticasService.java b/soporte/src/main/java/com/marketroad/soporte/service/EstadisticasService.java
+index 34bba31..a78cd50 100644
+--- a/soporte/src/main/java/com/marketroad/soporte/service/EstadisticasService.java
++++ b/soporte/src/main/java/com/marketroad/soporte/service/EstadisticasService.java
+@@ -29,6 +29,8 @@ public class EstadisticasService {
+     private TicketRepository tickets;
+     @Autowired
+     private PersonalSoporteRepository personal;
++    @Autowired
++    private ReglasTicket reglas;
+ 
+     @Transactional(readOnly = true)
+     public EstadisticasDTO obtener(IdentidadPersonal yo) {
+@@ -60,7 +62,7 @@ public class EstadisticasService {
+         }
+ 
+         Map<Long, Long> carga = new HashMap<>();
+-        for (Object[] fila : tickets.cargaPorPersonal(ReglasTicket.ESTADOS_QUE_OCUPAN_CUPO)) {
++        for (Object[] fila : tickets.cargaPorPersonal(reglas.estadosQueOcupanCupo())) {
+             carga.put((Long) fila[0], (Long) fila[1]);
+         }
+         List<CargaPersonalDTO> cargaPersonal = new ArrayList<>();
+@@ -73,7 +75,7 @@ public class EstadisticasService {
+         }
+         cargaPersonal.sort(Comparator.comparingLong(CargaPersonalDTO::ticketsEnCurso).reversed());
+ 
+-        long sinAsignar = tickets.countByAsignadoIdIsNullAndEstadoIn(ReglasTicket.ESTADOS_QUE_OCUPAN_CUPO);
++        long sinAsignar = tickets.countByAsignadoIdIsNullAndEstadoIn(reglas.estadosQueOcupanCupo());
+         long ultimos7 = tickets.countByFechaCreacionAfter(OffsetDateTime.now().minusDays(7));
+         return new EstadisticasDTO(total, sinAsignar, ultimos7, activos, porEstado, porCategoria, porPrioridad,
+                 cargaPersonal);
+diff --git a/soporte/src/main/java/com/marketroad/soporte/service/PersonalService.java b/soporte/src/main/java/com/marketroad/soporte/service/PersonalService.java
+index 589de30..655b556 100644
+--- a/soporte/src/main/java/com/marketroad/soporte/service/PersonalService.java
++++ b/soporte/src/main/java/com/marketroad/soporte/service/PersonalService.java
+@@ -45,6 +45,8 @@ public class PersonalService {
+     @Autowired
+     private PasswordEncoder passwordEncoder;
+     @Autowired
++    private ReglasTicket reglas;
++    @Autowired
+     private JwtPersonalUtil jwt;
+     @Autowired
+     @Qualifier("limitadorLogin")
+@@ -64,7 +66,7 @@ public class PersonalService {
+     public LoginResponseDTO login(LoginRequestDTO body) {
+         String correo;
+         try {
+-            correo = ReglasTicket.normalizarCorreo(body.correo());
++            correo = reglas.normalizarCorreo(body.correo());
+         } catch (IllegalArgumentException ex) {
+             throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES);
+         }
+@@ -95,7 +97,7 @@ public class PersonalService {
+             // 400 y no 401: un 401 haría creer al panel que la sesión expiró y lo sacaría.
+             throw new IllegalArgumentException("La contraseña actual no es correcta");
+         }
+-        ReglasTicket.validarContrasena(body.nueva());
++        reglas.validarContrasena(body.nueva());
+         cuenta.setContrasenaHash(passwordEncoder.encode(body.nueva()));
+         limitadorLogin.reiniciar("c:" + yo.personalId());
+     }
+@@ -106,7 +108,7 @@ public class PersonalService {
+     public List<PersonalDTO> listar(IdentidadPersonal yo) {
+         yo.exigirAdmin();
+         Map<Long, Long> carga = new HashMap<>();
+-        for (Object[] fila : tickets.cargaPorPersonal(ReglasTicket.ESTADOS_QUE_OCUPAN_CUPO)) {
++        for (Object[] fila : tickets.cargaPorPersonal(reglas.estadosQueOcupanCupo())) {
+             carga.put((Long) fila[0], (Long) fila[1]);
+         }
+         return personal.findAllByOrderByNombreAsc().stream()
+@@ -116,14 +118,14 @@ public class PersonalService {
+     @Transactional
+     public PersonalDTO crear(IdentidadPersonal yo, CrearPersonalRequestDTO body) {
+         yo.exigirAdmin();
+-        String correo = ReglasTicket.normalizarCorreo(body.correo());
++        String correo = reglas.normalizarCorreo(body.correo());
+         if (personal.existsByCorreo(correo)) {
+             throw new OperacionNoPermitidaException("Ya existe una cuenta de soporte con ese correo");
+         }
+-        ReglasTicket.validarContrasena(body.contrasena());
++        reglas.validarContrasena(body.contrasena());
+ 
+         PersonalSoporte cuenta = new PersonalSoporte();
+-        cuenta.setNombre(ReglasTicket.normalizarNombre(body.nombre()));
++        cuenta.setNombre(reglas.normalizarNombre(body.nombre()));
+         cuenta.setCorreo(correo);
+         cuenta.setContrasenaHash(passwordEncoder.encode(body.contrasena()));
+         cuenta.setRol(RolPersonal.desdeCodigo(body.rol()));
+@@ -150,10 +152,10 @@ public class PersonalService {
+         }
+ 
+         if (body.nombre() != null) {
+-            cuenta.setNombre(ReglasTicket.normalizarNombre(body.nombre()));
++            cuenta.setNombre(reglas.normalizarNombre(body.nombre()));
+         }
+         if (body.contrasena() != null && !body.contrasena().isEmpty()) {
+-            ReglasTicket.validarContrasena(body.contrasena());
++            reglas.validarContrasena(body.contrasena());
+             cuenta.setContrasenaHash(passwordEncoder.encode(body.contrasena()));
+         }
+         cuenta.setRol(nuevoRol);
+diff --git a/soporte/src/main/java/com/marketroad/soporte/service/TicketService.java b/soporte/src/main/java/com/marketroad/soporte/service/TicketService.java
+index 318e55a..ca19dbc 100644
+--- a/soporte/src/main/java/com/marketroad/soporte/service/TicketService.java
++++ b/soporte/src/main/java/com/marketroad/soporte/service/TicketService.java
+@@ -7,7 +7,6 @@ import java.util.EnumSet;
+ import java.util.HashMap;
+ import java.util.List;
+ import java.util.Map;
+-import java.util.Set;
+ import java.util.stream.Collectors;
+ 
+ import org.springframework.beans.factory.annotation.Autowired;
+@@ -24,6 +23,7 @@ import com.marketroad.soporte.dto.CrearTicketRequestDTO;
+ import com.marketroad.soporte.dto.MensajeTicketDTO;
+ import com.marketroad.soporte.dto.NoLeidosDTO;
+ import com.marketroad.soporte.dto.PaginaDTO;
++import com.marketroad.soporte.dto.ResumenSoporteDTO;
+ import com.marketroad.soporte.dto.TicketDetalleDTO;
+ import com.marketroad.soporte.dto.TicketPanelDetalleDTO;
+ import com.marketroad.soporte.dto.TicketPanelResumenDTO;
+@@ -57,7 +57,6 @@ import com.marketroad.soporte.security.IdentidadUsuario;
+ @Service
+ public class TicketService {
+     private static final String NOMBRE_SISTEMA = "Sistema";
+-    private static final Set<EstadoTicket> ESTADOS_ACTIVOS = EnumSet.of(EstadoTicket.ABIERTO, EstadoTicket.EN_PROGRESO);
+ 
+     @Autowired
+     private TicketRepository tickets;
+@@ -66,6 +65,8 @@ public class TicketService {
+     @Autowired
+     private PersonalSoporteRepository personal;
+     @Autowired
++    private ReglasTicket reglas;
++    @Autowired
+     @Qualifier("limitadorMensajes")
+     private LimitadorAcciones limitadorMensajes;
+     @Autowired
+@@ -82,10 +83,10 @@ public class TicketService {
+ 
+     @Transactional
+     public TicketDetalleDTO crear(IdentidadUsuario yo, CrearTicketRequestDTO body) {
+-        String asunto = ReglasTicket.normalizarAsunto(body.asunto());
++        String asunto = reglas.normalizarAsunto(body.asunto());
+         CategoriaTicket categoria = CategoriaTicket.desdeCodigo(body.categoria());
+-        String contenido = ReglasTicket.normalizarContenido(body.mensaje());
+-        ReglasTicket.validarCupo(tickets.countByUsuarioIdAndEstadoIn(yo.usuarioId(), ReglasTicket.ESTADOS_QUE_OCUPAN_CUPO));
++        String contenido = reglas.normalizarContenido(body.mensaje());
++        reglas.validarCupo(tickets.countByUsuarioIdAndEstadoIn(yo.usuarioId(), reglas.estadosQueOcupanCupo()));
+         limitadorTickets.registrar("t:" + yo.usuarioId());
+         limitadorMensajes.registrar("u:" + yo.usuarioId());
+ 
+@@ -125,14 +126,14 @@ public class TicketService {
+     @Transactional
+     public TicketDetalleDTO responderUsuario(Long id, String contenido, IdentidadUsuario yo) {
+         Ticket ticket = ticketDeUsuario(id, yo);
+-        if (!ReglasTicket.usuarioPuedeEscribir(ticket.getEstado())) {
++        if (!reglas.usuarioPuedeEscribir(ticket.getEstado())) {
+             throw new OperacionNoPermitidaException("Este ticket está cerrado. Abre uno nuevo si necesitas más ayuda");
+         }
+-        String limpio = ReglasTicket.normalizarContenido(contenido);
++        String limpio = reglas.normalizarContenido(contenido);
+         limitadorMensajes.registrar("u:" + yo.usuarioId());
+-        ReglasTicket.validarLimiteMensajes(mensajes.countByTicketId(ticket.getId()));
++        reglas.validarLimiteMensajes(mensajes.countByTicketId(ticket.getId()));
+ 
+-        EstadoTicket nuevo = ReglasTicket.estadoTrasMensajeUsuario(ticket.getEstado(), ticket.getAsignadoId());
++        EstadoTicket nuevo = reglas.estadoTrasMensajeUsuario(ticket.getEstado(), ticket.getAsignadoId());
+         if (nuevo != ticket.getEstado()) {
+             aplicarEstado(ticket, nuevo, "El ticket se reabrió porque escribiste de nuevo.");
+         }
+@@ -160,7 +161,7 @@ public class TicketService {
+     private TicketDetalleDTO detalleUsuario(Ticket ticket) {
+         List<MensajeTicketDTO> lista = mensajes.findByTicketIdOrderByIdAsc(ticket.getId()).stream().map(this::mensajeDTO).toList();
+         // El detalle siempre se arma después de marcar como leídas las respuestas, por eso no hay pendientes.
+-        return new TicketDetalleDTO(resumenUsuario(ticket, 0L), lista, ReglasTicket.usuarioPuedeEscribir(ticket.getEstado()));
++        return new TicketDetalleDTO(resumenUsuario(ticket, 0L), lista, reglas.usuarioPuedeEscribir(ticket.getEstado()));
+     }
+ 
+     private TicketResumenDTO resumenUsuario(Ticket t, long noLeidos) {
+@@ -176,14 +177,27 @@ public class TicketService {
+     @Transactional(readOnly = true)
+     public PaginaDTO<TicketPanelResumenDTO> listarPanel(IdentidadPersonal yo, String estado, String prioridad,
+             String categoria, String asignacion, String texto, int pagina, int tamano) {
+-        Specification<Ticket> spec = TicketSpecs.todos();
++        Specification<Ticket> base = TicketSpecs.todos();
+         if (!yo.esAdmin()) {
+-            spec = spec.and(TicketSpecs.visiblesPara(yo.personalId()));
++            base = base.and(TicketSpecs.visiblesPara(yo.personalId()));
+         }
++        return buscarParaPanel(base, yo.personalId(), estado, prioridad, categoria, asignacion, texto, pagina, tamano);
++    }
++
++    /** Superusuario de la plataforma: ve todos los tickets (solo lectura). No tiene cuenta de soporte, así que no hay "MIOS". */
++    @Transactional(readOnly = true)
++    public PaginaDTO<TicketPanelResumenDTO> listarParaSuperusuario(String estado, String prioridad, String categoria,
++            String asignacion, String texto, int pagina, int tamano) {
++        return buscarParaPanel(TicketSpecs.todos(), null, estado, prioridad, categoria, asignacion, texto, pagina, tamano);
++    }
++
++    private PaginaDTO<TicketPanelResumenDTO> buscarParaPanel(Specification<Ticket> base, Long personalId, String estado,
++            String prioridad, String categoria, String asignacion, String texto, int pagina, int tamano) {
++        Specification<Ticket> spec = base;
+         if (estado != null && !estado.isBlank()) {
+             // "ACTIVOS" agrupa los que necesitan atención (abiertos y en progreso).
+             spec = spec.and(TicketSpecs.estadoEn("ACTIVOS".equalsIgnoreCase(estado.trim())
+-                    ? ESTADOS_ACTIVOS : EnumSet.of(EstadoTicket.desdeCodigo(estado))));
++                    ? reglas.estadosActivos() : EnumSet.of(EstadoTicket.desdeCodigo(estado))));
+         }
+         if (prioridad != null && !prioridad.isBlank()) {
+             spec = spec.and(TicketSpecs.prioridad(PrioridadTicket.desdeCodigo(prioridad)));
+@@ -191,8 +205,8 @@ public class TicketService {
+         if (categoria != null && !categoria.isBlank()) {
+             spec = spec.and(TicketSpecs.categoria(CategoriaTicket.desdeCodigo(categoria)));
+         }
+-        if ("MIOS".equalsIgnoreCase(asignacion)) {
+-            spec = spec.and(TicketSpecs.asignadoA(yo.personalId()));
++        if ("MIOS".equalsIgnoreCase(asignacion) && personalId != null) {
++            spec = spec.and(TicketSpecs.asignadoA(personalId));
+         } else if ("SIN_ASIGNAR".equalsIgnoreCase(asignacion)) {
+             spec = spec.and(TicketSpecs.sinAsignar());
+         }
+@@ -215,6 +229,37 @@ public class TicketService {
+                 resultado.getTotalElements(), resultado.getTotalPages());
+     }
+ 
++    /**
++     * Superusuario de la plataforma: abre un ticket para leerlo. Es solo lectura: no marca mensajes como leídos
++     * (eso le corresponde al personal de soporte) ni ofrece acciones.
++     */
++    @Transactional(readOnly = true)
++    public TicketPanelDetalleDTO obtenerParaSuperusuario(Long id) {
++        Ticket ticket = tickets.findById(id).orElseThrow(() -> new TicketNoEncontradoException("El ticket no existe"));
++        Map<Long, String> nombres = nombresDePersonal(List.of(ticket));
++        long sinLeer = noLeidosPorTicket(List.of(ticket), AutorTipo.USUARIO).getOrDefault(ticket.getId(), 0L);
++        UsuarioTicketDTO usuario = new UsuarioTicketDTO(ticket.getUsuarioId(), ticket.getUsuarioApodo(), ticket.getUsuarioCorreo());
++        List<MensajeTicketDTO> lista = mensajes.findByTicketIdOrderByIdAsc(ticket.getId()).stream().map(this::mensajeDTO).toList();
++        return new TicketPanelDetalleDTO(resumenPanel(ticket, sinLeer, nombres), usuario, lista, false, List.of(), false);
++    }
++
++    /** Superusuario de la plataforma: cuántos tickets hay por estado y cuántos activos sin asignar. */
++    @Transactional(readOnly = true)
++    public ResumenSoporteDTO resumenParaSuperusuario() {
++        Map<String, Long> porEstado = new java.util.LinkedHashMap<>();
++        for (EstadoTicket e : EstadoTicket.values()) {
++            porEstado.put(e.name(), 0L);
++        }
++        long total = 0;
++        for (Object[] fila : tickets.contarPorEstado()) {
++            long cantidad = (Long) fila[1];
++            porEstado.put(((EstadoTicket) fila[0]).name(), cantidad);
++            total += cantidad;
++        }
++        long sinAsignar = tickets.countByAsignadoIdIsNullAndEstadoIn(reglas.estadosActivos());
++        return new ResumenSoporteDTO(total, sinAsignar, porEstado);
++    }
++
+     @Transactional
+     public TicketPanelDetalleDTO obtenerPanel(Long id, IdentidadPersonal yo) {
+         Ticket ticket = ticketVisible(id, yo);
+@@ -226,18 +271,18 @@ public class TicketService {
+     public TicketPanelDetalleDTO responderPanel(Long id, String contenido, IdentidadPersonal yo) {
+         Ticket ticket = ticketVisible(id, yo);
+         exigirAbierto(ticket);
+-        if (ticket.getAsignadoId() != null && !ReglasTicket.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
++        if (ticket.getAsignadoId() != null && !reglas.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
+             throw new NoAutorizadoException("Este ticket lo lleva otra persona del equipo");
+         }
+-        String limpio = ReglasTicket.normalizarContenido(contenido);
++        String limpio = reglas.normalizarContenido(contenido);
+         limitadorMensajes.registrar("p:" + yo.personalId());
+-        ReglasTicket.validarLimiteMensajes(mensajes.countByTicketId(ticket.getId()));
++        reglas.validarLimiteMensajes(mensajes.countByTicketId(ticket.getId()));
+ 
+         // Responder un ticket sin dueño equivale a tomarlo.
+         if (ticket.getAsignadoId() == null) {
+             tomarInterno(ticket, yo);
+         } else if (ticket.getEstado() == EstadoTicket.ABIERTO) {
+-            ticket.setEstado(ReglasTicket.estadoTrasRespuestaPersonal(ticket.getEstado()));
++            ticket.setEstado(reglas.estadoTrasRespuestaPersonal(ticket.getEstado()));
+         }
+         agregarMensaje(ticket, AutorTipo.PERSONAL, yo.personalId(), yo.nombre(), limpio);
+         mensajes.marcarLeidos(ticket.getId(), AutorTipo.USUARIO);
+@@ -264,11 +309,11 @@ public class TicketService {
+         if (ticket.getAsignadoId() == null && !yo.esAdmin()) {
+             throw new NoAutorizadoException("Toma el ticket antes de cambiar su estado");
+         }
+-        if (!ReglasTicket.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
++        if (!reglas.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
+             throw new NoAutorizadoException("Este ticket lo lleva otra persona del equipo");
+         }
+         EstadoTicket nuevo = EstadoTicket.desdeCodigo(estado);
+-        if (!ReglasTicket.transicionPermitida(ticket.getEstado(), nuevo, yo.esAdmin())) {
++        if (!reglas.transicionPermitida(ticket.getEstado(), nuevo, yo.esAdmin())) {
+             throw new OperacionNoPermitidaException("No se puede pasar el ticket de «" + ticket.getEstado().getNombre()
+                     + "» a «" + nuevo.getNombre() + "»");
+         }
+@@ -312,7 +357,7 @@ public class TicketService {
+ 
+     private Ticket ticketVisible(Long id, IdentidadPersonal yo) {
+         Ticket ticket = tickets.findById(id).orElseThrow(() -> new TicketNoEncontradoException("El ticket no existe"));
+-        if (!ReglasTicket.personalPuedeVer(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
++        if (!reglas.personalPuedeVer(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
+             throw new TicketNoEncontradoException("El ticket no existe");
+         }
+         return ticket;
+@@ -341,10 +386,10 @@ public class TicketService {
+         List<MensajeTicketDTO> lista = mensajes.findByTicketIdOrderByIdAsc(ticket.getId()).stream().map(this::mensajeDTO).toList();
+ 
+         boolean abierto = ticket.getEstado() != EstadoTicket.CERRADO;
+-        boolean gestiona = ReglasTicket.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId());
++        boolean gestiona = reglas.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId());
+         boolean puedeResponder = abierto && (ticket.getAsignadoId() == null || gestiona);
+         List<String> estados = gestiona
+-                ? ReglasTicket.siguientesEstados(ticket.getEstado(), yo.esAdmin()).stream().map(EstadoTicket::name).toList()
++                ? reglas.siguientesEstados(ticket.getEstado(), yo.esAdmin()).stream().map(EstadoTicket::name).toList()
+                 : List.of();
+         boolean puedeTomar = abierto && !yo.personalId().equals(ticket.getAsignadoId())
+                 && (ticket.getAsignadoId() == null || yo.esAdmin());
+@@ -375,7 +420,7 @@ public class TicketService {
+ 
+         ticket.setFechaActualizacion(OffsetDateTime.now());
+         if (tipo != AutorTipo.SISTEMA) {
+-            ticket.setUltimoMensaje(ReglasTicket.vistaPrevia(contenido));
++            ticket.setUltimoMensaje(reglas.vistaPrevia(contenido));
+         }
+         return mensaje;
+     }
+diff --git a/soporte/src/main/java/com/marketroad/soporte/validacion/Textos.java b/soporte/src/main/java/com/marketroad/soporte/validacion/Textos.java
+index dc8a018..b9f5377 100644
+--- a/soporte/src/main/java/com/marketroad/soporte/validacion/Textos.java
++++ b/soporte/src/main/java/com/marketroad/soporte/validacion/Textos.java
+@@ -1,14 +1,16 @@
+ package com.marketroad.soporte.validacion;
+ 
+-/** Validación y limpieza de textos escritos por personas (asunto, mensajes, nombres). */
+-public final class Textos {
+-    private Textos() {}
++import org.springframework.stereotype.Component;
++
++/** Validación y limpieza de textos escritos por personas (asunto, mensajes, nombres). Bean de Spring: se inyecta con @Autowired. */
++@Component
++public class Textos {
+ 
+     /**
+      * Recorta el texto y rechaza caracteres de control (salvo salto de línea y tabulación cuando se permiten
+      * varias líneas), el carácter nulo y los caracteres de dirección invisibles usados para falsear texto.
+      */
+-    public static String limpiar(String texto, boolean permiteSaltos, String campo) {
++    public String limpiar(String texto, boolean permiteSaltos, String campo) {
+         String limpio = texto == null ? "" : texto.strip();
+         for (int i = 0; i < limpio.length(); i++) {
+             char c = limpio.charAt(i);
+diff --git a/soporte/src/main/resources/application.yml b/soporte/src/main/resources/application.yml
+index 150f959..9915a33 100644
+--- a/soporte/src/main/resources/application.yml
++++ b/soporte/src/main/resources/application.yml
+@@ -6,8 +6,8 @@ spring:
+     name: servicio-soporte
+   datasource:
+     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/db_soporte?useSSL=false&allowPublicKeyRetrieval=true}
+-    username: ${SPRING_DATASOURCE_USERNAME:marketroad_app}
+-    password: ${SPRING_DATASOURCE_PASSWORD:marketroad_local_dev}
++    username: ${SPRING_DATASOURCE_USERNAME:soporte_app}
++    password: ${SPRING_DATASOURCE_PASSWORD:soporte_local_dev}
+     driver-class-name: com.mysql.cj.jdbc.Driver
+   jpa:
+     hibernate:
+@@ -33,3 +33,9 @@ soporte:
+     correo: ${SOPORTE_ADMIN_CORREO:soporte-admin@marketroad.local}
+     contrasena: ${SOPORTE_ADMIN_CONTRASENA:Soporte12345}
+     nombre: Administrador de soporte
++  # Cuenta de soporte inicial (rol SOPORTE: atiende los tickets sin asignar y los suyos). Solo desarrollo local.
++  agente:
++    habilitado: ${SOPORTE_AGENTE_HABILITADO:true}
++    correo: ${SOPORTE_AGENTE_CORREO:soporte@marketroad.local}
++    contrasena: ${SOPORTE_AGENTE_CONTRASENA:Agente12345}
++    nombre: Agente de soporte
+diff --git a/soporte/src/test/java/com/marketroad/soporte/reglas/ReglasTicketTest.java b/soporte/src/test/java/com/marketroad/soporte/reglas/ReglasTicketTest.java
+index a5ef560..8a763b4 100644
+--- a/soporte/src/test/java/com/marketroad/soporte/reglas/ReglasTicketTest.java
++++ b/soporte/src/test/java/com/marketroad/soporte/reglas/ReglasTicketTest.java
+@@ -5,119 +5,130 @@ import static org.junit.jupiter.api.Assertions.*;
+ import java.util.List;
+ 
+ import org.junit.jupiter.api.Test;
++import org.springframework.test.util.ReflectionTestUtils;
+ 
+ import com.marketroad.soporte.exception.OperacionNoPermitidaException;
+ import com.marketroad.soporte.model.EstadoTicket;
+ import com.marketroad.soporte.model.RolPersonal;
++import com.marketroad.soporte.validacion.Textos;
+ 
+ class ReglasTicketTest {
++    private final ReglasTicket reglas = nuevas();
++
++    /** Arma las reglas igual que Spring: con su colaborador inyectado. */
++    private static ReglasTicket nuevas() {
++        ReglasTicket reglas = new ReglasTicket();
++        ReflectionTestUtils.setField(reglas, "textos", new Textos());
++        return reglas;
++    }
++
+     @Test
+     void normalizaYRechazaAsuntos() {
+-        assertEquals("No puedo entrar", ReglasTicket.normalizarAsunto("  No puedo entrar  "));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarAsunto("ab"));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarAsunto(null));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarAsunto("a".repeat(121)));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarAsunto("dos\nlíneas"));
+-        assertDoesNotThrow(() -> ReglasTicket.normalizarAsunto("a".repeat(120)));
++        assertEquals("No puedo entrar", reglas.normalizarAsunto("  No puedo entrar  "));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarAsunto("ab"));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarAsunto(null));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarAsunto("a".repeat(121)));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarAsunto("dos\nlíneas"));
++        assertDoesNotThrow(() -> reglas.normalizarAsunto("a".repeat(120)));
+     }
+ 
+     @Test
+     void normalizaYRechazaMensajes() {
+-        assertEquals("hola", ReglasTicket.normalizarContenido("  hola  "));
+-        assertEquals("uno\ndos", ReglasTicket.normalizarContenido("uno\r\ndos"));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarContenido("   "));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarContenido(null));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarContenido("a".repeat(1001)));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarContenido("texto \u202E invertido"));
++        assertEquals("hola", reglas.normalizarContenido("  hola  "));
++        assertEquals("uno\ndos", reglas.normalizarContenido("uno\r\ndos"));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarContenido("   "));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarContenido(null));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarContenido("a".repeat(1001)));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarContenido("texto \u202E invertido"));
+     }
+ 
+     @Test
+     void vistaPreviaAcortaYCompactaEspacios() {
+-        assertEquals("", ReglasTicket.vistaPrevia(null));
+-        assertEquals("a b c", ReglasTicket.vistaPrevia("a\n  b \t c"));
+-        String larga = ReglasTicket.vistaPrevia("x".repeat(500));
++        assertEquals("", reglas.vistaPrevia(null));
++        assertEquals("a b c", reglas.vistaPrevia("a\n  b \t c"));
++        String larga = reglas.vistaPrevia("x".repeat(500));
+         assertEquals(ReglasTicket.MAX_VISTA_PREVIA, larga.length());
+         assertTrue(larga.endsWith("…"));
+     }
+ 
+     @Test
+     void elCupoDeTicketsSeAgotaAlLlegarAlMaximo() {
+-        assertDoesNotThrow(() -> ReglasTicket.validarCupo(ReglasTicket.MAX_TICKETS_ACTIVOS - 1));
+-        assertThrows(OperacionNoPermitidaException.class, () -> ReglasTicket.validarCupo(ReglasTicket.MAX_TICKETS_ACTIVOS));
++        assertDoesNotThrow(() -> reglas.validarCupo(ReglasTicket.MAX_TICKETS_ACTIVOS - 1));
++        assertThrows(OperacionNoPermitidaException.class, () -> reglas.validarCupo(ReglasTicket.MAX_TICKETS_ACTIVOS));
+         assertThrows(OperacionNoPermitidaException.class,
+-                () -> ReglasTicket.validarLimiteMensajes(ReglasTicket.MAX_MENSAJES_POR_TICKET));
+-        assertDoesNotThrow(() -> ReglasTicket.validarLimiteMensajes(ReglasTicket.MAX_MENSAJES_POR_TICKET - 1));
++                () -> reglas.validarLimiteMensajes(ReglasTicket.MAX_MENSAJES_POR_TICKET));
++        assertDoesNotThrow(() -> reglas.validarLimiteMensajes(ReglasTicket.MAX_MENSAJES_POR_TICKET - 1));
+     }
+ 
+     @Test
+     void soloUnTicketResueltoSeReabreSolo() {
+-        assertEquals(EstadoTicket.EN_PROGRESO, ReglasTicket.estadoTrasMensajeUsuario(EstadoTicket.RESUELTO, 7L));
+-        assertEquals(EstadoTicket.ABIERTO, ReglasTicket.estadoTrasMensajeUsuario(EstadoTicket.RESUELTO, null));
+-        assertEquals(EstadoTicket.ABIERTO, ReglasTicket.estadoTrasMensajeUsuario(EstadoTicket.ABIERTO, null));
+-        assertEquals(EstadoTicket.EN_PROGRESO, ReglasTicket.estadoTrasMensajeUsuario(EstadoTicket.EN_PROGRESO, 7L));
+-        assertEquals(EstadoTicket.EN_PROGRESO, ReglasTicket.estadoTrasRespuestaPersonal(EstadoTicket.ABIERTO));
+-        assertEquals(EstadoTicket.RESUELTO, ReglasTicket.estadoTrasRespuestaPersonal(EstadoTicket.RESUELTO));
++        assertEquals(EstadoTicket.EN_PROGRESO, reglas.estadoTrasMensajeUsuario(EstadoTicket.RESUELTO, 7L));
++        assertEquals(EstadoTicket.ABIERTO, reglas.estadoTrasMensajeUsuario(EstadoTicket.RESUELTO, null));
++        assertEquals(EstadoTicket.ABIERTO, reglas.estadoTrasMensajeUsuario(EstadoTicket.ABIERTO, null));
++        assertEquals(EstadoTicket.EN_PROGRESO, reglas.estadoTrasMensajeUsuario(EstadoTicket.EN_PROGRESO, 7L));
++        assertEquals(EstadoTicket.EN_PROGRESO, reglas.estadoTrasRespuestaPersonal(EstadoTicket.ABIERTO));
++        assertEquals(EstadoTicket.RESUELTO, reglas.estadoTrasRespuestaPersonal(EstadoTicket.RESUELTO));
+     }
+ 
+     @Test
+     void laPersonaUsuariaNoEscribeEnTicketsCerrados() {
+-        assertFalse(ReglasTicket.usuarioPuedeEscribir(EstadoTicket.CERRADO));
+-        assertTrue(ReglasTicket.usuarioPuedeEscribir(EstadoTicket.ABIERTO));
+-        assertTrue(ReglasTicket.usuarioPuedeEscribir(EstadoTicket.RESUELTO));
++        assertFalse(reglas.usuarioPuedeEscribir(EstadoTicket.CERRADO));
++        assertTrue(reglas.usuarioPuedeEscribir(EstadoTicket.ABIERTO));
++        assertTrue(reglas.usuarioPuedeEscribir(EstadoTicket.RESUELTO));
+     }
+ 
+     @Test
+     void transicionesDeEstado() {
+-        assertTrue(ReglasTicket.transicionPermitida(EstadoTicket.ABIERTO, EstadoTicket.EN_PROGRESO, false));
+-        assertTrue(ReglasTicket.transicionPermitida(EstadoTicket.EN_PROGRESO, EstadoTicket.RESUELTO, false));
+-        assertTrue(ReglasTicket.transicionPermitida(EstadoTicket.RESUELTO, EstadoTicket.CERRADO, false));
+-        assertFalse(ReglasTicket.transicionPermitida(EstadoTicket.ABIERTO, EstadoTicket.ABIERTO, false));
+-        assertFalse(ReglasTicket.transicionPermitida(EstadoTicket.RESUELTO, EstadoTicket.ABIERTO, false));
+-        assertFalse(ReglasTicket.transicionPermitida(null, EstadoTicket.ABIERTO, true));
++        assertTrue(reglas.transicionPermitida(EstadoTicket.ABIERTO, EstadoTicket.EN_PROGRESO, false));
++        assertTrue(reglas.transicionPermitida(EstadoTicket.EN_PROGRESO, EstadoTicket.RESUELTO, false));
++        assertTrue(reglas.transicionPermitida(EstadoTicket.RESUELTO, EstadoTicket.CERRADO, false));
++        assertFalse(reglas.transicionPermitida(EstadoTicket.ABIERTO, EstadoTicket.ABIERTO, false));
++        assertFalse(reglas.transicionPermitida(EstadoTicket.RESUELTO, EstadoTicket.ABIERTO, false));
++        assertFalse(reglas.transicionPermitida(null, EstadoTicket.ABIERTO, true));
+     }
+ 
+     @Test
+     void soloAdminReabreUnTicketCerrado() {
+-        assertEquals(List.of(), ReglasTicket.siguientesEstados(EstadoTicket.CERRADO, false));
+-        assertEquals(List.of(EstadoTicket.ABIERTO), ReglasTicket.siguientesEstados(EstadoTicket.CERRADO, true));
+-        assertFalse(ReglasTicket.transicionPermitida(EstadoTicket.CERRADO, EstadoTicket.ABIERTO, false));
+-        assertTrue(ReglasTicket.transicionPermitida(EstadoTicket.CERRADO, EstadoTicket.ABIERTO, true));
++        assertEquals(List.of(), reglas.siguientesEstados(EstadoTicket.CERRADO, false));
++        assertEquals(List.of(EstadoTicket.ABIERTO), reglas.siguientesEstados(EstadoTicket.CERRADO, true));
++        assertFalse(reglas.transicionPermitida(EstadoTicket.CERRADO, EstadoTicket.ABIERTO, false));
++        assertTrue(reglas.transicionPermitida(EstadoTicket.CERRADO, EstadoTicket.ABIERTO, true));
+     }
+ 
+     @Test
+     void permisosDelPersonalSegunRol() {
+         // ADMIN ve y gestiona todo
+-        assertTrue(ReglasTicket.personalPuedeVer(RolPersonal.ADMIN, 1L, 2L));
+-        assertTrue(ReglasTicket.personalPuedeGestionar(RolPersonal.ADMIN, 1L, 2L));
+-        assertTrue(ReglasTicket.personalPuedeGestionar(RolPersonal.ADMIN, 1L, null));
++        assertTrue(reglas.personalPuedeVer(RolPersonal.ADMIN, 1L, 2L));
++        assertTrue(reglas.personalPuedeGestionar(RolPersonal.ADMIN, 1L, 2L));
++        assertTrue(reglas.personalPuedeGestionar(RolPersonal.ADMIN, 1L, null));
+         // SOPORTE ve los sin asignar y los suyos, pero no los de otra persona
+-        assertTrue(ReglasTicket.personalPuedeVer(RolPersonal.SOPORTE, 5L, null));
+-        assertTrue(ReglasTicket.personalPuedeVer(RolPersonal.SOPORTE, 5L, 5L));
+-        assertFalse(ReglasTicket.personalPuedeVer(RolPersonal.SOPORTE, 5L, 6L));
++        assertTrue(reglas.personalPuedeVer(RolPersonal.SOPORTE, 5L, null));
++        assertTrue(reglas.personalPuedeVer(RolPersonal.SOPORTE, 5L, 5L));
++        assertFalse(reglas.personalPuedeVer(RolPersonal.SOPORTE, 5L, 6L));
+         // SOPORTE solo gestiona los suyos: uno sin asignar hay que tomarlo primero
+-        assertTrue(ReglasTicket.personalPuedeGestionar(RolPersonal.SOPORTE, 5L, 5L));
+-        assertFalse(ReglasTicket.personalPuedeGestionar(RolPersonal.SOPORTE, 5L, null));
+-        assertFalse(ReglasTicket.personalPuedeGestionar(RolPersonal.SOPORTE, 5L, 6L));
++        assertTrue(reglas.personalPuedeGestionar(RolPersonal.SOPORTE, 5L, 5L));
++        assertFalse(reglas.personalPuedeGestionar(RolPersonal.SOPORTE, 5L, null));
++        assertFalse(reglas.personalPuedeGestionar(RolPersonal.SOPORTE, 5L, 6L));
+     }
+ 
+     @Test
+     void validaDatosDelPersonal() {
+-        assertEquals("ana@empresa.cl", ReglasTicket.normalizarCorreo("  Ana@Empresa.CL "));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarCorreo("sin-arroba"));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarCorreo("a@b"));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarCorreo(null));
+-        assertEquals("Ana Pérez", ReglasTicket.normalizarNombre(" Ana Pérez "));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarNombre("A"));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.normalizarNombre("x".repeat(81)));
++        assertEquals("ana@empresa.cl", reglas.normalizarCorreo("  Ana@Empresa.CL "));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarCorreo("sin-arroba"));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarCorreo("a@b"));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarCorreo(null));
++        assertEquals("Ana Pérez", reglas.normalizarNombre(" Ana Pérez "));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarNombre("A"));
++        assertThrows(IllegalArgumentException.class, () -> reglas.normalizarNombre("x".repeat(81)));
+     }
+ 
+     @Test
+     void validaContrasenas() {
+-        assertDoesNotThrow(() -> ReglasTicket.validarContrasena("Soporte12345"));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.validarContrasena("corta1"));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.validarContrasena("sinnumeroaqui"));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.validarContrasena("123456789"));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.validarContrasena("a1".repeat(17)));
+-        assertThrows(IllegalArgumentException.class, () -> ReglasTicket.validarContrasena(null));
++        assertDoesNotThrow(() -> reglas.validarContrasena("Soporte12345"));
++        assertThrows(IllegalArgumentException.class, () -> reglas.validarContrasena("corta1"));
++        assertThrows(IllegalArgumentException.class, () -> reglas.validarContrasena("sinnumeroaqui"));
++        assertThrows(IllegalArgumentException.class, () -> reglas.validarContrasena("123456789"));
++        assertThrows(IllegalArgumentException.class, () -> reglas.validarContrasena("a1".repeat(17)));
++        assertThrows(IllegalArgumentException.class, () -> reglas.validarContrasena(null));
+     }
+ }
+diff --git a/soporte/src/test/java/com/marketroad/soporte/validacion/TextosTest.java b/soporte/src/test/java/com/marketroad/soporte/validacion/TextosTest.java
+index efbebaa..fe4f722 100644
+--- a/soporte/src/test/java/com/marketroad/soporte/validacion/TextosTest.java
++++ b/soporte/src/test/java/com/marketroad/soporte/validacion/TextosTest.java
+@@ -5,18 +5,20 @@ import static org.junit.jupiter.api.Assertions.*;
+ import org.junit.jupiter.api.Test;
+ 
+ class TextosTest {
++    private final Textos textos = new Textos();
++
+     @Test
+     void recortaYRechazaCaracteresDeControl() {
+-        assertEquals("hola", Textos.limpiar("  hola ", false, "El texto"));
+-        assertEquals("", Textos.limpiar(null, false, "El texto"));
+-        assertThrows(IllegalArgumentException.class, () -> Textos.limpiar("a\u0000b", true, "El texto"));
+-        assertThrows(IllegalArgumentException.class, () -> Textos.limpiar("a\nb", false, "El texto"));
+-        assertEquals("a\nb", Textos.limpiar("a\nb", true, "El texto"));
++        assertEquals("hola", textos.limpiar("  hola ", false, "El texto"));
++        assertEquals("", textos.limpiar(null, false, "El texto"));
++        assertThrows(IllegalArgumentException.class, () -> textos.limpiar("a\u0000b", true, "El texto"));
++        assertThrows(IllegalArgumentException.class, () -> textos.limpiar("a\nb", false, "El texto"));
++        assertEquals("a\nb", textos.limpiar("a\nb", true, "El texto"));
+     }
+ 
+     @Test
+     void rechazaCaracteresDeDireccionInvisibles() {
+-        assertThrows(IllegalArgumentException.class, () -> Textos.limpiar("ok\u202Eso", true, "El texto"));
+-        assertThrows(IllegalArgumentException.class, () -> Textos.limpiar("ok\u200Bso", true, "El texto"));
++        assertThrows(IllegalArgumentException.class, () -> textos.limpiar("ok\u202Eso", true, "El texto"));
++        assertThrows(IllegalArgumentException.class, () -> textos.limpiar("ok\u200Bso", true, "El texto"));
+     }
+ }
+diff --git a/src/admin.ts b/src/admin.ts
+index c7fb8ee..facd644 100644
+--- a/src/admin.ts
++++ b/src/admin.ts
+@@ -1,10 +1,12 @@
+ import { apiFetch, esSuperusuario } from './api.js';
+ import type { AdminPublicacion, EstadoPublicacion, Usuario } from './tipos.js';
++import type { Pagina, ResumenSoporte, TicketPanelDetalle, TicketPanelResumen } from './tipos-soporte.js';
+ import {
+     escapeHtml, formatoFechaCorta, formatoPrecio, mensajeDeError, mostrarAlerta, ocultarAlerta, opcionalPorId, porId,
+ } from './util.js';
+ 
+ const FILAS_POR_PAGINA = 15;
++const TICKETS_POR_PAGINA = 15;
+ 
+ interface Columna<T> {
+     /** HTML de la celda; cada valor dinámico debe pasar por escapeHtml. */
+@@ -22,7 +24,7 @@ class TablaAdmin<T> {
+         private readonly paginacionId: string,
+         private readonly columnas: Columna<T>[],
+         private readonly vacio: string,
+-    ) {}
++    ) { }
+ 
+     establecer(filas: T[]): void {
+         this.filas = filas;
+@@ -94,14 +96,28 @@ const tablaPublicaciones = new TablaAdmin<AdminPublicacion>('publicacionesCuerpo
+     { celda: p => escapeHtml(formatoFechaCorta(p.fechaCreacion)) },
+ ], 'No hay publicaciones que coincidan.');
+ 
++const COLOR_ESTADO_TICKET: Record<string, string> = {
++    ABIERTO: 'warning', EN_PROGRESO: 'primary', RESUELTO: 'success', CERRADO: 'secondary',
++};
++const COLOR_PRIORIDAD_TICKET: Record<string, string> = {
++    BAJA: 'light border', NORMAL: 'light border', ALTA: 'warning', URGENTE: 'danger',
++};
++
+ let usuarios: Usuario[] = [];
+ let publicaciones: AdminPublicacion[] = [];
++const soporte = { pagina: 0, totalPaginas: 0, total: 0, secuencia: 0, temporizador: 0 };
+ 
+ document.addEventListener('DOMContentLoaded', () => {
+     opcionalPorId('btnRecargarAdmin')?.addEventListener('click', () => void cargarDatos());
+     opcionalPorId<HTMLInputElement>('buscarUsuarios')?.addEventListener('input', aplicarFiltroUsuarios);
+     opcionalPorId<HTMLInputElement>('buscarPublicaciones')?.addEventListener('input', aplicarFiltroPublicaciones);
+     opcionalPorId<HTMLSelectElement>('filtroEstadoPublicaciones')?.addEventListener('change', aplicarFiltroPublicaciones);
++    // Los tickets se filtran y paginan en el servidor: se espera un momento al escribir para no saturarlo.
++    opcionalPorId<HTMLInputElement>('buscarSoporte')?.addEventListener('input', () => {
++        window.clearTimeout(soporte.temporizador);
++        soporte.temporizador = window.setTimeout(() => void cargarSoporte(0), 350);
++    });
++    opcionalPorId<HTMLSelectElement>('filtroEstadoSoporte')?.addEventListener('change', () => void cargarSoporte(0));
+     iniciar();
+ });
+ 
+@@ -160,6 +176,8 @@ async function cargarDatos(): Promise<void> {
+         mostrarAlerta(alertaPublicaciones, mensajeDeError(resPublicaciones.reason, 'No se pudieron cargar las publicaciones.'));
+     }
+     dibujarResumen();
++    // El soporte vive en otro servicio y otra base de datos: si falla, el resto del panel sigue funcionando.
++    await cargarSoporte(soporte.pagina);
+ }
+ 
+ function tarjeta(titulo: string, valor: number): string {
+@@ -179,3 +197,106 @@ function dibujarResumen(): void {
+     porId('contadorUsuarios').textContent = String(usuarios.length);
+     porId('contadorPublicaciones').textContent = String(publicaciones.length);
+ }
++
++// ================================================================ Soporte (solo lectura)
++
++async function cargarSoporte(pagina: number): Promise<void> {
++    const alerta = opcionalPorId('soporteAlerta');
++    ocultarAlerta(alerta);
++    const secuencia = ++soporte.secuencia;
++    const parametros = new URLSearchParams({ pagina: String(pagina), tamano: String(TICKETS_POR_PAGINA) });
++    const q = opcionalPorId<HTMLInputElement>('buscarSoporte')?.value.trim() ?? '';
++    const estado = opcionalPorId<HTMLSelectElement>('filtroEstadoSoporte')?.value ?? '';
++    if (q) parametros.set('q', q);
++    if (estado) parametros.set('estado', estado);
++
++    const [resLista, resResumen] = await Promise.allSettled([
++        apiFetch<Pagina<TicketPanelResumen>>(`/soporte/admin/tickets?${parametros.toString()}`),
++        apiFetch<ResumenSoporte>('/soporte/admin/tickets/resumen'),
++    ]);
++    if (secuencia !== soporte.secuencia) return; // llegó una búsqueda más nueva
++
++    if (resLista.status === 'fulfilled') {
++        soporte.pagina = resLista.value.pagina;
++        soporte.totalPaginas = resLista.value.totalPaginas;
++        soporte.total = resLista.value.totalElementos;
++        dibujarTicketsSoporte(resLista.value.contenido);
++    } else {
++        porId('soporteCuerpo').innerHTML = '';
++        porId('soportePaginacion').innerHTML = '';
++        mostrarAlerta(alerta, mensajeDeError(resLista.reason, 'No se pudieron cargar los tickets de soporte.'));
++    }
++    if (resResumen.status === 'fulfilled') {
++        const r = resResumen.value;
++        porId('contadorSoporte').textContent = String(r.total);
++        porId('soporteResumen').textContent = `${r.total} ticket(s) en total · ${r.sinAsignar} activo(s) sin asignar · `
++            + `${r.porEstado.ABIERTO ?? 0} abierto(s) · ${r.porEstado.EN_PROGRESO ?? 0} en progreso · `
++            + `${r.porEstado.RESUELTO ?? 0} resuelto(s) · ${r.porEstado.CERRADO ?? 0} cerrado(s)`;
++    }
++}
++
++function dibujarTicketsSoporte(tickets: TicketPanelResumen[]): void {
++    porId('soporteCuerpo').innerHTML = tickets.length === 0
++        ? '<tr><td colspan="9" class="text-center text-muted py-4">No hay tickets que coincidan.</td></tr>'
++        : tickets.map(t => `<tr>
++            <td>${t.id}</td>
++            <td><span class="admin-truncar" title="${escapeHtml(t.asunto)}">${escapeHtml(t.asunto)}</span></td>
++            <td>${escapeHtml(t.categoriaNombre)}</td>
++            <td><span class="badge text-bg-${COLOR_ESTADO_TICKET[t.estado] ?? 'secondary'}">${escapeHtml(t.estadoNombre)}</span></td>
++            <td><span class="badge text-bg-${COLOR_PRIORIDAD_TICKET[t.prioridad] ?? 'light border'}">${escapeHtml(t.prioridadNombre)}</span></td>
++            <td>${escapeHtml(t.usuarioApodo)}</td>
++            <td>${t.asignadoNombre ? escapeHtml(t.asignadoNombre) : '<span class="text-muted">Sin asignar</span>'}</td>
++            <td>${escapeHtml(formatoFechaCorta(t.fechaActualizacion))}</td>
++            <td><button type="button" class="btn btn-outline-secondary btn-sm" data-ticket="${t.id}"
++                aria-label="Ver el ticket ${t.id}"><i class="bi bi-eye" aria-hidden="true"></i></button></td>
++        </tr>`).join('');
++    porId('soporteCuerpo').querySelectorAll<HTMLButtonElement>('button[data-ticket]').forEach(boton => {
++        boton.addEventListener('click', () => void abrirTicketSoporte(Number(boton.dataset['ticket'])));
++    });
++
++    const nav = porId('soportePaginacion');
++    if (soporte.totalPaginas <= 1) {
++        nav.innerHTML = `<span class="small text-muted">${soporte.total} registro(s)</span>`;
++        return;
++    }
++    nav.innerHTML = `
++        <button type="button" class="btn btn-outline-secondary btn-sm" data-dir="-1" ${soporte.pagina === 0 ? 'disabled' : ''}>
++            <i class="bi bi-chevron-left" aria-hidden="true"></i> Anterior</button>
++        <span class="small text-muted">Página ${soporte.pagina + 1} de ${soporte.totalPaginas} · ${soporte.total} registros</span>
++        <button type="button" class="btn btn-outline-secondary btn-sm" data-dir="1" ${soporte.pagina >= soporte.totalPaginas - 1 ? 'disabled' : ''}>
++            Siguiente <i class="bi bi-chevron-right" aria-hidden="true"></i></button>`;
++    nav.querySelectorAll<HTMLButtonElement>('button[data-dir]').forEach(boton => {
++        boton.addEventListener('click', () => void cargarSoporte(soporte.pagina + Number(boton.dataset['dir'])));
++    });
++}
++
++async function abrirTicketSoporte(id: number): Promise<void> {
++    const alerta = opcionalPorId('ticketSoporteAlerta');
++    ocultarAlerta(alerta);
++    porId('tituloTicketSoporte').textContent = `Ticket #${id}`;
++    porId('ticketSoporteDatos').textContent = 'Cargando...';
++    porId('ticketSoporteMensajes').innerHTML = '';
++    bootstrap.Modal.getOrCreateInstance(porId('modalTicketSoporte')).show();
++    try {
++        const detalle = await apiFetch<TicketPanelDetalle>(`/soporte/admin/tickets/${id}`);
++        const t = detalle.ticket;
++        porId('tituloTicketSoporte').textContent = `Ticket #${t.id} · ${t.asunto}`;
++        const persona = detalle.usuario.correo
++            ? `${detalle.usuario.apodo} (#${detalle.usuario.id ?? '—'} · ${detalle.usuario.correo})`
++            : detalle.usuario.apodo;
++        porId('ticketSoporteDatos').innerHTML = `${escapeHtml(t.categoriaNombre)} · ${escapeHtml(t.estadoNombre)} · `
++            + `Prioridad ${escapeHtml(t.prioridadNombre)}<br>Abierto por ${escapeHtml(persona)} · Atiende: `
++            + `${t.asignadoNombre ? escapeHtml(t.asignadoNombre) : 'sin asignar'}`;
++        porId('ticketSoporteMensajes').innerHTML = detalle.mensajes.map(m => {
++            const clase = m.autorTipo === 'SISTEMA' ? 'text-bg-light border text-muted fst-italic'
++                : m.autorTipo === 'PERSONAL' ? 'text-bg-primary' : 'text-bg-secondary';
++            const alineacion = m.autorTipo === 'PERSONAL' ? 'align-self-end' : 'align-self-start';
++            return `<div class="${alineacion} rounded p-2 ${clase}" style="max-width:85%">
++                <div class="small opacity-75">${escapeHtml(m.autorNombre)} · ${escapeHtml(formatoFechaCorta(m.fecha))}</div>
++                <div style="white-space:pre-wrap">${escapeHtml(m.contenido)}</div></div>`;
++        }).join('');
++    } catch (error) {
++        porId('ticketSoporteDatos').textContent = '';
++        mostrarAlerta(alerta, mensajeDeError(error, 'No se pudo cargar el ticket.'));
++    }
++}
+diff --git a/src/tipos-soporte.ts b/src/tipos-soporte.ts
+index 11c4b46..920277d 100644
+--- a/src/tipos-soporte.ts
++++ b/src/tipos-soporte.ts
+@@ -79,6 +79,13 @@ export interface Pagina<T> {
+     totalPaginas: number;
+ }
+ 
++/** Totales de tickets para el panel del superusuario. */
++export interface ResumenSoporte {
++    total: number;
++    sinAsignar: number;
++    porEstado: Record<EstadoTicket, number>;
++}
++
+ export interface PersonalSoporte {
+     id: number;
+     nombre: string;

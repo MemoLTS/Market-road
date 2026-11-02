@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soporte · Market-Road</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="Css/style.css">
+</head>
+
+<body class="mensajes-page mk-body" data-requiere-sesion="true">
+    <header class="mk-topbar">
+        <a class="mk-brand" href="index.html" aria-label="Market-Road, inicio">
+            <img class="mk-brand-logo" src="Assets/logo/WinkEmoji2.png" alt="">
+            <span class="mk-brand-text">Market-Road</span>
+        </a>
+        <div class="mk-actions">
+            <a class="btn btn-light mk-icon-btn" href="index.html" aria-label="Volver al catálogo"
+                title="Volver al catálogo"><i class="bi bi-shop" aria-hidden="true"></i></a>
+            <button class="btn btn-light mk-icon-btn" type="button" id="btn-theme-toggle" aria-label="Cambiar tema">
+                <span id="icono-tema">🌙</span>
+            </button>
+            <div id="navAuthInvitado" class="d-none"></div>
+            <div id="navAuthUsuario" class="d-flex align-items-center gap-2 d-none">
+                <a class="btn btn-light mk-icon-btn position-relative" href="mensajes.html" aria-label="Mensajes"><i class="bi bi-chat-dots-fill" aria-hidden="true"></i></a>
+                <div class="dropdown">
+                    <button class="btn btn-light dropdown-toggle fw-semibold" type="button" data-bs-toggle="dropdown"
+                        aria-expanded="false">
+                        <span class="nav-avatar">
+                            <img id="navFotoPerfil" class="d-none" alt="">
+                            <i id="navIconoPerfil" class="bi bi-person-circle" aria-hidden="true"></i>
+                        </span>
+                        <span id="navApodoUsuario">Usuario</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button class="dropdown-item" type="button" id="btnPerfil" data-bs-toggle="modal"
+                                data-bs-target="#modalPerfil"><i
+                                    class="bi bi-person-gear" aria-hidden="true"></i> Perfil</button></li>
+                        <li id="navAdminItem" class="d-none"><a class="dropdown-item" href="admin.html"><i
+                                    class="bi bi-shield-lock" aria-hidden="true"></i> Panel de superusuario</a></li>
+                        <li><a class="dropdown-item active" href="soporte.html" aria-current="page"><i class="bi bi-life-preserver"
+                                    aria-hidden="true"></i> Soporte</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item text-danger" type="button" id="btnCerrarSesion"><i
+                                    class="bi bi-box-arrow-right" aria-hidden="true"></i> Cerrar sesión</button></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="mensajes-contenedor">
+        <div id="soporteSinSesion" class="d-none text-center p-5 w-100">
+            <i class="bi bi-life-preserver display-3 text-muted"></i>
+            <h2 class="h5 mt-3">Inicia sesión para pedir ayuda al equipo de soporte</h2>
+            <a class="btn btn-primary mt-2" href="index.html">Ir al inicio</a>
+        </div>
+
+        <div id="soporteLayout" class="mensajes-layout d-none">
+            <!-- Lista de tickets -->
+            <aside class="mensajes-lista" aria-label="Mis tickets">
+                <div class="p-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                        <h1 class="h5 mb-0">Soporte</h1>
+                        <button type="button" class="btn btn-primary btn-sm" id="btnNuevoTicket">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo ticket
+                        </button>
+                    </div>
+                    <p class="small text-muted mt-2 mb-0">Abre un ticket y conversa por chat con nuestro equipo.</p>
+                </div>
+                <div id="listaTickets" class="mensajes-items" aria-live="polite"></div>
+            </aside>
+
+            <!-- Chat del ticket -->
+            <section class="mensajes-chat" aria-label="Chat con soporte">
+                <div id="chatVacio" class="chat-vacio">
+                    <i class="bi bi-life-preserver display-4"></i>
+                    <p class="mb-0">Selecciona un ticket o abre uno nuevo.</p>
+                    <p class="small mb-0"><a class="link-secondary" href="soporte-panel.html">Acceso del equipo de soporte</a></p>
+                </div>
+
+                <div id="chatActivo" class="d-none chat-activo">
+                    <header class="chat-cabecera">
+                        <button type="button" class="btn btn-sm btn-outline-secondary d-md-none" id="btnVolverLista" aria-label="Volver a la lista">
+                            <i class="bi bi-arrow-left"></i>
+                        </button>
+                        <div class="flex-grow-1 min-w-0">
+                            <strong id="chatTitulo" class="d-block text-truncate"></strong>
+                            <small id="chatSubtitulo" class="text-muted d-block text-truncate"></small>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger d-none" id="btnCerrarTicket">
+                            <i class="bi bi-x-circle" aria-hidden="true"></i> Cerrar ticket
+                        </button>
+                    </header>
+
+                    <div id="chatAlerta" class="alert d-none m-2 mb-0" role="alert"></div>
+                    <div id="chatMensajes" class="chat-mensajes" aria-live="polite"></div>
+
+                    <footer id="chatPie" class="chat-pie">
+                        <p id="chatCerrado" class="text-muted small text-center mb-0 p-2 d-none">
+                            Este ticket está cerrado. Si necesitas más ayuda, abre uno nuevo.
+                        </p>
+                        <form id="formChat" class="chat-form" novalidate>
+                            <div class="flex-grow-1">
+                                <textarea id="chatTexto" class="form-control" rows="2" maxlength="1000"
+                                    placeholder="Escribe tu mensaje... (Enter envía, Shift+Enter salto de línea)"
+                                    aria-label="Mensaje"></textarea>
+                                <small class="text-muted"><span id="chatContador">0</span>/1000</small>
+                            </div>
+                            <button class="btn btn-primary align-self-start" type="submit" id="btnEnviarMensaje" aria-label="Enviar">
+                                <i class="bi bi-send"></i>
+                            </button>
+                        </form>
+                    </footer>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div class="modal fade" id="modalPerfil" tabindex="-1" aria-labelledby="modalPerfilTitulo"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formPerfil">
+                    <div class="modal-header">
+                        <h2 class="modal-title fs-5" id="modalPerfilTitulo">Perfil</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="perfilAlerta" class="alert d-none" role="alert"></div>
+                        <section aria-labelledby="perfilFotoTitulo">
+                            <h3 id="perfilFotoTitulo" class="fs-6">Foto de perfil</h3>
+                            <div class="perfil-foto-editor">
+                                <div class="foto-perfil-preview-contenedor">
+                                    <img id="fotoPerfilPreview" class="foto-perfil-preview d-none" alt="">
+                                    <div id="fotoPerfilSinFoto" class="foto-perfil-sin-foto" aria-hidden="true">
+                                        <i class="bi bi-person-fill"></i>
+                                    </div>
+                                </div>
+                                <div class="perfil-foto-controles">
+                                    <label for="fotoPerfilArchivo" class="form-label">Cambiar foto (JPG, PNG o WEBP, máximo 5 MB)</label>
+                                    <input id="fotoPerfilArchivo" class="form-control" type="file"
+                                        accept="image/jpeg,image/png,image/webp">
+                                    <div id="fotoPerfilEstado" class="form-text" role="status">Cargando foto de perfil...</div>
+                                </div>
+                            </div>
+                            <div id="fotoPerfilControlesRecorte" class="d-none mt-3">
+                                <div class="d-flex gap-2 mb-2">
+                                    <button class="btn btn-outline-secondary btn-sm" type="button"
+                                        id="btnCentrarFotoPerfil">Centrar</button>
+                                    <button class="btn btn-outline-primary btn-sm" type="button"
+                                        id="btnRecortarFotoPerfil">Recortar y usar</button>
+                                </div>
+                                <label for="fotoPerfilPosicionX" class="form-label small mb-0">Ajustar horizontalmente</label>
+                                <input id="fotoPerfilPosicionX" class="form-range" type="range" min="0" max="100" value="50">
+                                <label for="fotoPerfilPosicionY" class="form-label small mb-0">Ajustar verticalmente</label>
+                                <input id="fotoPerfilPosicionY" class="form-range" type="range" min="0" max="100" value="50">
+                                <label for="fotoPerfilZoom" class="form-label small mb-0">Zoom <output id="fotoPerfilZoomValor" for="fotoPerfilZoom">1.0×</output></label>
+                                <input id="fotoPerfilZoom" class="form-range" type="range" min="1" max="3" step="0.1" value="1">
+                                <div class="form-text">El encuadre seleccionado se aplicará al guardar el perfil.</div>
+                            </div>
+                        </section>
+                        <hr>
+                        <label for="perfilApodo" class="form-label">Apodo <span class="text-muted">(opcional)</span></label>
+                        <input id="perfilApodo" class="form-control" type="text" maxlength="20"
+                            pattern="[A-Za-z0-9][A-Za-z0-9_.\-]*" autocomplete="nickname"
+                            placeholder="Puedes dejarlo vacío">
+                        <div class="form-text">Hasta 20 caracteres: letras, números, punto, guion o guion bajo.</div>
+                        <label for="perfilCiudad" class="form-label mt-3">Ciudad o pueblo</label>
+                        <input id="perfilCiudad" class="form-control" type="search" maxlength="120"
+                            placeholder="Busca una ciudad o pueblo" autocomplete="off"
+                            aria-describedby="ayudaPerfilCiudad resultadosPerfilCiudad">
+                        <div class="form-text" id="ayudaPerfilCiudad">Selecciona una localidad real de los resultados.</div>
+                        <div id="resultadosPerfilCiudad" class="list-group mt-1"
+                            role="listbox" aria-label="Localidades encontradas"></div>
+                        <section class="mt-4" aria-labelledby="perfilCorreoTitulo">
+                            <h3 id="perfilCorreoTitulo" class="fs-6">Correo electrónico</h3>
+                            <p class="form-text">Correo actual: <strong id="perfilCorreoActual"></strong></p>
+                            <button type="button" class="btn btn-outline-primary" id="btnAbrirCambioCorreo">
+                                Cambiar correo electrónico
+                            </button>
+                        </section>
+                        <section class="mt-4" aria-labelledby="perfilDispositivosTitulo">
+                            <h3 id="perfilDispositivosTitulo" class="fs-6">Historial de inicio de sesión</h3>
+                            <p class="form-text">Cada navegador o perfil cuenta como un dispositivo. No guardamos tu dirección IP.</p>
+                            <p id="perfilDispositivosEstado" class="form-text mb-2" role="status">Cargando historial...</p>
+                            <ul id="perfilDispositivosLista" class="list-group small"></ul>
+                        </section>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardarPerfil">Guardar cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCorreoPerfil" tabindex="-1" aria-labelledby="modalCorreoPerfilTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formCorreoPerfil">
+                    <div class="modal-header">
+                        <h2 class="modal-title fs-5" id="modalCorreoPerfilTitulo">Cambiar correo electrónico</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="correoPerfilAlerta" class="alert d-none" role="alert"></div>
+                        <p class="form-text">Correo actual: <strong id="perfilCorreoActualModal"></strong></p>
+                        <label for="perfilCorreo" class="form-label">Nuevo correo</label>
+                        <input id="perfilCorreo" class="form-control" type="email" maxlength="100"
+                            autocomplete="email" placeholder="nuevo@ejemplo.com" required>
+                        <label for="perfilContrasenaActual" class="form-label mt-3">Contraseña actual</label>
+                        <input id="perfilContrasenaActual" class="form-control" type="password" maxlength="72"
+                            autocomplete="current-password" required>
+                        <div class="form-text">El cambio se confirma con tu contraseña actual.</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardarCorreo">Actualizar correo</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalNuevoTicket" tabindex="-1" aria-labelledby="modalNuevoTicketTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form class="modal-content" id="formNuevoTicket" novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="modalNuevoTicketTitulo">Nuevo ticket de soporte</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="ticketAlerta" class="alert d-none" role="alert"></div>
+                    <div class="mb-3">
+                        <label for="ticketCategoria" class="form-label">¿Sobre qué es?</label>
+                        <select id="ticketCategoria" class="form-select" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ticketAsunto" class="form-label">Asunto</label>
+                        <input id="ticketAsunto" type="text" class="form-control" maxlength="120" minlength="3"
+                            placeholder="Ej: No puedo editar mi publicación" autocomplete="off" required>
+                    </div>
+                    <div class="mb-1">
+                        <label for="ticketMensaje" class="form-label">Cuéntanos qué pasa</label>
+                        <textarea id="ticketMensaje" class="form-control" rows="5" maxlength="1000" required
+                            placeholder="Describe el problema con el mayor detalle posible."></textarea>
+                        <small class="text-muted"><span id="ticketContador">0</span>/1000</small>
+                    </div>
+                    <p class="small text-muted mt-2 mb-0">Nunca compartas tu contraseña por este chat: el equipo no la necesita.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnEnviarTicket">Abrir ticket</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="Js/theme.js"></script>
+    <script type="module" src="Js/auth.js"></script>
+    <script type="module" src="Js/perfil.js"></script>
+    <script type="module" src="Js/soporte.js"></script>
+</body>
+
+</html>
