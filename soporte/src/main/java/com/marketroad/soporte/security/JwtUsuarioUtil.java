@@ -36,7 +36,8 @@ public class JwtUsuarioUtil {
         }
         Object apodo = claims.get("apodo");
         Object correo = claims.get("correo");
+        Object rol = claims.get("rol");
         return new IdentidadUsuario(Long.valueOf(subject), apodo == null ? null : apodo.toString(),
-                correo == null ? null : correo.toString());
+                correo == null ? null : correo.toString(), rol == null ? null : rol.toString());
     }
 }

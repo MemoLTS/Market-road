@@ -29,6 +29,8 @@ public class EstadisticasService {
     private TicketRepository tickets;
     @Autowired
     private PersonalSoporteRepository personal;
+    @Autowired
+    private ReglasTicket reglas;
 
     @Transactional(readOnly = true)
     public EstadisticasDTO obtener(IdentidadPersonal yo) {
@@ -60,7 +62,7 @@ public class EstadisticasService {
         }
 
         Map<Long, Long> carga = new HashMap<>();
-        for (Object[] fila : tickets.cargaPorPersonal(ReglasTicket.ESTADOS_QUE_OCUPAN_CUPO)) {
+        for (Object[] fila : tickets.cargaPorPersonal(reglas.estadosQueOcupanCupo())) {
             carga.put((Long) fila[0], (Long) fila[1]);
         }
         List<CargaPersonalDTO> cargaPersonal = new ArrayList<>();
@@ -73,7 +75,7 @@ public class EstadisticasService {
         }
         cargaPersonal.sort(Comparator.comparingLong(CargaPersonalDTO::ticketsEnCurso).reversed());
 
-        long sinAsignar = tickets.countByAsignadoIdIsNullAndEstadoIn(ReglasTicket.ESTADOS_QUE_OCUPAN_CUPO);
+        long sinAsignar = tickets.countByAsignadoIdIsNullAndEstadoIn(reglas.estadosQueOcupanCupo());
         long ultimos7 = tickets.countByFechaCreacionAfter(OffsetDateTime.now().minusDays(7));
         return new EstadisticasDTO(total, sinAsignar, ultimos7, activos, porEstado, porCategoria, porPrioridad,
                 cargaPersonal);

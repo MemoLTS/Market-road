@@ -22,16 +22,16 @@ class DispositivoInicioSesionServiceTest {
 
     @Test
     void identificaNavegadorYSistemaOperativo() {
-        assertEquals("Chrome en Windows", DispositivoInicioSesionService.describirDispositivo(
+        assertEquals("Chrome en Windows", servicio(null).describirDispositivo(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36"));
-        assertEquals("Safari en iPhone", DispositivoInicioSesionService.describirDispositivo(
+        assertEquals("Safari en iPhone", servicio(null).describirDispositivo(
                 "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Safari/604.1"));
     }
 
     @Test
     void toleraAgenteDeUsuarioAusente() {
         assertEquals("Navegador desconocido en dispositivo no identificado",
-                DispositivoInicioSesionService.describirDispositivo(null));
+                servicio(null).describirDispositivo(null));
     }
 
     @Test
@@ -104,6 +104,9 @@ class DispositivoInicioSesionServiceTest {
     private DispositivoInicioSesionService servicio(DispositivoInicioSesionRepository repository) {
         DispositivoInicioSesionService servicio = new DispositivoInicioSesionService();
         ReflectionTestUtils.setField(servicio, "repository", repository);
+        // Valores que Spring inyecta con @Value desde application.yml.
+        ReflectionTestUtils.setField(servicio, "maximoDispositivos", 5);
+        ReflectionTestUtils.setField(servicio, "maximoSesionesPorDispositivo", 3);
         return servicio;
     }
 }

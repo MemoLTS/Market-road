@@ -5,12 +5,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Puntaje de coincidencia entre un texto de búsqueda y una publicación. */
-final class Relevancia {
-    private Relevancia() {}
+import org.springframework.stereotype.Component;
+
+/** Puntaje de coincidencia entre un texto de búsqueda y una publicación. Bean de Spring. */
+@Component
+class Relevancia {
 
     /** Minúsculas, sin tildes ni signos; palabras separadas por un espacio. */
-    static String normalizar(String texto) {
+    String normalizar(String texto) {
         if (texto == null) {
             return "";
         }
@@ -18,7 +20,7 @@ final class Relevancia {
         return sinTildes.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").trim();
     }
 
-    static List<String> terminos(String texto) {
+    List<String> terminos(String texto) {
         String limpio = normalizar(texto);
         List<String> terminos = new ArrayList<>();
         if (!limpio.isEmpty()) {
@@ -33,7 +35,7 @@ final class Relevancia {
      * @return -1 si algún término no aparece en título, descripción o categoría (la publicación no coincide);
      *         en otro caso un puntaje positivo: más alto = mejor coincidencia.
      */
-    static int puntaje(List<String> terminos, Candidato c) {
+    int puntaje(List<String> terminos, Candidato c) {
         String titulo = normalizar(c.titulo());
         String descripcion = normalizar(c.descripcion());
         String categoria = normalizar(c.categoria().getNombre());

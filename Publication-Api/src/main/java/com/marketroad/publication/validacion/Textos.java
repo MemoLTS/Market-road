@@ -1,14 +1,16 @@
 package com.marketroad.publication.validacion;
 
-/** Validación y limpieza de textos escritos por personas (título, descripción, mensajes). */
-public final class Textos {
-    private Textos() {}
+import org.springframework.stereotype.Component;
+
+/** Validación y limpieza de textos escritos por personas (título, descripción, mensajes). Bean de Spring: se inyecta con @Autowired. */
+@Component
+public class Textos {
 
     /**
      * Recorta el texto y rechaza caracteres de control (salvo salto de línea y tabulación cuando se permiten
      * varias líneas), el carácter nulo y los caracteres de dirección invisibles usados para falsear texto.
      */
-    public static String limpiar(String texto, boolean permiteSaltos, String campo) {
+    public String limpiar(String texto, boolean permiteSaltos, String campo) {
         String limpio = texto == null ? "" : texto.strip();
         for (int i = 0; i < limpio.length(); i++) {
             char c = limpio.charAt(i);

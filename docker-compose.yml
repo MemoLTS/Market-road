@@ -5,6 +5,8 @@ networks:
 volumes:
   mysql_data:
     name: market-road_mysql_data
+  mysql_soporte_data:
+    name: market-road_mysql_soporte_data
 
 services:
   # Base de datos privada: solo accesible desde la red interna de Compose.
@@ -16,6 +18,27 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysqladmin ping --host=127.0.0.1 --user=root --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - marketroad-net
+
+  # Base de datos PROPIA de Soporte (usuarios, publicaciones y soporte no comparten servidor MySQL ni credenciales).
+  mysql-soporte:
+    image: mysql:8.0
+    container_name: marketroad-soporte-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${SOPORTE_MYSQL_ROOT_PASSWORD:-rootpassword_soporte}
+      MYSQL_DATABASE: db_soporte
+      MYSQL_USER: ${SOPORTE_DB_USERNAME:-soporte_app}
+      MYSQL_PASSWORD: ${SOPORTE_DB_PASSWORD:-soporte_local_dev}
+    volumes:
+      - mysql_soporte_data:/var/lib/mysql
+      - ./soporte/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysqladmin ping --host=127.0.0.1 --user=root --silent"]
       interval: 5s
@@ -46,13 +69,16 @@ services:
     container_name: marketroad-phpmyadmin
     restart: always
     environment:
-      PMA_HOST: mysql-db
+      # Dos servidores: el de usuarios/publicaciones y el de soporte (se elige en la pantalla de inicio).
+      PMA_HOSTS: mysql-db,mysql-soporte
       PMA_PORT: 3306
       UPLOAD_LIMIT: 16M
     ports:
       - "127.0.0.1:8085:80"
     depends_on:
       mysql-db:
+        condition: service_healthy
+      mysql-soporte:
         condition: service_healthy
     networks:
       - marketroad-net
@@ -115,9 +141,9 @@ services:
     restart: always
     environment:
       SERVER_PORT: 8086
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/db_soporte?useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-marketroad_app}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-soporte:3306/db_soporte?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${SOPORTE_DB_USERNAME:-soporte_app}
+      SPRING_DATASOURCE_PASSWORD: ${SOPORTE_DB_PASSWORD:-soporte_local_dev}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
       # Mismo secreto que user-api: valida los tokens de las personas usuarias.
@@ -127,11 +153,14 @@ services:
       # Administrador inicial del panel de soporte (solo desarrollo local). Cambia estos valores en .env antes de desplegar.
       SOPORTE_ADMIN_CORREO: ${SOPORTE_ADMIN_CORREO:-soporte-admin@marketroad.local}
       SOPORTE_ADMIN_CONTRASENA: ${SOPORTE_ADMIN_CONTRASENA:-Soporte12345}
+      # Cuenta inicial con rol SOPORTE (atiende tickets desde soporte-panel.html).
+      SOPORTE_AGENTE_CORREO: ${SOPORTE_AGENTE_CORREO:-soporte@marketroad.local}
+      SOPORTE_AGENTE_CONTRASENA: ${SOPORTE_AGENTE_CONTRASENA:-Agente12345}
     ports:
       - "127.0.0.1:8086:8086"
     depends_on:
-      database-init:
-        condition: service_completed_successfully
+      mysql-soporte:
+        condition: service_healthy
     networks:
       - marketroad-net
 

@@ -23,11 +23,13 @@ class LimitadorMensajesTest {
     @Test
     void bloqueaAlSuperarElMaximoYSeLiberaConElTiempo() {
         AtomicLong ahora = new AtomicLong(1_000);
-        LimitadorMensajes limitador = new LimitadorMensajes(reloj(ahora));
-        for (int i = 0; i < LimitadorMensajes.MAXIMO; i++) limitador.registrar(1L);
+        final int maximo = 20;
+        final long ventanaMs = 60_000;
+        LimitadorMensajes limitador = new LimitadorMensajes(reloj(ahora), maximo, ventanaMs);
+        for (int i = 0; i < maximo; i++) limitador.registrar(1L);
         assertThrows(DemasiadasSolicitudesException.class, () -> limitador.registrar(1L));
         assertDoesNotThrow(() -> limitador.registrar(2L)); // otro usuario no se ve afectado
-        ahora.addAndGet(LimitadorMensajes.VENTANA_MS + 1);
+        ahora.addAndGet(ventanaMs + 1);
         assertDoesNotThrow(() -> limitador.registrar(1L));
     }
 }

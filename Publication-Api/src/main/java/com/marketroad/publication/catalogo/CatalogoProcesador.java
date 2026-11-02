@@ -6,19 +6,24 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 /**
  * Aplica filtros (categoría, precio, texto, radio) y el orden pedido a un conjunto de candidatos.
- * Es lógica pura: no toca base de datos, así se puede probar sin Spring.
+ * Es lógica pura: no toca base de datos, así se puede probar sin levantar Spring. Bean de Spring.
  */
-public final class CatalogoProcesador {
-    private CatalogoProcesador() {}
+@Component
+public class CatalogoProcesador {
+    @Autowired
+    private Relevancia relevancia;
 
-    private static final Comparator<Resultado> RECIENTES = Comparator
+    private final Comparator<Resultado> recientes = Comparator
             .<Resultado, OffsetDateTime>comparing(r -> r.candidato().fecha(), Comparator.reverseOrder())
             .thenComparing(r -> r.candidato().id(), Comparator.reverseOrder());
 
-    public static List<Resultado> procesar(Collection<Candidato> candidatos, CatalogoConsulta consulta) {
-        List<String> terminos = Relevancia.terminos(consulta.texto());
+    public List<Resultado> procesar(Collection<Candidato> candidatos, CatalogoConsulta consulta) {
+        List<String> terminos = relevancia.terminos(consulta.texto());
         List<Resultado> resultados = new ArrayList<>();
 
         for (Candidato c : candidatos) {
@@ -42,7 +47,7 @@ public final class CatalogoProcesador {
 
             int puntaje = 0;
             if (!terminos.isEmpty()) {
-                puntaje = Relevancia.puntaje(terminos, c);
+                puntaje = relevancia.puntaje(terminos, c);
                 if (puntaje < 0) {
                     continue;
                 }
@@ -54,26 +59,26 @@ public final class CatalogoProcesador {
         return resultados;
     }
 
-    static Comparator<Resultado> comparador(OrdenCatalogo orden) {
+    Comparator<Resultado> comparador(OrdenCatalogo orden) {
         switch (orden) {
             case PRECIO_ASC:
-                return Comparator.<Resultado, java.math.BigDecimal>comparing(r -> r.candidato().precio()).thenComparing(RECIENTES);
+                return Comparator.<Resultado, java.math.BigDecimal>comparing(r -> r.candidato().precio()).thenComparing(recientes);
             case PRECIO_DESC:
                 return Comparator.<Resultado, java.math.BigDecimal>comparing(r -> r.candidato().precio(), Comparator.reverseOrder())
-                        .thenComparing(RECIENTES);
+                        .thenComparing(recientes);
             case DISTANCIA:
                 return Comparator.<Resultado, Double>comparing(Resultado::distanciaKm, Comparator.nullsLast(Comparator.naturalOrder()))
-                        .thenComparing(RECIENTES);
+                        .thenComparing(recientes);
             case RECIENTES:
-                return RECIENTES;
+                return recientes;
             case RELEVANCIA:
             default:
                 return Comparator.<Resultado, Integer>comparing(Resultado::puntaje, Comparator.reverseOrder())
-                        .thenComparing(RECIENTES);
+                        .thenComparing(recientes);
         }
     }
 
-    public static <T> List<T> pagina(List<T> lista, int pagina, int tamano) {
+    public <T> List<T> pagina(List<T> lista, int pagina, int tamano) {
         long desde = (long) pagina * tamano;
         if (desde >= lista.size()) {
             return List.of();
@@ -82,7 +87,7 @@ public final class CatalogoProcesador {
         return lista.subList((int) desde, hasta);
     }
 
-    public static int totalPaginas(long total, int tamano) {
+    public int totalPaginas(long total, int tamano) {
         return (int) ((total + tamano - 1) / tamano);
     }
 }

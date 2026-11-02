@@ -79,6 +79,13 @@ export interface Pagina<T> {
     totalPaginas: number;
 }
 
+/** Totales de tickets para el panel del superusuario. */
+export interface ResumenSoporte {
+    total: number;
+    sinAsignar: number;
+    porEstado: Record<EstadoTicket, number>;
+}
+
 export interface PersonalSoporte {
     id: number;
     nombre: string;

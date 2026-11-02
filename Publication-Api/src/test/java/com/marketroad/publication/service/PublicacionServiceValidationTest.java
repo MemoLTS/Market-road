@@ -14,6 +14,7 @@ import com.marketroad.publication.dto.NuevaPublicacionDTO;
 import com.marketroad.publication.repository.ImagenPublicacionRepository;
 import com.marketroad.publication.repository.PublicacionRepository;
 import com.marketroad.publication.security.Identidad;
+import com.marketroad.publication.validacion.Textos;
 
 class PublicacionServiceValidationTest {
 
@@ -25,6 +26,12 @@ class PublicacionServiceValidationTest {
         PublicacionServiceImpl servicio = new PublicacionServiceImpl();
         ReflectionTestUtils.setField(servicio, "repository", org.mockito.Mockito.mock(PublicacionRepository.class));
         ReflectionTestUtils.setField(servicio, "imagenRepository", org.mockito.Mockito.mock(ImagenPublicacionRepository.class));
+        ReflectionTestUtils.setField(servicio, "mapper", org.mockito.Mockito.mock(PublicacionMapper.class));
+        ReflectionTestUtils.setField(servicio, "textos", new Textos());
+        // Valores que Spring inyecta con @Value desde application.yml.
+        ReflectionTestUtils.setField(servicio, "maxFotos", 8);
+        ReflectionTestUtils.setField(servicio, "maxBytesPorFoto", 5L * 1024 * 1024);
+        ReflectionTestUtils.setField(servicio, "tiposPermitidos", List.of("image/jpeg", "image/png", "image/webp"));
         return servicio;
     }
 

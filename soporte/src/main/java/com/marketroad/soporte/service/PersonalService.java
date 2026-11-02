@@ -45,6 +45,8 @@ public class PersonalService {
     @Autowired
     private PasswordEncoder passwordEncoder;
     @Autowired
+    private ReglasTicket reglas;
+    @Autowired
     private JwtPersonalUtil jwt;
     @Autowired
     @Qualifier("limitadorLogin")
@@ -64,7 +66,7 @@ public class PersonalService {
     public LoginResponseDTO login(LoginRequestDTO body) {
         String correo;
         try {
-            correo = ReglasTicket.normalizarCorreo(body.correo());
+            correo = reglas.normalizarCorreo(body.correo());
         } catch (IllegalArgumentException ex) {
             throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES);
         }
@@ -95,7 +97,7 @@ public class PersonalService {
             // 400 y no 401: un 401 haría creer al panel que la sesión expiró y lo sacaría.
             throw new IllegalArgumentException("La contraseña actual no es correcta");
         }
-        ReglasTicket.validarContrasena(body.nueva());
+        reglas.validarContrasena(body.nueva());
         cuenta.setContrasenaHash(passwordEncoder.encode(body.nueva()));
         limitadorLogin.reiniciar("c:" + yo.personalId());
     }
@@ -106,7 +108,7 @@ public class PersonalService {
     public List<PersonalDTO> listar(IdentidadPersonal yo) {
         yo.exigirAdmin();
         Map<Long, Long> carga = new HashMap<>();
-        for (Object[] fila : tickets.cargaPorPersonal(ReglasTicket.ESTADOS_QUE_OCUPAN_CUPO)) {
+        for (Object[] fila : tickets.cargaPorPersonal(reglas.estadosQueOcupanCupo())) {
             carga.put((Long) fila[0], (Long) fila[1]);
         }
         return personal.findAllByOrderByNombreAsc().stream()
@@ -116,14 +118,14 @@ public class PersonalService {
     @Transactional
     public PersonalDTO crear(IdentidadPersonal yo, CrearPersonalRequestDTO body) {
         yo.exigirAdmin();
-        String correo = ReglasTicket.normalizarCorreo(body.correo());
+        String correo = reglas.normalizarCorreo(body.correo());
         if (personal.existsByCorreo(correo)) {
             throw new OperacionNoPermitidaException("Ya existe una cuenta de soporte con ese correo");
         }
-        ReglasTicket.validarContrasena(body.contrasena());
+        reglas.validarContrasena(body.contrasena());
 
         PersonalSoporte cuenta = new PersonalSoporte();
-        cuenta.setNombre(ReglasTicket.normalizarNombre(body.nombre()));
+        cuenta.setNombre(reglas.normalizarNombre(body.nombre()));
         cuenta.setCorreo(correo);
         cuenta.setContrasenaHash(passwordEncoder.encode(body.contrasena()));
         cuenta.setRol(RolPersonal.desdeCodigo(body.rol()));
@@ -150,10 +152,10 @@ public class PersonalService {
         }
 
         if (body.nombre() != null) {
-            cuenta.setNombre(ReglasTicket.normalizarNombre(body.nombre()));
+            cuenta.setNombre(reglas.normalizarNombre(body.nombre()));
         }
         if (body.contrasena() != null && !body.contrasena().isEmpty()) {
-            ReglasTicket.validarContrasena(body.contrasena());
+            reglas.validarContrasena(body.contrasena());
             cuenta.setContrasenaHash(passwordEncoder.encode(body.contrasena()));
         }
         cuenta.setRol(nuevoRol);

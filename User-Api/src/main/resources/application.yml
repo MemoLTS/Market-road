@@ -42,3 +42,12 @@ superusuario:
   nombre: Super
   apellido: Usuario
   apodo: superadmin
+
+# Historial de inicios de sesión que se conserva por persona (se inyecta con @Value).
+sesiones:
+  maximo-dispositivos: 5
+  maximo-por-dispositivo: 3
+
+usuarios:
+  foto:
+    max-bytes: 5242880 # 5 MB

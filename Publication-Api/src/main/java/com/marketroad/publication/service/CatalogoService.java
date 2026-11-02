@@ -20,7 +20,6 @@ import com.marketroad.publication.dto.PublicacionResponseDTO;
 import com.marketroad.publication.model.CategoriaPublicacion;
 import com.marketroad.publication.model.EstadoPublicacion;
 import com.marketroad.publication.model.Publicacion;
-import com.marketroad.publication.repository.ImagenPublicacionRepository;
 import com.marketroad.publication.repository.PublicacionRepository;
 
 @Service
@@ -28,7 +27,9 @@ public class CatalogoService {
         @Autowired
         private PublicacionRepository repository;
         @Autowired
-        private ImagenPublicacionRepository imagenRepository;
+        private PublicacionMapper mapper;
+        @Autowired
+        private CatalogoProcesador procesador;
 
         public List<CategoriaDTO> categorias() {
                 return Arrays.stream(CategoriaPublicacion.values())
@@ -48,23 +49,23 @@ public class CatalogoService {
                                         p.getPrecio(), p.getLatitud(), p.getLongitud(), p.getFechaCreacion()));
                 }
 
-                List<Resultado> ordenados = CatalogoProcesador.procesar(candidatos, consulta);
-                List<Resultado> pagina = CatalogoProcesador.pagina(ordenados, consulta.pagina(), consulta.tamano());
+                List<Resultado> ordenados = procesador.procesar(candidatos, consulta);
+                List<Resultado> pagina = procesador.pagina(ordenados, consulta.pagina(), consulta.tamano());
 
-                Map<Long, Integer> imagenes = PublicacionMapper.contarImagenes(imagenRepository,
+                Map<Long, Integer> imagenes = mapper.contarImagenes(
                                 pagina.stream().map(r -> r.candidato().id()).toList());
 
                 List<PublicacionResponseDTO> contenido = pagina.stream()
-                                .map(r -> PublicacionMapper.aDTO(porId.get(r.candidato().id()),
+                                .map(r -> mapper.aDTO(porId.get(r.candidato().id()),
                                                 imagenes.getOrDefault(r.candidato().id(), 0),
                                                 redondear(r.distanciaKm())))
                                 .toList();
 
                 return new PaginaDTO<>(contenido, consulta.pagina(), consulta.tamano(), ordenados.size(),
-                                CatalogoProcesador.totalPaginas(ordenados.size(), consulta.tamano()));
+                                procesador.totalPaginas(ordenados.size(), consulta.tamano()));
         }
 
-        private static Double redondear(Double km) {
+        private Double redondear(Double km) {
                 return km == null ? null : Math.round(km * 10.0) / 10.0;
         }
 }

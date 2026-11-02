@@ -7,7 +7,6 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +23,7 @@ import com.marketroad.soporte.dto.CrearTicketRequestDTO;
 import com.marketroad.soporte.dto.MensajeTicketDTO;
 import com.marketroad.soporte.dto.NoLeidosDTO;
 import com.marketroad.soporte.dto.PaginaDTO;
+import com.marketroad.soporte.dto.ResumenSoporteDTO;
 import com.marketroad.soporte.dto.TicketDetalleDTO;
 import com.marketroad.soporte.dto.TicketPanelDetalleDTO;
 import com.marketroad.soporte.dto.TicketPanelResumenDTO;
@@ -57,7 +57,6 @@ import com.marketroad.soporte.security.IdentidadUsuario;
 @Service
 public class TicketService {
     private static final String NOMBRE_SISTEMA = "Sistema";
-    private static final Set<EstadoTicket> ESTADOS_ACTIVOS = EnumSet.of(EstadoTicket.ABIERTO, EstadoTicket.EN_PROGRESO);
 
     @Autowired
     private TicketRepository tickets;
@@ -65,6 +64,8 @@ public class TicketService {
     private MensajeTicketRepository mensajes;
     @Autowired
     private PersonalSoporteRepository personal;
+    @Autowired
+    private ReglasTicket reglas;
     @Autowired
     @Qualifier("limitadorMensajes")
     private LimitadorAcciones limitadorMensajes;
@@ -82,10 +83,10 @@ public class TicketService {
 
     @Transactional
     public TicketDetalleDTO crear(IdentidadUsuario yo, CrearTicketRequestDTO body) {
-        String asunto = ReglasTicket.normalizarAsunto(body.asunto());
+        String asunto = reglas.normalizarAsunto(body.asunto());
         CategoriaTicket categoria = CategoriaTicket.desdeCodigo(body.categoria());
-        String contenido = ReglasTicket.normalizarContenido(body.mensaje());
-        ReglasTicket.validarCupo(tickets.countByUsuarioIdAndEstadoIn(yo.usuarioId(), ReglasTicket.ESTADOS_QUE_OCUPAN_CUPO));
+        String contenido = reglas.normalizarContenido(body.mensaje());
+        reglas.validarCupo(tickets.countByUsuarioIdAndEstadoIn(yo.usuarioId(), reglas.estadosQueOcupanCupo()));
         limitadorTickets.registrar("t:" + yo.usuarioId());
         limitadorMensajes.registrar("u:" + yo.usuarioId());
 
@@ -125,14 +126,14 @@ public class TicketService {
     @Transactional
     public TicketDetalleDTO responderUsuario(Long id, String contenido, IdentidadUsuario yo) {
         Ticket ticket = ticketDeUsuario(id, yo);
-        if (!ReglasTicket.usuarioPuedeEscribir(ticket.getEstado())) {
+        if (!reglas.usuarioPuedeEscribir(ticket.getEstado())) {
             throw new OperacionNoPermitidaException("Este ticket está cerrado. Abre uno nuevo si necesitas más ayuda");
         }
-        String limpio = ReglasTicket.normalizarContenido(contenido);
+        String limpio = reglas.normalizarContenido(contenido);
         limitadorMensajes.registrar("u:" + yo.usuarioId());
-        ReglasTicket.validarLimiteMensajes(mensajes.countByTicketId(ticket.getId()));
+        reglas.validarLimiteMensajes(mensajes.countByTicketId(ticket.getId()));
 
-        EstadoTicket nuevo = ReglasTicket.estadoTrasMensajeUsuario(ticket.getEstado(), ticket.getAsignadoId());
+        EstadoTicket nuevo = reglas.estadoTrasMensajeUsuario(ticket.getEstado(), ticket.getAsignadoId());
         if (nuevo != ticket.getEstado()) {
             aplicarEstado(ticket, nuevo, "El ticket se reabrió porque escribiste de nuevo.");
         }
@@ -160,7 +161,7 @@ public class TicketService {
     private TicketDetalleDTO detalleUsuario(Ticket ticket) {
         List<MensajeTicketDTO> lista = mensajes.findByTicketIdOrderByIdAsc(ticket.getId()).stream().map(this::mensajeDTO).toList();
         // El detalle siempre se arma después de marcar como leídas las respuestas, por eso no hay pendientes.
-        return new TicketDetalleDTO(resumenUsuario(ticket, 0L), lista, ReglasTicket.usuarioPuedeEscribir(ticket.getEstado()));
+        return new TicketDetalleDTO(resumenUsuario(ticket, 0L), lista, reglas.usuarioPuedeEscribir(ticket.getEstado()));
     }
 
     private TicketResumenDTO resumenUsuario(Ticket t, long noLeidos) {
@@ -176,14 +177,27 @@ public class TicketService {
     @Transactional(readOnly = true)
     public PaginaDTO<TicketPanelResumenDTO> listarPanel(IdentidadPersonal yo, String estado, String prioridad,
             String categoria, String asignacion, String texto, int pagina, int tamano) {
-        Specification<Ticket> spec = TicketSpecs.todos();
+        Specification<Ticket> base = TicketSpecs.todos();
         if (!yo.esAdmin()) {
-            spec = spec.and(TicketSpecs.visiblesPara(yo.personalId()));
+            base = base.and(TicketSpecs.visiblesPara(yo.personalId()));
         }
+        return buscarParaPanel(base, yo.personalId(), estado, prioridad, categoria, asignacion, texto, pagina, tamano);
+    }
+
+    /** Superusuario de la plataforma: ve todos los tickets (solo lectura). No tiene cuenta de soporte, así que no hay "MIOS". */
+    @Transactional(readOnly = true)
+    public PaginaDTO<TicketPanelResumenDTO> listarParaSuperusuario(String estado, String prioridad, String categoria,
+            String asignacion, String texto, int pagina, int tamano) {
+        return buscarParaPanel(TicketSpecs.todos(), null, estado, prioridad, categoria, asignacion, texto, pagina, tamano);
+    }
+
+    private PaginaDTO<TicketPanelResumenDTO> buscarParaPanel(Specification<Ticket> base, Long personalId, String estado,
+            String prioridad, String categoria, String asignacion, String texto, int pagina, int tamano) {
+        Specification<Ticket> spec = base;
         if (estado != null && !estado.isBlank()) {
             // "ACTIVOS" agrupa los que necesitan atención (abiertos y en progreso).
             spec = spec.and(TicketSpecs.estadoEn("ACTIVOS".equalsIgnoreCase(estado.trim())
-                    ? ESTADOS_ACTIVOS : EnumSet.of(EstadoTicket.desdeCodigo(estado))));
+                    ? reglas.estadosActivos() : EnumSet.of(EstadoTicket.desdeCodigo(estado))));
         }
         if (prioridad != null && !prioridad.isBlank()) {
             spec = spec.and(TicketSpecs.prioridad(PrioridadTicket.desdeCodigo(prioridad)));
@@ -191,8 +205,8 @@ public class TicketService {
         if (categoria != null && !categoria.isBlank()) {
             spec = spec.and(TicketSpecs.categoria(CategoriaTicket.desdeCodigo(categoria)));
         }
-        if ("MIOS".equalsIgnoreCase(asignacion)) {
-            spec = spec.and(TicketSpecs.asignadoA(yo.personalId()));
+        if ("MIOS".equalsIgnoreCase(asignacion) && personalId != null) {
+            spec = spec.and(TicketSpecs.asignadoA(personalId));
         } else if ("SIN_ASIGNAR".equalsIgnoreCase(asignacion)) {
             spec = spec.and(TicketSpecs.sinAsignar());
         }
@@ -215,6 +229,37 @@ public class TicketService {
                 resultado.getTotalElements(), resultado.getTotalPages());
     }
 
+    /**
+     * Superusuario de la plataforma: abre un ticket para leerlo. Es solo lectura: no marca mensajes como leídos
+     * (eso le corresponde al personal de soporte) ni ofrece acciones.
+     */
+    @Transactional(readOnly = true)
+    public TicketPanelDetalleDTO obtenerParaSuperusuario(Long id) {
+        Ticket ticket = tickets.findById(id).orElseThrow(() -> new TicketNoEncontradoException("El ticket no existe"));
+        Map<Long, String> nombres = nombresDePersonal(List.of(ticket));
+        long sinLeer = noLeidosPorTicket(List.of(ticket), AutorTipo.USUARIO).getOrDefault(ticket.getId(), 0L);
+        UsuarioTicketDTO usuario = new UsuarioTicketDTO(ticket.getUsuarioId(), ticket.getUsuarioApodo(), ticket.getUsuarioCorreo());
+        List<MensajeTicketDTO> lista = mensajes.findByTicketIdOrderByIdAsc(ticket.getId()).stream().map(this::mensajeDTO).toList();
+        return new TicketPanelDetalleDTO(resumenPanel(ticket, sinLeer, nombres), usuario, lista, false, List.of(), false);
+    }
+
+    /** Superusuario de la plataforma: cuántos tickets hay por estado y cuántos activos sin asignar. */
+    @Transactional(readOnly = true)
+    public ResumenSoporteDTO resumenParaSuperusuario() {
+        Map<String, Long> porEstado = new java.util.LinkedHashMap<>();
+        for (EstadoTicket e : EstadoTicket.values()) {
+            porEstado.put(e.name(), 0L);
+        }
+        long total = 0;
+        for (Object[] fila : tickets.contarPorEstado()) {
+            long cantidad = (Long) fila[1];
+            porEstado.put(((EstadoTicket) fila[0]).name(), cantidad);
+            total += cantidad;
+        }
+        long sinAsignar = tickets.countByAsignadoIdIsNullAndEstadoIn(reglas.estadosActivos());
+        return new ResumenSoporteDTO(total, sinAsignar, porEstado);
+    }
+
     @Transactional
     public TicketPanelDetalleDTO obtenerPanel(Long id, IdentidadPersonal yo) {
         Ticket ticket = ticketVisible(id, yo);
@@ -226,18 +271,18 @@ public class TicketService {
     public TicketPanelDetalleDTO responderPanel(Long id, String contenido, IdentidadPersonal yo) {
         Ticket ticket = ticketVisible(id, yo);
         exigirAbierto(ticket);
-        if (ticket.getAsignadoId() != null && !ReglasTicket.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
+        if (ticket.getAsignadoId() != null && !reglas.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
             throw new NoAutorizadoException("Este ticket lo lleva otra persona del equipo");
         }
-        String limpio = ReglasTicket.normalizarContenido(contenido);
+        String limpio = reglas.normalizarContenido(contenido);
         limitadorMensajes.registrar("p:" + yo.personalId());
-        ReglasTicket.validarLimiteMensajes(mensajes.countByTicketId(ticket.getId()));
+        reglas.validarLimiteMensajes(mensajes.countByTicketId(ticket.getId()));
 
         // Responder un ticket sin dueño equivale a tomarlo.
         if (ticket.getAsignadoId() == null) {
             tomarInterno(ticket, yo);
         } else if (ticket.getEstado() == EstadoTicket.ABIERTO) {
-            ticket.setEstado(ReglasTicket.estadoTrasRespuestaPersonal(ticket.getEstado()));
+            ticket.setEstado(reglas.estadoTrasRespuestaPersonal(ticket.getEstado()));
         }
         agregarMensaje(ticket, AutorTipo.PERSONAL, yo.personalId(), yo.nombre(), limpio);
         mensajes.marcarLeidos(ticket.getId(), AutorTipo.USUARIO);
@@ -264,11 +309,11 @@ public class TicketService {
         if (ticket.getAsignadoId() == null && !yo.esAdmin()) {
             throw new NoAutorizadoException("Toma el ticket antes de cambiar su estado");
         }
-        if (!ReglasTicket.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
+        if (!reglas.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
             throw new NoAutorizadoException("Este ticket lo lleva otra persona del equipo");
         }
         EstadoTicket nuevo = EstadoTicket.desdeCodigo(estado);
-        if (!ReglasTicket.transicionPermitida(ticket.getEstado(), nuevo, yo.esAdmin())) {
+        if (!reglas.transicionPermitida(ticket.getEstado(), nuevo, yo.esAdmin())) {
             throw new OperacionNoPermitidaException("No se puede pasar el ticket de «" + ticket.getEstado().getNombre()
                     + "» a «" + nuevo.getNombre() + "»");
         }
@@ -312,7 +357,7 @@ public class TicketService {
 
     private Ticket ticketVisible(Long id, IdentidadPersonal yo) {
         Ticket ticket = tickets.findById(id).orElseThrow(() -> new TicketNoEncontradoException("El ticket no existe"));
-        if (!ReglasTicket.personalPuedeVer(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
+        if (!reglas.personalPuedeVer(yo.rol(), yo.personalId(), ticket.getAsignadoId())) {
             throw new TicketNoEncontradoException("El ticket no existe");
         }
         return ticket;
@@ -341,10 +386,10 @@ public class TicketService {
         List<MensajeTicketDTO> lista = mensajes.findByTicketIdOrderByIdAsc(ticket.getId()).stream().map(this::mensajeDTO).toList();
 
         boolean abierto = ticket.getEstado() != EstadoTicket.CERRADO;
-        boolean gestiona = ReglasTicket.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId());
+        boolean gestiona = reglas.personalPuedeGestionar(yo.rol(), yo.personalId(), ticket.getAsignadoId());
         boolean puedeResponder = abierto && (ticket.getAsignadoId() == null || gestiona);
         List<String> estados = gestiona
-                ? ReglasTicket.siguientesEstados(ticket.getEstado(), yo.esAdmin()).stream().map(EstadoTicket::name).toList()
+                ? reglas.siguientesEstados(ticket.getEstado(), yo.esAdmin()).stream().map(EstadoTicket::name).toList()
                 : List.of();
         boolean puedeTomar = abierto && !yo.personalId().equals(ticket.getAsignadoId())
                 && (ticket.getAsignadoId() == null || yo.esAdmin());
@@ -375,7 +420,7 @@ public class TicketService {
 
         ticket.setFechaActualizacion(OffsetDateTime.now());
         if (tipo != AutorTipo.SISTEMA) {
-            ticket.setUltimoMensaje(ReglasTicket.vistaPrevia(contenido));
+            ticket.setUltimoMensaje(reglas.vistaPrevia(contenido));
         }
         return mensaje;
     }

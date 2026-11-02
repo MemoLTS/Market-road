@@ -6,8 +6,8 @@ spring:
     name: servicio-soporte
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/db_soporte?useSSL=false&allowPublicKeyRetrieval=true}
-    username: ${SPRING_DATASOURCE_USERNAME:marketroad_app}
-    password: ${SPRING_DATASOURCE_PASSWORD:marketroad_local_dev}
+    username: ${SPRING_DATASOURCE_USERNAME:soporte_app}
+    password: ${SPRING_DATASOURCE_PASSWORD:soporte_local_dev}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -33,3 +33,9 @@ soporte:
     correo: ${SOPORTE_ADMIN_CORREO:soporte-admin@marketroad.local}
     contrasena: ${SOPORTE_ADMIN_CONTRASENA:Soporte12345}
     nombre: Administrador de soporte
+  # Cuenta de soporte inicial (rol SOPORTE: atiende los tickets sin asignar y los suyos). Solo desarrollo local.
+  agente:
+    habilitado: ${SOPORTE_AGENTE_HABILITADO:true}
+    correo: ${SOPORTE_AGENTE_CORREO:soporte@marketroad.local}
+    contrasena: ${SOPORTE_AGENTE_CONTRASENA:Agente12345}
+    nombre: Agente de soporte

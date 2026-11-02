@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,11 +21,14 @@ import api.com.v1.repository.DispositivoInicioSesionRepository;
 @Service
 public class DispositivoInicioSesionService {
 
-    private static final int MAXIMO_DISPOSITIVOS = 5;
-    private static final int MAXIMO_SESIONES_POR_DISPOSITIVO = 3;
-
     @Autowired
     private DispositivoInicioSesionRepository repository;
+
+    /** Cuántos dispositivos y sesiones por dispositivo se recuerdan: se configuran en application.yml (sesiones.*). */
+    @Value("${sesiones.maximo-dispositivos:5}")
+    private int maximoDispositivos;
+    @Value("${sesiones.maximo-por-dispositivo:3}")
+    private int maximoSesionesPorDispositivo;
 
     @Transactional
     public void registrar(Long usuarioId, String dispositivoId, String agenteUsuario) {
@@ -42,11 +46,11 @@ public class DispositivoInicioSesionService {
         Map<String, Integer> sesionesPorDispositivo = new LinkedHashMap<>();
         for (DispositivoInicioSesion sesion : historial) {
             String id = sesion.getDispositivoId();
-            if (!sesionesPorDispositivo.containsKey(id) && sesionesPorDispositivo.size() == MAXIMO_DISPOSITIVOS) {
+            if (!sesionesPorDispositivo.containsKey(id) && sesionesPorDispositivo.size() == maximoDispositivos) {
                 continue;
             }
             int sesionesConservadas = sesionesPorDispositivo.getOrDefault(id, 0);
-            if (sesionesConservadas < MAXIMO_SESIONES_POR_DISPOSITIVO) {
+            if (sesionesConservadas < maximoSesionesPorDispositivo) {
                 idsConservar.add(sesion.getId());
                 sesionesPorDispositivo.put(id, sesionesConservadas + 1);
             }
@@ -65,11 +69,11 @@ public class DispositivoInicioSesionService {
         Map<String, List<Instant>> sesionesPorDispositivo = new LinkedHashMap<>();
         for (DispositivoInicioSesion sesion : repository.findAllByUsuarioIdOrderByFechaInicioDescIdDesc(usuarioId)) {
             String id = sesion.getDispositivoId();
-            if (!sesionesPorDispositivo.containsKey(id) && sesionesPorDispositivo.size() == MAXIMO_DISPOSITIVOS) {
+            if (!sesionesPorDispositivo.containsKey(id) && sesionesPorDispositivo.size() == maximoDispositivos) {
                 continue;
             }
             List<Instant> sesiones = sesionesPorDispositivo.computeIfAbsent(id, key -> new ArrayList<>());
-            if (sesiones.size() < MAXIMO_SESIONES_POR_DISPOSITIVO) {
+            if (sesiones.size() < maximoSesionesPorDispositivo) {
                 etiquetas.putIfAbsent(id, sesion.getDispositivo());
                 sesiones.add(sesion.getFechaInicio());
             }
@@ -79,7 +83,7 @@ public class DispositivoInicioSesionService {
                 .toList();
     }
 
-    static String describirDispositivo(String agenteUsuario) {
+    String describirDispositivo(String agenteUsuario) {
         String agente = agenteUsuario == null ? "" : agenteUsuario;
         String navegador;
         if (agente.contains("Edg/")) {

@@ -13,10 +13,19 @@ import java.util.EnumSet;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.marketroad.publication.model.CategoriaPublicacion;
 
 class CatalogoProcesadorTest {
+    private final CatalogoProcesador procesador = nuevoProcesador();
+
+    /** Arma el procesador igual que Spring: con su colaborador inyectado. */
+    private static CatalogoProcesador nuevoProcesador() {
+        CatalogoProcesador procesador = new CatalogoProcesador();
+        ReflectionTestUtils.setField(procesador, "relevancia", new Relevancia());
+        return procesador;
+    }
 
     // Coordenadas de referencia
     private static final double SCL_LAT = -33.4489, SCL_LON = -70.6693;   // Santiago
@@ -77,30 +86,30 @@ class CatalogoProcesadorTest {
 
     @Test
     void filtraPorCategoria() {
-        var r = CatalogoProcesador.procesar(muestra(),
+        var r = procesador.procesar(muestra(),
                 consulta("", EnumSet.of(CategoriaPublicacion.ELECTRONICA), null, null, null, null, null, OrdenCatalogo.RECIENTES));
         assertEquals(List.of(2L, 1L), ids(r));
     }
 
     @Test
     void filtraPorVariasCategorias() {
-        var r = CatalogoProcesador.procesar(muestra(),
+        var r = procesador.procesar(muestra(),
                 consulta("", EnumSet.of(CategoriaPublicacion.DEPORTES, CategoriaPublicacion.HOGAR), null, null, null, null, null, OrdenCatalogo.RECIENTES));
         assertEquals(List.of(4L, 3L), ids(r));
     }
 
     @Test
     void filtraPorRangoDePrecioInclusivo() {
-        var r = CatalogoProcesador.procesar(muestra(),
+        var r = procesador.procesar(muestra(),
                 consulta("", EnumSet.noneOf(CategoriaPublicacion.class), "150000", "220000", null, null, null, OrdenCatalogo.PRECIO_ASC));
         assertEquals(List.of(2L, 3L), ids(r));
     }
 
     @Test
     void ordenaPorPrecioAscendenteYDescendente() {
-        var asc = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_ASC));
+        var asc = procesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_ASC));
         assertEquals(List.of(4L, 2L, 3L, 1L), ids(asc));
-        var desc = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_DESC));
+        var desc = procesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_DESC));
         assertEquals(List.of(1L, 3L, 2L, 4L), ids(desc));
     }
 
@@ -109,14 +118,14 @@ class CatalogoProcesadorTest {
         List<Candidato> l = List.of(
                 item(10, "Mesa", "Mesa de comedor", CategoriaPublicacion.HOGAR, "50000", null, null, 1),
                 item(11, "Silla", "Silla de comedor", CategoriaPublicacion.HOGAR, "50000", null, null, 5));
-        var r = CatalogoProcesador.procesar(l, consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_ASC));
+        var r = procesador.procesar(l, consulta("", null, null, null, null, null, null, OrdenCatalogo.PRECIO_ASC));
         assertEquals(List.of(11L, 10L), ids(r));
     }
 
     @Test
     void ordenaPorDistanciaConSinCoordenadasAlFinal() {
         // Usuario en Santiago: Cámara (0 km) < Bicicleta (~100 km) < Notebook (~430 km) < Sofá (sin coordenadas)
-        var r = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, SCL_LAT, SCL_LON, null, OrdenCatalogo.DISTANCIA));
+        var r = procesador.procesar(muestra(), consulta("", null, null, null, SCL_LAT, SCL_LON, null, OrdenCatalogo.DISTANCIA));
         assertEquals(List.of(2L, 3L, 1L, 4L), ids(r));
         assertNull(r.get(3).distanciaKm());
         assertEquals(0.0, r.get(0).distanciaKm(), 0.01);
@@ -124,39 +133,39 @@ class CatalogoProcesadorTest {
 
     @Test
     void radioExcluyeLosLejanosYLosSinCoordenadas() {
-        var r = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, SCL_LAT, SCL_LON, 150.0, OrdenCatalogo.DISTANCIA));
+        var r = procesador.procesar(muestra(), consulta("", null, null, null, SCL_LAT, SCL_LON, 150.0, OrdenCatalogo.DISTANCIA));
         assertEquals(List.of(2L, 3L), ids(r));
     }
 
     @Test
     void sinUbicacionNoSeCalculaDistancia() {
-        var r = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.RECIENTES));
+        var r = procesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.RECIENTES));
         r.forEach(x -> assertNull(x.distanciaKm()));
     }
 
     @Test
     void busquedaIgnoraTildesYMayusculas() {
-        var r = CatalogoProcesador.procesar(muestra(), consulta("CAMARA", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+        var r = procesador.procesar(muestra(), consulta("CAMARA", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
         assertEquals(List.of(2L), ids(r));
     }
 
     @Test
     void busquedaExigeTodosLosTerminos() {
-        var r = CatalogoProcesador.procesar(muestra(), consulta("notebook lenovo", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+        var r = procesador.procesar(muestra(), consulta("notebook lenovo", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
         assertEquals(List.of(1L), ids(r));
-        var ninguno = CatalogoProcesador.procesar(muestra(), consulta("notebook sofa", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+        var ninguno = procesador.procesar(muestra(), consulta("notebook sofa", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
         assertTrue(ninguno.isEmpty());
     }
 
     @Test
     void busquedaPorPrefijoDePalabraDelTitulo() {
-        var r = CatalogoProcesador.procesar(muestra(), consulta("bici", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+        var r = procesador.procesar(muestra(), consulta("bici", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
         assertEquals(List.of(3L), ids(r));
     }
 
     @Test
     void busquedaTambienCoincideConElNombreDeLaCategoria() {
-        var r = CatalogoProcesador.procesar(muestra(), consulta("deportes", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+        var r = procesador.procesar(muestra(), consulta("deportes", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
         assertEquals(List.of(3L), ids(r));
     }
 
@@ -165,20 +174,20 @@ class CatalogoProcesadorTest {
         List<Candidato> l = List.of(
                 item(20, "Funda protectora", "Sirve para guardar tu cámara", CategoriaPublicacion.ELECTRONICA, "5000", null, null, 10),
                 item(21, "Cámara Canon", "Poco uso", CategoriaPublicacion.ELECTRONICA, "200000", null, null, 1));
-        var r = CatalogoProcesador.procesar(l, consulta("camara", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+        var r = procesador.procesar(l, consulta("camara", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
         assertEquals(List.of(21L, 20L), ids(r));
         assertTrue(r.get(0).puntaje() > r.get(1).puntaje());
     }
 
     @Test
     void sinTextoLaRelevanciaEsPorRecencia() {
-        var r = CatalogoProcesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
+        var r = procesador.procesar(muestra(), consulta("", null, null, null, null, null, null, OrdenCatalogo.RELEVANCIA));
         assertEquals(List.of(4L, 3L, 2L, 1L), ids(r));
     }
 
     @Test
     void combinaCategoriaPrecioYTexto() {
-        var r = CatalogoProcesador.procesar(muestra(),
+        var r = procesador.procesar(muestra(),
                 consulta("usado", EnumSet.of(CategoriaPublicacion.ELECTRONICA), null, "400000", null, null, null, OrdenCatalogo.PRECIO_ASC));
         assertEquals(List.of(1L), ids(r));
     }
@@ -251,14 +260,14 @@ class CatalogoProcesadorTest {
     void paginaLaListaOrdenada() {
         List<Integer> l = new ArrayList<>();
         for (int i = 0; i < 25; i++) l.add(i);
-        assertEquals(10, CatalogoProcesador.pagina(l, 0, 10).size());
-        assertEquals(10, CatalogoProcesador.pagina(l, 1, 10).size());
-        assertEquals(5, CatalogoProcesador.pagina(l, 2, 10).size());
-        assertEquals(0, CatalogoProcesador.pagina(l, 3, 10).size());
-        assertEquals(20, CatalogoProcesador.pagina(l, 2, 10).get(0).intValue());
-        assertEquals(3, CatalogoProcesador.totalPaginas(25, 10));
-        assertEquals(0, CatalogoProcesador.totalPaginas(0, 10));
-        assertEquals(1, CatalogoProcesador.totalPaginas(10, 10));
+        assertEquals(10, procesador.pagina(l, 0, 10).size());
+        assertEquals(10, procesador.pagina(l, 1, 10).size());
+        assertEquals(5, procesador.pagina(l, 2, 10).size());
+        assertEquals(0, procesador.pagina(l, 3, 10).size());
+        assertEquals(20, procesador.pagina(l, 2, 10).get(0).intValue());
+        assertEquals(3, procesador.totalPaginas(25, 10));
+        assertEquals(0, procesador.totalPaginas(0, 10));
+        assertEquals(1, procesador.totalPaginas(10, 10));
     }
 
     @Test

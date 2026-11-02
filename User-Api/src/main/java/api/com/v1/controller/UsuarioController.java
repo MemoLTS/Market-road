@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -37,7 +38,6 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/usuarios")
 public class UsuarioController {
 
-    private static final long TAMANO_MAXIMO_FOTO = 5L * 1024 * 1024;
     private static final byte[] FOTO_PERFIL_PREDETERMINADA = (
             "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 40 40\">"
                     + "<circle cx=\"20\" cy=\"20\" r=\"20\" fill=\"#e4e6eb\"/>"
@@ -49,6 +49,10 @@ public class UsuarioController {
     private UsuarioService usuarioService;
     @Autowired
     private DispositivoInicioSesionService dispositivoInicioSesionService;
+
+    /** Peso máximo de la foto de perfil: se configura en application.yml (usuarios.foto.max-bytes). */
+    @Value("${usuarios.foto.max-bytes:5242880}")
+    private long tamanoMaximoFoto;
 
     @GetMapping("/{id}/dispositivos")
     public ResponseEntity<List<DispositivoInicioSesionDTO>> obtenerDispositivos(
@@ -120,7 +124,7 @@ public class UsuarioController {
         if (!id.equals(usuarioAutenticadoId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo puedes cambiar tu propia foto de perfil");
         }
-        if (foto.isEmpty() || foto.getSize() > TAMANO_MAXIMO_FOTO) {
+        if (foto.isEmpty() || foto.getSize() > tamanoMaximoFoto) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La imagen debe pesar entre 1 byte y 5 MB");
         }
 

@@ -27,6 +27,8 @@ public class AdminInicializador implements ApplicationRunner {
     private PersonalSoporteRepository personal;
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private ReglasTicket reglasTicket;
 
     @Value("${soporte.admin.habilitado:true}")
     private boolean habilitado;
@@ -43,14 +45,14 @@ public class AdminInicializador implements ApplicationRunner {
             log.info("Administrador inicial de soporte deshabilitado (soporte.admin.habilitado=false)");
             return;
         }
-        String correoNormalizado = ReglasTicket.normalizarCorreo(correo);
+        String correoNormalizado = reglasTicket.normalizarCorreo(correo);
         if (personal.existsByCorreo(correoNormalizado)) {
             return;
         }
-        ReglasTicket.validarContrasena(contrasena);
+        reglasTicket.validarContrasena(contrasena);
 
         PersonalSoporte admin = new PersonalSoporte();
-        admin.setNombre(ReglasTicket.normalizarNombre(nombre));
+        admin.setNombre(reglasTicket.normalizarNombre(nombre));
         admin.setCorreo(correoNormalizado);
         admin.setContrasenaHash(passwordEncoder.encode(contrasena));
         admin.setRol(RolPersonal.ADMIN);

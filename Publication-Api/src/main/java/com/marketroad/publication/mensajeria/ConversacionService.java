@@ -49,6 +49,8 @@ public class ConversacionService {
     private PublicacionRepository publicaciones;
     @Autowired
     private LimitadorMensajes limitador;
+    @Autowired
+    private ReglasMensajeria reglas;
 
     // ------------------------------------------------------------------ consultas
 
@@ -102,7 +104,7 @@ public class ConversacionService {
         if (p.getUsuarioId().equals(yo.usuarioId())) {
             throw new IllegalArgumentException("No puedes iniciar una conversación en tu propia publicación");
         }
-        String texto = ReglasMensajeria.normalizarContenido(contenido);
+        String texto = reglas.normalizarContenido(contenido);
 
         Conversacion c = conversaciones.findByPublicacionIdAndCompradorId(p.getId(), yo.usuarioId()).orElse(null);
         if (c == null) {
@@ -127,7 +129,7 @@ public class ConversacionService {
         if (c.getPublicacion().getEstado() == EstadoPublicacion.ELIMINADA) {
             throw new OperacionNoPermitidaException("La publicación fue eliminada");
         }
-        String texto = ReglasMensajeria.normalizarContenido(contenido);
+        String texto = reglas.normalizarContenido(contenido);
         agregarMensaje(c, yo.usuarioId(), TipoMensaje.TEXTO, texto, null, null);
         return detalle(c, yo);
     }
@@ -138,7 +140,7 @@ public class ConversacionService {
         Conversacion c = cargar(id, yo);
         exigirRol(c, yo, Rol.COMPRADOR, "Solo el comprador puede hacer ofertas");
         exigirPublicacionActiva(c);
-        BigDecimal oferta = ReglasMensajeria.validarMonto(monto);
+        BigDecimal oferta = reglas.validarMonto(monto);
 
         // Una oferta nueva reemplaza a la pendiente (y a una aceptada anterior: se renegoció).
         for (MensajeConversacion previa : mensajes.findByConversacionIdAndTipoAndEstadoOfertaIn(
@@ -147,7 +149,7 @@ public class ConversacionService {
         }
         c.setMontoAcordado(null);
         agregarMensaje(c, yo.usuarioId(), TipoMensaje.OFERTA,
-                "Ofertó " + ReglasMensajeria.formatearMonto(oferta), oferta, EstadoOferta.PENDIENTE);
+                "Ofertó " + reglas.formatearMonto(oferta), oferta, EstadoOferta.PENDIENTE);
         return detalle(c, yo);
     }
 
@@ -166,7 +168,7 @@ public class ConversacionService {
             throw new OperacionNoPermitidaException("Esta oferta ya fue respondida o reemplazada");
         }
 
-        String monto = ReglasMensajeria.formatearMonto(oferta.getMonto());
+        String monto = reglas.formatearMonto(oferta.getMonto());
         if (aceptar) {
             oferta.setEstadoOferta(EstadoOferta.ACEPTADA);
             c.setMontoAcordado(oferta.getMonto());
@@ -199,7 +201,7 @@ public class ConversacionService {
         publicaciones.save(p);
 
         agregarMensaje(c, yo.usuarioId(), TipoMensaje.SISTEMA,
-                "Marcó la publicación como vendida por " + ReglasMensajeria.formatearMonto(precioFinal) + ".", null, null);
+                "Marcó la publicación como vendida por " + reglas.formatearMonto(precioFinal) + ".", null, null);
 
         for (Conversacion otra : conversaciones.findByPublicacionId(p.getId())) {
             if (otra.getId().equals(c.getId())) {
@@ -219,7 +221,7 @@ public class ConversacionService {
     private Conversacion cargar(Long id, Identidad yo) {
         Conversacion c = conversaciones.findConPublicacion(id)
                 .orElseThrow(() -> new ConversacionNoEncontradaException("No se encontró la conversación"));
-        if (ReglasMensajeria.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId()) == null) {
+        if (reglas.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId()) == null) {
             throw new ConversacionNoEncontradaException("No se encontró la conversación");
         }
         sincronizarApodo(c, yo);
@@ -227,7 +229,7 @@ public class ConversacionService {
     }
 
     private void exigirRol(Conversacion c, Identidad yo, Rol requerido, String mensajeError) {
-        if (ReglasMensajeria.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId()) != requerido) {
+        if (reglas.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId()) != requerido) {
             throw new OperacionNoPermitidaException(mensajeError);
         }
     }
@@ -248,7 +250,7 @@ public class ConversacionService {
         m.setMonto(monto);
         m.setEstadoOferta(estadoOferta);
         MensajeConversacion guardado = mensajes.save(m);
-        c.setUltimoMensaje(ReglasMensajeria.vistaPrevia(contenido));
+        c.setUltimoMensaje(reglas.vistaPrevia(contenido));
         c.setUltimaActividad(guardado.getFechaEnvio());
         conversaciones.save(c);
         return guardado;
@@ -269,7 +271,7 @@ public class ConversacionService {
         }
     }
 
-    private static String limpiarApodo(String apodo) {
+    private String limpiarApodo(String apodo) {
         if (apodo == null || apodo.isBlank()) {
             return null;
         }
@@ -279,7 +281,7 @@ public class ConversacionService {
 
     private ConversacionDetalleDTO detalle(Conversacion c, Identidad yo) {
         List<MensajeDTO> lista = mensajes.findByConversacionIdOrderByIdAsc(c.getId()).stream()
-                .map(ConversacionService::aDTO)
+                .map(this::aDTO)
                 .toList();
         long noLeidos = mensajes.countByConversacionIdAndRemitenteIdNotAndLeidoFalse(c.getId(), yo.usuarioId());
         return new ConversacionDetalleDTO(resumen(c, yo, noLeidos), lista);
@@ -287,18 +289,18 @@ public class ConversacionService {
 
     private ConversacionResumenDTO resumen(Conversacion c, Identidad yo, long noLeidos) {
         Publicacion p = c.getPublicacion();
-        Rol rol = ReglasMensajeria.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId());
+        Rol rol = reglas.rolDe(yo.usuarioId(), c.getCompradorId(), c.getVendedorId());
         boolean soyComprador = rol == Rol.COMPRADOR;
         Long otroId = soyComprador ? c.getVendedorId() : c.getCompradorId();
         String otroApodo = soyComprador ? c.getVendedorApodo() : c.getCompradorApodo();
         return new ConversacionResumenDTO(
                 c.getId(), p.getId(), p.getTitulo(), p.getPrecio(), p.getEstado().name(),
                 "/api/v1/publicaciones/" + p.getId() + "/imagenes/0",
-                rol.name(), otroId, ReglasMensajeria.apodoODefecto(otroApodo, otroId),
+                rol.name(), otroId, reglas.apodoODefecto(otroApodo, otroId),
                 c.getMontoAcordado(), c.getUltimoMensaje(), c.getUltimaActividad(), noLeidos);
     }
 
-    private static MensajeDTO aDTO(MensajeConversacion m) {
+    private MensajeDTO aDTO(MensajeConversacion m) {
         return new MensajeDTO(m.getId(), m.getRemitenteId(), m.getTipo().name(), m.getContenido(), m.getMonto(),
                 m.getEstadoOferta() == null ? null : m.getEstadoOferta().name(), m.isLeido(), m.getFechaEnvio());
     }

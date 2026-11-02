@@ -8,6 +8,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,14 +26,22 @@ import com.marketroad.publication.validacion.Textos;
 
 @Service
 public class PublicacionServiceImpl implements PublicacionService {
-    private static final int MAX_FOTOS = 8;
-    private static final long MAX_BYTES_POR_FOTO = 5L * 1024 * 1024;
-    private static final List<String> TIPOS_PERMITIDOS = List.of("image/jpeg", "image/png", "image/webp");
-
     @Autowired
     private PublicacionRepository repository;
     @Autowired
     private ImagenPublicacionRepository imagenRepository;
+    @Autowired
+    private PublicacionMapper mapper;
+    @Autowired
+    private Textos textos;
+
+    /** Límites de las fotos: se configuran en application.yml (publicaciones.fotos.*). */
+    @Value("${publicaciones.fotos.maximo:8}")
+    private int maxFotos;
+    @Value("${publicaciones.fotos.max-bytes:5242880}")
+    private long maxBytesPorFoto;
+    @Value("${publicaciones.fotos.tipos-permitidos:image/jpeg,image/png,image/webp}")
+    private List<String> tiposPermitidos;
 
     @Override
     @Transactional
@@ -41,15 +50,15 @@ public class PublicacionServiceImpl implements PublicacionService {
             throw new IllegalArgumentException("Usuario autenticado inválido");
         }
         if (datos == null) throw new IllegalArgumentException("Faltan los datos de la publicación");
-        String tituloNormalizado = Textos.limpiar(datos.titulo(), false, "El título");
+        String tituloNormalizado = textos.limpiar(datos.titulo(), false, "El título");
         if (tituloNormalizado.length() < 3 || tituloNormalizado.length() > 100) {
             throw new IllegalArgumentException("El título debe tener entre 3 y 100 caracteres");
         }
-        String descripcionNormalizada = Textos.limpiar(datos.descripcion(), true, "La descripción");
+        String descripcionNormalizada = textos.limpiar(datos.descripcion(), true, "La descripción");
         if (descripcionNormalizada.length() < 10 || descripcionNormalizada.length() > 1000) {
             throw new IllegalArgumentException("La descripción debe tener entre 10 y 1000 caracteres");
         }
-        String ubicacionNormalizada = Textos.limpiar(datos.ubicacion(), false, "La ubicación");
+        String ubicacionNormalizada = textos.limpiar(datos.ubicacion(), false, "La ubicación");
         if (ubicacionNormalizada.length() < 2 || ubicacionNormalizada.length() > 120) {
             throw new IllegalArgumentException("La ubicación debe tener entre 2 y 120 caracteres");
         }
@@ -92,8 +101,8 @@ public class PublicacionServiceImpl implements PublicacionService {
         }
         precio = precio.setScale(2, RoundingMode.UNNECESSARY);
 
-        if (fotos == null || fotos.isEmpty() || fotos.size() > MAX_FOTOS) {
-            throw new IllegalArgumentException("Debes subir entre 1 y 8 fotos");
+        if (fotos == null || fotos.isEmpty() || fotos.size() > maxFotos) {
+            throw new IllegalArgumentException("Debes subir entre 1 y " + maxFotos + " fotos");
         }
 
         Publicacion publicacion = new Publicacion();
@@ -123,14 +132,14 @@ public class PublicacionServiceImpl implements PublicacionService {
         }
 
         Publicacion guardada = repository.save(publicacion);
-        return PublicacionMapper.aDTO(guardada, fotos.size(), null);
+        return mapper.aDTO(guardada, fotos.size(), null);
     }
 
     private void validarFoto(MultipartFile foto) {
         if (foto == null || foto.isEmpty()) throw new IllegalArgumentException("Las fotos no pueden estar vacías");
-        if (foto.getSize() > MAX_BYTES_POR_FOTO) throw new IllegalArgumentException("Cada foto puede pesar como máximo 5 MB");
+        if (foto.getSize() > maxBytesPorFoto) throw new IllegalArgumentException("Cada foto puede pesar como máximo " + (maxBytesPorFoto / (1024 * 1024)) + " MB");
         String tipo = foto.getContentType();
-        if (!TIPOS_PERMITIDOS.contains(tipo)) {
+        if (!tiposPermitidos.contains(tipo)) {
             throw new IllegalArgumentException("Solo se permiten imágenes JPG, PNG o WEBP");
         }
         try {
@@ -159,10 +168,10 @@ public class PublicacionServiceImpl implements PublicacionService {
     @Transactional(readOnly = true)
     public List<PublicacionResponseDTO> obtenerPorUsuario(Long usuarioId) {
         List<Publicacion> propias = repository.findByUsuarioIdAndEstadoNotOrderByFechaCreacionDesc(usuarioId, EstadoPublicacion.ELIMINADA);
-        Map<Long, Integer> cantidades = PublicacionMapper.contarImagenes(imagenRepository,
+        Map<Long, Integer> cantidades = mapper.contarImagenes(
                 propias.stream().map(Publicacion::getId).toList());
         return propias.stream()
-                .map(p -> PublicacionMapper.aDTO(p, cantidades.getOrDefault(p.getId(), 0), null))
+                .map(p -> mapper.aDTO(p, cantidades.getOrDefault(p.getId(), 0), null))
                 .toList();
     }
 
@@ -173,8 +182,8 @@ public class PublicacionServiceImpl implements PublicacionService {
         if (p.getEstado() == EstadoPublicacion.ELIMINADA) {
             throw new PublicacionNoEncontradaException("No se encontró la publicación con id " + id);
         }
-        int cantidad = PublicacionMapper.contarImagenes(imagenRepository, List.of(p.getId())).getOrDefault(p.getId(), 0);
-        return PublicacionMapper.aDTO(p, cantidad, null);
+        int cantidad = mapper.contarImagenes(List.of(p.getId())).getOrDefault(p.getId(), 0);
+        return mapper.aDTO(p, cantidad, null);
     }
 
     @Override
@@ -200,7 +209,7 @@ public class PublicacionServiceImpl implements PublicacionService {
                 .orElseThrow(() -> new PublicacionNoEncontradaException("No se encontró la publicación con id " + id));
     }
 
-    private static String apodoLimpio(String apodo) {
+    private String apodoLimpio(String apodo) {
         if (apodo == null || apodo.isBlank()) return null;
         String limpio = apodo.trim();
         return limpio.length() > 40 ? limpio.substring(0, 40) : limpio;
