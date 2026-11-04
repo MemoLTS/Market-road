@@ -20,13 +20,6 @@ import com.marketroad.publication.repository.TicketSoporteRepository;
 import com.marketroad.publication.security.Identidad;
 import com.marketroad.publication.validacion.Textos;
 
-/**
- * Soporte: cada usuario crea solicitudes y ve solo las suyas; el superusuario las revisa y responde.
- *
- * Reglas:
- *  - Máximo {@value #MAXIMO_ABIERTOS} solicitudes sin resolver por usuario (anti-spam).
- *  - Una solicitud resuelta requiere una respuesta escrita.
- */
 @Service
 public class SoporteService {
     public static final int MAXIMO_ABIERTOS = 5;

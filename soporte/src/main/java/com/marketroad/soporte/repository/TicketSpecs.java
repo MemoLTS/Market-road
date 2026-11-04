@@ -11,17 +11,17 @@ import com.marketroad.soporte.model.Ticket;
 
 import jakarta.persistence.criteria.Predicate;
 
-/** Filtros combinables para el listado de tickets del panel. */
 public final class TicketSpecs {
-    private TicketSpecs() {}
+    private TicketSpecs() {
+    }
 
     public static Specification<Ticket> todos() {
         return (root, query, cb) -> cb.conjunction();
     }
 
-    /** Lo que ve un integrante con rol SOPORTE: tickets sin asignar y los que lleva él. */
     public static Specification<Ticket> visiblesPara(Long personalId) {
-        return (root, query, cb) -> cb.or(cb.isNull(root.get("asignadoId")), cb.equal(root.get("asignadoId"), personalId));
+        return (root, query, cb) -> cb.or(cb.isNull(root.get("asignadoId")),
+                cb.equal(root.get("asignadoId"), personalId));
     }
 
     public static Specification<Ticket> estadoEn(Collection<EstadoTicket> estados) {
@@ -44,7 +44,6 @@ public final class TicketSpecs {
         return (root, query, cb) -> cb.isNull(root.get("asignadoId"));
     }
 
-    /** Busca en el asunto y en el apodo de quien lo abrió; si el texto es un número, también por id de ticket. */
     public static Specification<Ticket> busqueda(String texto) {
         String limpio = texto.trim().toLowerCase();
         String patron = "%" + limpio.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";

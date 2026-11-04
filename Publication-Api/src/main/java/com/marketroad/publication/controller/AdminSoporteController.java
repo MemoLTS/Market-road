@@ -21,7 +21,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 
-/** Gestión de solicitudes de soporte, solo para el rol SUPERUSUARIO (se comprueba en el servicio). */
 @Validated
 @RestController
 @RequestMapping("/api/v1/admin/soporte/tickets")

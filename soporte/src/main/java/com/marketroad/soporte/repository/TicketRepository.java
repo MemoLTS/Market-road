@@ -18,7 +18,6 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
 
     Optional<Ticket> findByIdAndUsuarioId(Long id, Long usuarioId);
 
-    /** Tickets no cerrados que lleva una persona del equipo (para liberarlos al desactivar su cuenta). */
     List<Ticket> findByAsignadoIdAndEstadoNot(Long asignadoId, EstadoTicket estado);
 
     long countByUsuarioIdAndEstadoIn(Long usuarioId, Collection<EstadoTicket> estados);
@@ -36,7 +35,6 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
     @Query("select t.prioridad, count(t) from Ticket t group by t.prioridad")
     List<Object[]> contarPorPrioridad();
 
-    /** Tickets en curso por integrante del equipo. */
     @Query("select t.asignadoId, count(t) from Ticket t "
             + "where t.asignadoId is not null and t.estado in :estados group by t.asignadoId")
     List<Object[]> cargaPorPersonal(@Param("estados") Collection<EstadoTicket> estados);

@@ -15,11 +15,6 @@ import com.marketroad.publication.service.AdminPublicacionService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-/**
- * Endpoints de administración, solo para el rol SUPERUSUARIO.
- * JwtAuthFilter ya exige un token válido en esta ruta (no está en la lista de rutas públicas);
- * aquí se comprueba el claim "rol" del token, firmado por User-Api con el secreto compartido.
- */
 @RestController
 @RequestMapping("/api/v1/admin/publicaciones")
 public class AdminPublicacionController {

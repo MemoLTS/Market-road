@@ -26,7 +26,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 
-/** Soporte para personas usuarias: abrir tickets y conversar con el equipo en el chat de cada ticket. */
 @Validated
 @RestController
 @RequestMapping("/api/v1/soporte")
@@ -50,14 +49,16 @@ public class SoporteUsuarioController {
     }
 
     @PostMapping("/tickets")
-    public ResponseEntity<TicketDetalleDTO> crear(@Valid @RequestBody CrearTicketRequestDTO body, HttpServletRequest request) {
+    public ResponseEntity<TicketDetalleDTO> crear(@Valid @RequestBody CrearTicketRequestDTO body,
+            HttpServletRequest request) {
         TicketDetalleDTO detalle = service.crear(IdentidadUsuario.de(request), body);
         return ResponseEntity.created(URI.create("/api/v1/soporte/tickets/" + detalle.ticket().id())).body(detalle);
     }
 
     @GetMapping("/tickets/{id}")
     public ResponseEntity<TicketDetalleDTO> obtener(
-            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id, HttpServletRequest request) {
+            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id,
+            HttpServletRequest request) {
         return ResponseEntity.ok(service.obtenerDeUsuario(id, IdentidadUsuario.de(request)));
     }
 
@@ -70,7 +71,8 @@ public class SoporteUsuarioController {
 
     @PostMapping("/tickets/{id}/cierre")
     public ResponseEntity<TicketDetalleDTO> cerrar(
-            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id, HttpServletRequest request) {
+            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id,
+            HttpServletRequest request) {
         return ResponseEntity.ok(service.cerrarUsuario(id, IdentidadUsuario.de(request)));
     }
 }

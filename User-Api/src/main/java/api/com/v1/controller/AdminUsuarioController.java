@@ -16,11 +16,6 @@ import api.com.v1.model.Rol;
 import api.com.v1.repository.UsuarioRepository;
 import api.com.v1.service.UsuarioService;
 
-/**
- * Endpoints de administración, solo para cuentas con rol SUPERUSUARIO.
- * El filtro JWT garantiza que hay una sesión válida; aquí se comprueba el rol contra la base de datos
- * (no contra el token), de modo que quitar el rol a una cuenta surte efecto de inmediato.
- */
 @RestController
 @RequestMapping("/api/v1/admin/usuarios")
 public class AdminUsuarioController {

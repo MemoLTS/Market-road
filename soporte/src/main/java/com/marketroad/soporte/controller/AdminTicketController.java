@@ -19,11 +19,6 @@ import com.marketroad.soporte.service.TicketService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Positive;
 
-/**
- * Tickets de soporte vistos desde el panel del SUPERUSUARIO de la plataforma (admin.html), solo lectura.
- * Se entra con la sesión normal de la tienda: SoporteAuthFilter valida el token de User-Api y aquí se comprueba el
- * claim "rol" (firmado por User-Api). Para responder o gestionar tickets se usa el panel del personal de soporte.
- */
 @Validated
 @RestController
 @RequestMapping("/api/v1/soporte/admin/tickets")
@@ -42,7 +37,8 @@ public class AdminTicketController {
             @RequestParam(value = "tamano", defaultValue = "20") int tamano,
             HttpServletRequest request) {
         IdentidadUsuario.de(request).exigirSuperusuario();
-        return ResponseEntity.ok(service.listarParaSuperusuario(estado, prioridad, categoria, asignacion, q, pagina, tamano));
+        return ResponseEntity
+                .ok(service.listarParaSuperusuario(estado, prioridad, categoria, asignacion, q, pagina, tamano));
     }
 
     @GetMapping("/resumen")
@@ -53,7 +49,8 @@ public class AdminTicketController {
 
     @GetMapping("/{id}")
     public ResponseEntity<TicketPanelDetalleDTO> obtener(
-            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id, HttpServletRequest request) {
+            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id,
+            HttpServletRequest request) {
         IdentidadUsuario.de(request).exigirSuperusuario();
         return ResponseEntity.ok(service.obtenerParaSuperusuario(id));
     }

@@ -4,7 +4,6 @@ import java.time.OffsetDateTime;
 
 import jakarta.persistence.*;
 
-/** Cuenta del equipo de soporte. Es propia de este servicio: no existe en User-Api. */
 @Entity
 @Table(name = "personal_soporte", uniqueConstraints = {
         @UniqueConstraint(name = "uk_personal_correo", columnNames = "correo")
@@ -36,18 +35,59 @@ public class PersonalSoporte {
     @Column(name = "ultimo_acceso")
     private OffsetDateTime ultimoAcceso;
 
-    public Long getId() { return id; }
-    public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
-    public String getCorreo() { return correo; }
-    public void setCorreo(String correo) { this.correo = correo; }
-    public String getContrasenaHash() { return contrasenaHash; }
-    public void setContrasenaHash(String contrasenaHash) { this.contrasenaHash = contrasenaHash; }
-    public RolPersonal getRol() { return rol; }
-    public void setRol(RolPersonal rol) { this.rol = rol; }
-    public boolean isActivo() { return activo; }
-    public void setActivo(boolean activo) { this.activo = activo; }
-    public OffsetDateTime getFechaCreacion() { return fechaCreacion; }
-    public OffsetDateTime getUltimoAcceso() { return ultimoAcceso; }
-    public void setUltimoAcceso(OffsetDateTime ultimoAcceso) { this.ultimoAcceso = ultimoAcceso; }
+    public Long getId() {
+        return id;
+    }
+
+    public String getNombre() {
+        return nombre;
+    }
+
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public String getCorreo() {
+        return correo;
+    }
+
+    public void setCorreo(String correo) {
+        this.correo = correo;
+    }
+
+    public String getContrasenaHash() {
+        return contrasenaHash;
+    }
+
+    public void setContrasenaHash(String contrasenaHash) {
+        this.contrasenaHash = contrasenaHash;
+    }
+
+    public RolPersonal getRol() {
+        return rol;
+    }
+
+    public void setRol(RolPersonal rol) {
+        this.rol = rol;
+    }
+
+    public boolean isActivo() {
+        return activo;
+    }
+
+    public void setActivo(boolean activo) {
+        this.activo = activo;
+    }
+
+    public OffsetDateTime getFechaCreacion() {
+        return fechaCreacion;
+    }
+
+    public OffsetDateTime getUltimoAcceso() {
+        return ultimoAcceso;
+    }
+
+    public void setUltimoAcceso(OffsetDateTime ultimoAcceso) {
+        this.ultimoAcceso = ultimoAcceso;
+    }
 }

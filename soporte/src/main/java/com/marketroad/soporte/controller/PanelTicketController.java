@@ -25,7 +25,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 
-/** Tickets y chats vistos desde el panel. Qué tickets se ven y qué se puede hacer depende del rol (ver TicketService). */
 @Validated
 @RestController
 @RequestMapping("/api/v1/soporte/panel/tickets")
@@ -49,7 +48,8 @@ public class PanelTicketController {
 
     @GetMapping("/{id}")
     public ResponseEntity<TicketPanelDetalleDTO> obtener(
-            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id, HttpServletRequest request) {
+            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id,
+            HttpServletRequest request) {
         return ResponseEntity.ok(service.obtenerPanel(id, IdentidadPersonal.de(request)));
     }
 
@@ -62,7 +62,8 @@ public class PanelTicketController {
 
     @PostMapping("/{id}/tomar")
     public ResponseEntity<TicketPanelDetalleDTO> tomar(
-            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id, HttpServletRequest request) {
+            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id,
+            HttpServletRequest request) {
         return ResponseEntity.ok(service.tomar(id, IdentidadPersonal.de(request)));
     }
 

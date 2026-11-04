@@ -16,12 +16,6 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
-/**
- * Genera y valida el token de sesión (JWT) emitido al iniciar sesión.
- * El token dura {@code jwt.expiration-ms} (por defecto 30 días) para que el
- * dispositivo quede "recordado" sin necesidad de volver a iniciar sesión,
- * hasta que el usuario cierre sesión explícitamente en el frontend.
- */
 @Component
 public class JwtUtil {
 

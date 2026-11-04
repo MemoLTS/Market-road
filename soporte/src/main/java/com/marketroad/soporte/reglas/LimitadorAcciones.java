@@ -8,10 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.marketroad.soporte.exception.DemasiadasSolicitudesException;
 
-/**
- * Limitador de acciones por clave en una ventana deslizante (anti-spam de mensajes y anti-fuerza-bruta del login).
- * Es en memoria, por instancia del servicio; suficiente para frenar abusos básicos.
- */
 public class LimitadorAcciones {
     private final int maximo;
     private final long ventanaMs;
@@ -30,7 +26,10 @@ public class LimitadorAcciones {
         this.reloj = reloj;
     }
 
-    /** Anota una acción; si ya se alcanzó el máximo en la ventana, lanza 429 sin anotar. */
+    /**
+     * Anota una acción; si ya se alcanzó el máximo en la ventana, lanza 429 sin
+     * anotar.
+     */
     public void registrar(String clave) {
         long ahora = reloj.millis();
         Deque<Long> cola = acciones.computeIfAbsent(clave, k -> new ArrayDeque<>());
@@ -44,7 +43,10 @@ public class LimitadorAcciones {
         limpiarSiCrece(ahora);
     }
 
-    /** Lanza 429 si la clave ya alcanzó el máximo, sin anotar nada (para revisar antes de intentar). */
+    /**
+     * Lanza 429 si la clave ya alcanzó el máximo, sin anotar nada (para revisar
+     * antes de intentar).
+     */
     public void verificar(String clave) {
         Deque<Long> cola = acciones.get(clave);
         if (cola == null) {
@@ -59,7 +61,9 @@ public class LimitadorAcciones {
         }
     }
 
-    /** Anota una acción sin lanzar error (por ejemplo, un intento de login fallido). */
+    /**
+     * Anota una acción sin lanzar error (por ejemplo, un intento de login fallido).
+     */
     public void anotar(String clave) {
         long ahora = reloj.millis();
         Deque<Long> cola = acciones.computeIfAbsent(clave, k -> new ArrayDeque<>());

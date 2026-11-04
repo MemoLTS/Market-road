@@ -24,7 +24,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 
-/** Gestión del equipo de soporte. Solo ADMIN (lo exige el servicio). */
 @Validated
 @RestController
 @RequestMapping("/api/v1/soporte/panel/personal")
@@ -38,7 +37,8 @@ public class PanelPersonalController {
     }
 
     @PostMapping
-    public ResponseEntity<PersonalDTO> crear(@Valid @RequestBody CrearPersonalRequestDTO body, HttpServletRequest request) {
+    public ResponseEntity<PersonalDTO> crear(@Valid @RequestBody CrearPersonalRequestDTO body,
+            HttpServletRequest request) {
         PersonalDTO creado = service.crear(IdentidadPersonal.de(request), body);
         return ResponseEntity.created(URI.create("/api/v1/soporte/panel/personal/" + creado.id())).body(creado);
     }

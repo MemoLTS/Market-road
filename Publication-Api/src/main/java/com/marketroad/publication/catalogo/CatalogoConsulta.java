@@ -7,11 +7,6 @@ import java.util.Set;
 
 import com.marketroad.publication.model.CategoriaPublicacion;
 
-/**
- * Parámetros ya validados de una búsqueda en el catálogo.
- * El constructor lanza {@link IllegalArgumentException} si algo es inconsistente
- * (el manejador global lo convierte en HTTP 400).
- */
 public record CatalogoConsulta(
         String texto,
         Set<CategoriaPublicacion> categorias,
@@ -76,10 +71,13 @@ public record CatalogoConsulta(
         return latitud != null && longitud != null;
     }
 
-    /** Construye la consulta desde los parámetros crudos de la URL. Las categorías pueden venir repetidas o separadas por coma. */
+    /**
+     * Construye la consulta desde los parámetros crudos de la URL. Las categorías
+     * pueden venir repetidas o separadas por coma.
+     */
     public static CatalogoConsulta de(String q, List<String> categorias, BigDecimal precioMin, BigDecimal precioMax,
-                                      Double lat, Double lon, Double radioKm, String orden,
-                                      Integer pagina, Integer tamano) {
+            Double lat, Double lon, Double radioKm, String orden,
+            Integer pagina, Integer tamano) {
         Set<CategoriaPublicacion> cats = EnumSet.noneOf(CategoriaPublicacion.class);
         if (categorias != null) {
             for (String valor : categorias) {

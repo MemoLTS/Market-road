@@ -15,21 +15,6 @@ import jakarta.servlet.http.HttpFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-/**
- * Filtro liviano (no usa Spring Security completo) que exige un JWT válido
- * en el header Authorization para las rutas protegidas de /api/v1/usuarios.
- *
- * Quedan SIN protección (no requieren token):
- * - POST /api/v1/usuarios        -> registro de un usuario nuevo
- * - POST /api/v1/auth/login      -> inicio de sesión
- * - cualquier request OPTIONS    -> preflight CORS
- *
- * /api/v1/admin/** siempre exige token; el rol de superusuario lo verifica el controller contra la BD.
- *
- * Si el token es válido, se guarda el id del usuario autenticado en el
- * request como atributo "usuarioAutenticadoId" para que los controllers
- * puedan usarlo si lo necesitan.
- */
 @Component
 @Order(1)
 public class JwtAuthFilter extends HttpFilter {
@@ -87,7 +72,8 @@ public class JwtAuthFilter extends HttpFilter {
         if ("POST".equalsIgnoreCase(metodo) && PREFIJO_USUARIOS.equals(path)) {
             return true;
         }
-        // Rutas fuera de /api/v1/usuarios y /api/v1/admin (ej. actuator, health) no se tocan
+        // Rutas fuera de /api/v1/usuarios y /api/v1/admin (ej. actuator, health) no se
+        // tocan
         return !path.startsWith(PREFIJO_USUARIOS) && !path.startsWith(PREFIJO_ADMIN);
     }
 

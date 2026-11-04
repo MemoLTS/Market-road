@@ -33,7 +33,6 @@ import com.marketroad.soporte.security.JwtPersonalUtil;
 
 import jakarta.annotation.PostConstruct;
 
-/** Cuentas del equipo de soporte: login, contraseña propia y gestión del equipo (solo ADMIN). */
 @Service
 public class PersonalService {
     private static final String MENSAJE_CREDENCIALES = "Correo o contraseña incorrectos";
@@ -52,15 +51,12 @@ public class PersonalService {
     @Qualifier("limitadorLogin")
     private LimitadorAcciones limitadorLogin;
 
-    /** Hash de relleno: se compara cuando el correo no existe para que responder tarde lo mismo que con una cuenta real. */
     private String hashRelleno;
 
     @PostConstruct
     public void inicializar() {
         this.hashRelleno = passwordEncoder.encode("relleno-" + System.nanoTime());
     }
-
-    // ---------- Sesión ----------
 
     @Transactional
     public LoginResponseDTO login(LoginRequestDTO body) {
@@ -73,7 +69,8 @@ public class PersonalService {
         limitadorLogin.verificar(correo);
 
         PersonalSoporte cuenta = personal.findByCorreo(correo).orElse(null);
-        boolean coincide = passwordEncoder.matches(body.contrasena(), cuenta == null ? hashRelleno : cuenta.getContrasenaHash());
+        boolean coincide = passwordEncoder.matches(body.contrasena(),
+                cuenta == null ? hashRelleno : cuenta.getContrasenaHash());
         if (cuenta == null || !coincide || !cuenta.isActivo()) {
             limitadorLogin.anotar(correo);
             throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES);
@@ -101,8 +98,6 @@ public class PersonalService {
         cuenta.setContrasenaHash(passwordEncoder.encode(body.nueva()));
         limitadorLogin.reiniciar("c:" + yo.personalId());
     }
-
-    // ---------- Gestión del equipo (ADMIN) ----------
 
     @Transactional(readOnly = true)
     public List<PersonalDTO> listar(IdentidadPersonal yo) {
@@ -143,7 +138,8 @@ public class PersonalService {
         boolean nuevoActivo = body.activo() == null ? cuenta.isActivo() : body.activo();
 
         if (esUnoMismo && (!nuevoActivo || nuevoRol != RolPersonal.ADMIN)) {
-            throw new OperacionNoPermitidaException("No puedes desactivar tu propia cuenta ni quitarte el rol de administrador");
+            throw new OperacionNoPermitidaException(
+                    "No puedes desactivar tu propia cuenta ni quitarte el rol de administrador");
         }
         boolean eraAdminActivo = cuenta.getRol() == RolPersonal.ADMIN && cuenta.isActivo();
         boolean seguiraAdminActivo = nuevoRol == RolPersonal.ADMIN && nuevoActivo;
@@ -166,7 +162,6 @@ public class PersonalService {
         return aDTO(cuenta, 0);
     }
 
-    /** Al desactivar una cuenta, sus tickets no cerrados vuelven a la cola para que otra persona los tome. */
     private void liberarTickets(PersonalSoporte cuenta) {
         for (Ticket t : tickets.findByAsignadoIdAndEstadoNot(cuenta.getId(), EstadoTicket.CERRADO)) {
             t.setAsignadoId(null);
@@ -177,7 +172,8 @@ public class PersonalService {
     }
 
     private PersonalSoporte buscar(Long id) {
-        return personal.findById(id).orElseThrow(() -> new PersonalNoEncontradoException("La persona indicada no existe"));
+        return personal.findById(id)
+                .orElseThrow(() -> new PersonalNoEncontradoException("La persona indicada no existe"));
     }
 
     private PersonalDTO aDTO(PersonalSoporte p, long ticketsEnCurso) {

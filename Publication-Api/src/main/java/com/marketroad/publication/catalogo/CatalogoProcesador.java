@@ -9,10 +9,6 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-/**
- * Aplica filtros (categoría, precio, texto, radio) y el orden pedido a un conjunto de candidatos.
- * Es lógica pura: no toca base de datos, así se puede probar sin levantar Spring. Bean de Spring.
- */
 @Component
 public class CatalogoProcesador {
     @Autowired
@@ -62,12 +58,16 @@ public class CatalogoProcesador {
     Comparator<Resultado> comparador(OrdenCatalogo orden) {
         switch (orden) {
             case PRECIO_ASC:
-                return Comparator.<Resultado, java.math.BigDecimal>comparing(r -> r.candidato().precio()).thenComparing(recientes);
+                return Comparator.<Resultado, java.math.BigDecimal>comparing(r -> r.candidato().precio())
+                        .thenComparing(recientes);
             case PRECIO_DESC:
-                return Comparator.<Resultado, java.math.BigDecimal>comparing(r -> r.candidato().precio(), Comparator.reverseOrder())
+                return Comparator.<Resultado, java.math.BigDecimal>comparing(r -> r.candidato().precio(),
+                        Comparator.reverseOrder())
                         .thenComparing(recientes);
             case DISTANCIA:
-                return Comparator.<Resultado, Double>comparing(Resultado::distanciaKm, Comparator.nullsLast(Comparator.naturalOrder()))
+                return Comparator
+                        .<Resultado, Double>comparing(Resultado::distanciaKm,
+                                Comparator.nullsLast(Comparator.naturalOrder()))
                         .thenComparing(recientes);
             case RECIENTES:
                 return recientes;

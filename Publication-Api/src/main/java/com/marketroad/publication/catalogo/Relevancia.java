@@ -7,11 +7,9 @@ import java.util.Locale;
 
 import org.springframework.stereotype.Component;
 
-/** Puntaje de coincidencia entre un texto de búsqueda y una publicación. Bean de Spring. */
 @Component
 class Relevancia {
 
-    /** Minúsculas, sin tildes ni signos; palabras separadas por un espacio. */
     String normalizar(String texto) {
         if (texto == null) {
             return "";
@@ -31,10 +29,6 @@ class Relevancia {
         return terminos;
     }
 
-    /**
-     * @return -1 si algún término no aparece en título, descripción o categoría (la publicación no coincide);
-     *         en otro caso un puntaje positivo: más alto = mejor coincidencia.
-     */
     int puntaje(List<String> terminos, Candidato c) {
         String titulo = normalizar(c.titulo());
         String descripcion = normalizar(c.descripcion());

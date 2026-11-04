@@ -14,10 +14,6 @@ import com.marketroad.soporte.model.RolPersonal;
 import com.marketroad.soporte.reglas.ReglasTicket;
 import com.marketroad.soporte.repository.PersonalSoporteRepository;
 
-/**
- * Crea el administrador inicial del panel de soporte si todavía no existe, para poder entrar la primera vez
- * y crear al resto del equipo. Nunca modifica una cuenta existente.
- */
 @Component
 public class AdminInicializador implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(AdminInicializador.class);

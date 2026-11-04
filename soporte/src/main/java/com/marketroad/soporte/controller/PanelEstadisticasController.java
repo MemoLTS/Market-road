@@ -12,7 +12,6 @@ import com.marketroad.soporte.service.EstadisticasService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-/** Datos agregados del soporte. Solo ADMIN (lo exige el servicio). */
 @RestController
 @RequestMapping("/api/v1/soporte/panel/estadisticas")
 public class PanelEstadisticasController {

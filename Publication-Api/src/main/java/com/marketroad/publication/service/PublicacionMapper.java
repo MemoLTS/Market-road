@@ -14,11 +14,6 @@ import com.marketroad.publication.dto.PublicacionResponseDTO;
 import com.marketroad.publication.model.Publicacion;
 import com.marketroad.publication.repository.ImagenPublicacionRepository;
 
-/**
- * Conversión Publicacion -> DTO. Las URLs de imágenes se arman a partir de la cantidad de fotos
- * (las posiciones son siempre 0..n-1), así nunca hay que cargar los bytes de las fotos para listar.
- * Bean de Spring: los servicios lo reciben con @Autowired.
- */
 @Component
 public class PublicacionMapper {
     @Autowired

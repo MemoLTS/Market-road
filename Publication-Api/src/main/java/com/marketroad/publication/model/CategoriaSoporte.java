@@ -1,6 +1,5 @@
 package com.marketroad.publication.model;
 
-/** Motivo por el que una persona escribe a soporte. */
 public enum CategoriaSoporte {
     CUENTA("Mi cuenta"),
     PUBLICACIONES("Publicaciones"),
@@ -11,7 +10,11 @@ public enum CategoriaSoporte {
 
     private final String nombre;
 
-    CategoriaSoporte(String nombre) { this.nombre = nombre; }
+    CategoriaSoporte(String nombre) {
+        this.nombre = nombre;
+    }
 
-    public String getNombre() { return nombre; }
+    public String getNombre() {
+        return nombre;
+    }
 }

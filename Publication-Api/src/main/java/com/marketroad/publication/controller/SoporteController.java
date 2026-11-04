@@ -20,7 +20,6 @@ import com.marketroad.publication.service.SoporteService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
-/** Soporte para usuarios autenticados: crear una solicitud y ver las propias. */
 @Validated
 @RestController
 @RequestMapping("/api/v1/soporte/tickets")

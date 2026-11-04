@@ -3,11 +3,9 @@ package com.marketroad.publication.catalogo;
 import java.util.Locale;
 
 public enum OrdenCatalogo {
-    /** Con texto de búsqueda: mejor coincidencia primero. Sin texto: más recientes primero. */
     RELEVANCIA,
     PRECIO_ASC,
     PRECIO_DESC,
-    /** Requiere la ubicación del usuario. Las publicaciones sin coordenadas quedan al final. */
     DISTANCIA,
     RECIENTES;
 

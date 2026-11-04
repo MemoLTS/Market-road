@@ -14,18 +14,11 @@ import com.marketroad.soporte.model.RolPersonal;
 import com.marketroad.soporte.reglas.ReglasTicket;
 import com.marketroad.soporte.repository.PersonalSoporteRepository;
 
-/**
- * Crea las cuentas iniciales del panel de soporte si todavía no existen, para poder entrar la primera vez:
- * <ul>
- *   <li>un <b>administrador</b> ({@code soporte.admin.*}), que ve todos los tickets y gestiona el equipo;</li>
- *   <li>una cuenta de <b>soporte</b> ({@code soporte.agente.*}), que atiende los tickets sin asignar y los suyos.</li>
- * </ul>
- * Nunca modifica una cuenta existente.
- */
 @Component
 public class PersonalInicializador implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(PersonalInicializador.class);
-    // Deben ser constantes de compilación: se usan como valor por defecto dentro de las anotaciones @Value.
+    // Deben ser constantes de compilación: se usan como valor por defecto dentro de
+    // las anotaciones @Value.
     static final String CONTRASENA_ADMIN_PREDETERMINADA = "Soporte12345";
     static final String CONTRASENA_AGENTE_PREDETERMINADA = "Agente12345";
 

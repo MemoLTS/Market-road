@@ -12,7 +12,6 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 
-/** Valida (no emite) los tokens de las personas usuarias, firmados por User-Api con el secreto JWT_SECRET. */
 @Component
 public class JwtUsuarioUtil {
     @Value("${jwt.secret}")

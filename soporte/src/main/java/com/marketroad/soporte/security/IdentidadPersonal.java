@@ -5,7 +5,6 @@ import com.marketroad.soporte.model.RolPersonal;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-/** Integrante del equipo de soporte autenticado. El rol sale de la base de datos (no del token) en cada petición. */
 public record IdentidadPersonal(Long personalId, String nombre, RolPersonal rol) {
     public static final String ATRIBUTO = "identidadPersonalAutenticada";
 

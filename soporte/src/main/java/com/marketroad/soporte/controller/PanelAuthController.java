@@ -18,7 +18,6 @@ import com.marketroad.soporte.service.PersonalService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
-/** Inicio de sesión del personal de soporte (cuentas propias de este servicio, no las de la plataforma). */
 @RestController
 @RequestMapping("/api/v1/soporte/panel/auth")
 public class PanelAuthController {
@@ -36,7 +35,8 @@ public class PanelAuthController {
     }
 
     @PostMapping("/contrasena")
-    public ResponseEntity<Void> cambiarContrasena(@Valid @RequestBody CambiarContrasenaRequestDTO body, HttpServletRequest request) {
+    public ResponseEntity<Void> cambiarContrasena(@Valid @RequestBody CambiarContrasenaRequestDTO body,
+            HttpServletRequest request) {
         service.cambiarContrasenaPropia(IdentidadPersonal.de(request), body);
         return ResponseEntity.noContent().build();
     }

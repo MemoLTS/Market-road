@@ -35,7 +35,6 @@ public class PublicacionServiceImpl implements PublicacionService {
     @Autowired
     private Textos textos;
 
-    /** Límites de las fotos: se configuran en application.yml (publicaciones.fotos.*). */
     @Value("${publicaciones.fotos.maximo:8}")
     private int maxFotos;
     @Value("${publicaciones.fotos.max-bytes:5242880}")
@@ -49,7 +48,8 @@ public class PublicacionServiceImpl implements PublicacionService {
         if (autor == null || autor.usuarioId() == null || autor.usuarioId() <= 0) {
             throw new IllegalArgumentException("Usuario autenticado inválido");
         }
-        if (datos == null) throw new IllegalArgumentException("Faltan los datos de la publicación");
+        if (datos == null)
+            throw new IllegalArgumentException("Faltan los datos de la publicación");
         String tituloNormalizado = textos.limpiar(datos.titulo(), false, "El título");
         if (tituloNormalizado.length() < 3 || tituloNormalizado.length() > 100) {
             throw new IllegalArgumentException("El título debe tener entre 3 y 100 caracteres");
@@ -88,7 +88,8 @@ public class PublicacionServiceImpl implements PublicacionService {
 
         String precioNormalizado = datos.precio() == null ? "" : datos.precio().trim();
         if (!precioNormalizado.matches("^[0-9]{1,10}(?:\\.[0-9]{1,2})?$")) {
-            throw new IllegalArgumentException("El precio debe ser un número positivo de hasta 10 dígitos y máximo 2 decimales");
+            throw new IllegalArgumentException(
+                    "El precio debe ser un número positivo de hasta 10 dígitos y máximo 2 decimales");
         }
         BigDecimal precio;
         try {
@@ -136,8 +137,11 @@ public class PublicacionServiceImpl implements PublicacionService {
     }
 
     private void validarFoto(MultipartFile foto) {
-        if (foto == null || foto.isEmpty()) throw new IllegalArgumentException("Las fotos no pueden estar vacías");
-        if (foto.getSize() > maxBytesPorFoto) throw new IllegalArgumentException("Cada foto puede pesar como máximo " + (maxBytesPorFoto / (1024 * 1024)) + " MB");
+        if (foto == null || foto.isEmpty())
+            throw new IllegalArgumentException("Las fotos no pueden estar vacías");
+        if (foto.getSize() > maxBytesPorFoto)
+            throw new IllegalArgumentException(
+                    "Cada foto puede pesar como máximo " + (maxBytesPorFoto / (1024 * 1024)) + " MB");
         String tipo = foto.getContentType();
         if (!tiposPermitidos.contains(tipo)) {
             throw new IllegalArgumentException("Solo se permiten imágenes JPG, PNG o WEBP");
@@ -159,15 +163,20 @@ public class PublicacionServiceImpl implements PublicacionService {
     }
 
     private boolean firmaValida(byte[] b, String tipo) {
-        if ("image/jpeg".equals(tipo)) return b.length >= 3 && (b[0]&255)==0xFF && (b[1]&255)==0xD8 && (b[2]&255)==0xFF;
-        if ("image/png".equals(tipo)) return b.length >= 8 && (b[0]&255)==0x89 && b[1]==0x50 && b[2]==0x4E && b[3]==0x47 && b[4]==0x0D && b[5]==0x0A && b[6]==0x1A && b[7]==0x0A;
-        return "image/webp".equals(tipo) && b.length >= 12 && b[0]=='R' && b[1]=='I' && b[2]=='F' && b[3]=='F' && b[8]=='W' && b[9]=='E' && b[10]=='B' && b[11]=='P';
+        if ("image/jpeg".equals(tipo))
+            return b.length >= 3 && (b[0] & 255) == 0xFF && (b[1] & 255) == 0xD8 && (b[2] & 255) == 0xFF;
+        if ("image/png".equals(tipo))
+            return b.length >= 8 && (b[0] & 255) == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47 && b[4] == 0x0D
+                    && b[5] == 0x0A && b[6] == 0x1A && b[7] == 0x0A;
+        return "image/webp".equals(tipo) && b.length >= 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
+                && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P';
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<PublicacionResponseDTO> obtenerPorUsuario(Long usuarioId) {
-        List<Publicacion> propias = repository.findByUsuarioIdAndEstadoNotOrderByFechaCreacionDesc(usuarioId, EstadoPublicacion.ELIMINADA);
+        List<Publicacion> propias = repository.findByUsuarioIdAndEstadoNotOrderByFechaCreacionDesc(usuarioId,
+                EstadoPublicacion.ELIMINADA);
         Map<Long, Integer> cantidades = mapper.contarImagenes(
                 propias.stream().map(Publicacion::getId).toList());
         return propias.stream()
@@ -198,19 +207,22 @@ public class PublicacionServiceImpl implements PublicacionService {
     @Transactional
     public void eliminar(Long id, Long usuarioId) {
         Publicacion p = buscar(id);
-        if (!p.getUsuarioId().equals(usuarioId)) throw new NoAutorizadoException("Solo el propietario puede eliminar la publicación");
+        if (!p.getUsuarioId().equals(usuarioId))
+            throw new NoAutorizadoException("Solo el propietario puede eliminar la publicación");
         p.setEstado(EstadoPublicacion.ELIMINADA);
         repository.save(p);
     }
 
     private Publicacion buscar(Long id) {
-        if (id == null || id <= 0) throw new IllegalArgumentException("El id de publicación debe ser válido");
+        if (id == null || id <= 0)
+            throw new IllegalArgumentException("El id de publicación debe ser válido");
         return repository.findById(id)
                 .orElseThrow(() -> new PublicacionNoEncontradaException("No se encontró la publicación con id " + id));
     }
 
     private String apodoLimpio(String apodo) {
-        if (apodo == null || apodo.isBlank()) return null;
+        if (apodo == null || apodo.isBlank())
+            return null;
         String limpio = apodo.trim();
         return limpio.length() > 40 ? limpio.substring(0, 40) : limpio;
     }

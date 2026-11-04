@@ -19,16 +19,6 @@ import jakarta.servlet.http.HttpFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-/**
- * Filtro liviano (sin Spring Security completo) con dos "mundos" de autenticación separados:
- * <ul>
- *   <li>{@code /api/v1/soporte/panel/**}: exige token del PERSONAL de soporte. Además de la firma, se comprueba en la
- *       base de datos que la cuenta siga activa y se toma el rol de ahí, así desactivar o degradar a alguien
- *       surte efecto de inmediato aunque su token no haya vencido.</li>
- *   <li>El resto de {@code /api/v1/soporte/**}: exige token de una persona usuaria de la plataforma (emitido por User-Api).</li>
- * </ul>
- * Públicos: preflight CORS, {@code GET /categorias} y {@code POST /panel/auth/login}.
- */
 @Component
 @Order(1)
 public class SoporteAuthFilter extends HttpFilter {
@@ -58,7 +48,8 @@ public class SoporteAuthFilter extends HttpFilter {
             return;
         }
         String token = header.substring(7).trim();
-        // La autenticación va en su propio try: así un error de un controlador nunca se confunde con un token inválido.
+        // La autenticación va en su propio try: así un error de un controlador nunca se
+        // confunde con un token inválido.
         try {
             if (path.startsWith(PANEL)) {
                 Long personalId = jwtPersonal.obtenerPersonalId(token);
@@ -68,7 +59,8 @@ public class SoporteAuthFilter extends HttpFilter {
                     return;
                 }
                 PersonalSoporte p = personal.get();
-                request.setAttribute(IdentidadPersonal.ATRIBUTO, new IdentidadPersonal(p.getId(), p.getNombre(), p.getRol()));
+                request.setAttribute(IdentidadPersonal.ATRIBUTO,
+                        new IdentidadPersonal(p.getId(), p.getNombre(), p.getRol()));
             } else {
                 request.setAttribute(IdentidadUsuario.ATRIBUTO, jwtUsuario.obtenerIdentidad(token));
             }

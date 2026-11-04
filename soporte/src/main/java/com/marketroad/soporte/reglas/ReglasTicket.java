@@ -14,14 +14,16 @@ import com.marketroad.soporte.model.EstadoTicket;
 import com.marketroad.soporte.model.RolPersonal;
 import com.marketroad.soporte.validacion.Textos;
 
-/** Reglas puras del soporte (sin base de datos), separadas para poder probarlas fácilmente. Bean de Spring. */
 @Component
 public class ReglasTicket {
     public static final int MIN_ASUNTO = 3;
     public static final int MAX_ASUNTO = 120;
     public static final int MAX_CONTENIDO = 1000;
     public static final int MAX_VISTA_PREVIA = 120;
-    /** Tickets sin resolver que un usuario puede tener a la vez (evita inundar al equipo). */
+    /**
+     * Tickets sin resolver que un usuario puede tener a la vez (evita inundar al
+     * equipo).
+     */
     public static final int MAX_TICKETS_ACTIVOS = 3;
     public static final int MAX_MENSAJES_POR_TICKET = 300;
     public static final int MAX_NOMBRE = 80;
@@ -32,7 +34,10 @@ public class ReglasTicket {
     @Autowired
     private Textos textos;
 
-    /** Estados que necesitan atención del equipo (y que cuentan contra el cupo del usuario). */
+    /**
+     * Estados que necesitan atención del equipo (y que cuentan contra el cupo del
+     * usuario).
+     */
     private final Set<EstadoTicket> estadosActivos = Collections.unmodifiableSet(
             EnumSet.of(EstadoTicket.ABIERTO, EstadoTicket.EN_PROGRESO));
 
@@ -45,7 +50,10 @@ public class ReglasTicket {
         return estadosActivos;
     }
 
-    /** Estados que cuentan contra el cupo del usuario: un ticket resuelto o cerrado ya no ocupa lugar. */
+    /**
+     * Estados que cuentan contra el cupo del usuario: un ticket resuelto o cerrado
+     * ya no ocupa lugar.
+     */
     public Set<EstadoTicket> estadosQueOcupanCupo() {
         return estadosActivos;
     }
@@ -108,7 +116,10 @@ public class ReglasTicket {
         return estado != EstadoTicket.CERRADO;
     }
 
-    /** Si el usuario escribe en un ticket resuelto, se reabre (con el agente que lo llevaba, si había). */
+    /**
+     * Si el usuario escribe en un ticket resuelto, se reabre (con el agente que lo
+     * llevaba, si había).
+     */
     public EstadoTicket estadoTrasMensajeUsuario(EstadoTicket actual, Long asignadoId) {
         if (actual == EstadoTicket.RESUELTO) {
             return asignadoId != null ? EstadoTicket.EN_PROGRESO : EstadoTicket.ABIERTO;
@@ -121,7 +132,10 @@ public class ReglasTicket {
         return actual == EstadoTicket.ABIERTO ? EstadoTicket.EN_PROGRESO : actual;
     }
 
-    /** Estados a los que el personal puede mover un ticket. Solo ADMIN puede reabrir un ticket cerrado. */
+    /**
+     * Estados a los que el personal puede mover un ticket. Solo ADMIN puede reabrir
+     * un ticket cerrado.
+     */
     public List<EstadoTicket> siguientesEstados(EstadoTicket desde, boolean esAdmin) {
         return switch (desde) {
             case ABIERTO -> List.of(EstadoTicket.EN_PROGRESO, EstadoTicket.RESUELTO, EstadoTicket.CERRADO);
@@ -137,7 +151,9 @@ public class ReglasTicket {
 
     // ---------- Permisos del personal ----------
 
-    /** ADMIN ve todos los tickets; SOPORTE ve los sin asignar y los que lleva él. */
+    /**
+     * ADMIN ve todos los tickets; SOPORTE ve los sin asignar y los que lleva él.
+     */
     public boolean personalPuedeVer(RolPersonal rol, Long personalId, Long asignadoId) {
         if (rol == RolPersonal.ADMIN) {
             return true;
@@ -145,7 +161,10 @@ public class ReglasTicket {
         return asignadoId == null || asignadoId.equals(personalId);
     }
 
-    /** Responder o cambiar el estado: ADMIN siempre; SOPORTE solo si el ticket es suyo. */
+    /**
+     * Responder o cambiar el estado: ADMIN siempre; SOPORTE solo si el ticket es
+     * suyo.
+     */
     public boolean personalPuedeGestionar(RolPersonal rol, Long personalId, Long asignadoId) {
         if (rol == RolPersonal.ADMIN) {
             return true;
@@ -171,7 +190,10 @@ public class ReglasTicket {
         return limpio;
     }
 
-    /** 8 a 32 caracteres, con al menos una letra y un número (misma política que el superusuario de la plataforma). */
+    /**
+     * 8 a 32 caracteres, con al menos una letra y un número (misma política que el
+     * superusuario de la plataforma).
+     */
     public void validarContrasena(String contrasena) {
         if (contrasena == null || contrasena.length() < MIN_CONTRASENA || contrasena.length() > MAX_CONTRASENA) {
             throw new IllegalArgumentException(
