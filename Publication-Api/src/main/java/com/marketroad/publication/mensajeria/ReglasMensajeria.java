@@ -11,23 +11,31 @@ import org.springframework.stereotype.Component;
 
 import com.marketroad.publication.validacion.Textos;
 
-/** Reglas puras de la mensajería (sin base de datos), separadas para poder probarlas fácilmente. Bean de Spring. */
+/**
+ * Reglas puras de la mensajería (sin base de datos), separadas para poder
+ * probarlas fácilmente. Bean de Spring.
+ */
 @Component
 public class ReglasMensajeria {
     public static final int MAX_CONTENIDO = 1000;
     public static final int MAX_VISTA_PREVIA = 120;
 
-    public enum Rol { COMPRADOR, VENDEDOR }
+    public enum Rol {
+        COMPRADOR, VENDEDOR
+    }
 
     @Autowired
     private Textos textos;
 
-    /** Monto máximo de una oferta (cabe en la columna DECIMAL(12,2)); configurable en application.yml. */
+    /**
+     * Monto máximo de una oferta (cabe en la columna DECIMAL(12,2)); configurable
+     * en application.yml.
+     */
     @Value("${mensajeria.monto-maximo:9999999999.99}")
     private BigDecimal montoMaximo;
 
     public String normalizarContenido(String contenido) {
-        String limpio = textos.limpiar(contenido, true, "El mensaje");
+        String limpio = Textos.limpiar(contenido, true, "El mensaje");
         if (limpio.isEmpty()) {
             throw new IllegalArgumentException("El mensaje no puede estar vacío");
         }
@@ -37,7 +45,10 @@ public class ReglasMensajeria {
         return limpio;
     }
 
-    /** Monto de una oferta: mayor que 0, hasta 2 decimales y hasta 10 dígitos enteros. Devuelve el monto con escala 2. */
+    /**
+     * Monto de una oferta: mayor que 0, hasta 2 decimales y hasta 10 dígitos
+     * enteros. Devuelve el monto con escala 2.
+     */
     public BigDecimal validarMonto(BigDecimal monto) {
         if (monto == null || monto.signum() <= 0) {
             throw new IllegalArgumentException("La oferta debe ser mayor que 0");

@@ -50,15 +50,15 @@ public class PublicacionServiceImpl implements PublicacionService {
         }
         if (datos == null)
             throw new IllegalArgumentException("Faltan los datos de la publicación");
-        String tituloNormalizado = textos.limpiar(datos.titulo(), false, "El título");
+        String tituloNormalizado = Textos.limpiar(datos.titulo(), false, "El título");
         if (tituloNormalizado.length() < 3 || tituloNormalizado.length() > 100) {
             throw new IllegalArgumentException("El título debe tener entre 3 y 100 caracteres");
         }
-        String descripcionNormalizada = textos.limpiar(datos.descripcion(), true, "La descripción");
+        String descripcionNormalizada = Textos.limpiar(datos.descripcion(), true, "La descripción");
         if (descripcionNormalizada.length() < 10 || descripcionNormalizada.length() > 1000) {
             throw new IllegalArgumentException("La descripción debe tener entre 10 y 1000 caracteres");
         }
-        String ubicacionNormalizada = textos.limpiar(datos.ubicacion(), false, "La ubicación");
+        String ubicacionNormalizada = Textos.limpiar(datos.ubicacion(), false, "La ubicación");
         if (ubicacionNormalizada.length() < 2 || ubicacionNormalizada.length() > 120) {
             throw new IllegalArgumentException("La ubicación debe tener entre 2 y 120 caracteres");
         }
