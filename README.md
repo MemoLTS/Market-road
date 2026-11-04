@@ -94,3 +94,9 @@ Los límites operativos ya no son constantes `static final`; se leen de `applica
 variables de entorno): `publicaciones.fotos.*` y `mensajeria.*` (Publication-Api), `sesiones.*` y `usuarios.foto.max-bytes`
 (User-Api). Los colaboradores (`Textos`, `ReglasTicket`, `ReglasMensajeria`, `CatalogoProcesador`, `PublicacionMapper`) son
 beans de Spring que los servicios reciben con `@Autowired`.
+
+## Frontend React (Evaluación Parcial 2)
+
+La versión 2 del frontend está en [`frontend-react/`](frontend-react/README.md): React + Bootstrap, nuevas vistas y rutas, capa de datos con CRUD y pruebas Jasmine + Karma.
+La documentación de la entrega (ERS V2, cobertura de testing y planilla Scrum) está en [`Documentos/`](Documentos/).
+El frontend original (HTML + TypeScript) se mantiene en la raíz del repositorio y sus 28 pruebas con `node --test` siguen vigentes.

@@ -23,16 +23,3 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET:cambia-este-secreto-en-produccion-minimo-32-caracteres}
-
-# Límites operativos de la plataforma (se inyectan con @Value; ajústalos aquí sin recompilar).
-publicaciones:
-  fotos:
-    maximo: 8
-    max-bytes: 5242880 # 5 MB por foto
-    tipos-permitidos: image/jpeg,image/png,image/webp
-
-mensajeria:
-  limite:
-    maximo: 20          # mensajes/ofertas por persona
-    ventana-ms: 60000   # en una ventana de 1 minuto
-  monto-maximo: 9999999999.99

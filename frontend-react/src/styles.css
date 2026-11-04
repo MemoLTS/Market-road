@@ -1,0 +1,17 @@
+/* Complementa a Bootstrap: solo lo que Bootstrap no trae. El tema claro/oscuro lo maneja data-bs-theme. */
+.publication-img { height: 180px; object-fit: cover; }
+.detail-img { max-height: 420px; object-fit: contain; background: var(--bs-secondary-bg); }
+.publication-card { transition: transform .12s ease, box-shadow .12s ease; }
+.publication-card:hover { transform: translateY(-2px); }
+
+.chat-contenedor { height: 60vh; min-height: 320px; display: flex; flex-direction: column; }
+.chat-contenedor > .chat { flex: 1; min-height: 0; }
+.chat-burbuja { max-width: 78%; padding: .5rem .75rem; border-radius: .75rem; margin-bottom: .5rem; white-space: pre-wrap; word-break: break-word; }
+.chat-burbuja.mia { margin-left: auto; background: var(--bs-primary); color: #fff; }
+.chat-burbuja.otra { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+.chat-hora { opacity: .7; font-size: .72rem; margin-top: .15rem; }
+
+@media (max-width: 575.98px) {
+    .publication-img { height: 150px; }
+    .chat-burbuja { max-width: 90%; }
+}
