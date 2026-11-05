@@ -139,6 +139,10 @@ public class Ticket {
         return fechaCreacion;
     }
 
+    public void setFechaCreacion(OffsetDateTime fechaCreacion) {
+        this.fechaCreacion = fechaCreacion;
+    }
+
     public OffsetDateTime getFechaActualizacion() {
         return fechaActualizacion;
     }
