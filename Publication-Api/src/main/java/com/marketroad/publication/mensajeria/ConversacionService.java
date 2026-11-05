@@ -28,17 +28,6 @@ import com.marketroad.publication.repository.MensajeConversacionRepository;
 import com.marketroad.publication.repository.PublicacionRepository;
 import com.marketroad.publication.security.Identidad;
 
-/**
- * Mensajería comprador-vendedor alrededor de una publicación: chat, ofertas de precio,
- * aceptación/rechazo por parte del vendedor y cierre de la venta.
- *
- * Reglas principales:
- *  - Solo el comprador inicia la conversación (no se puede escribir en la propia publicación).
- *  - Solo el comprador hace ofertas; solo el vendedor las acepta/rechaza y marca la venta.
- *  - Ofertas, respuestas y venta requieren la publicación ACTIVA; el chat de texto sigue disponible
- *    después de la venta (para coordinar la entrega) salvo que la publicación se elimine.
- *  - Quien no participa de una conversación recibe 404 (no se revela que existe).
- */
 @Service
 public class ConversacionService {
     @Autowired
@@ -77,11 +66,15 @@ public class ConversacionService {
         return mensajes.contarNoLeidos(yo.usuarioId());
     }
 
-    /** Devuelve la conversación completa y marca como leídos los mensajes de la otra persona. */
+    /**
+     * Devuelve la conversación completa y marca como leídos los mensajes de la otra
+     * persona.
+     */
     @Transactional
     public ConversacionDetalleDTO obtener(Long id, Identidad yo) {
         Conversacion c = cargar(id, yo);
-        for (MensajeConversacion m : mensajes.findByConversacionIdAndRemitenteIdNotAndLeidoFalse(c.getId(), yo.usuarioId())) {
+        for (MensajeConversacion m : mensajes.findByConversacionIdAndRemitenteIdNotAndLeidoFalse(c.getId(),
+                yo.usuarioId())) {
             m.setLeido(true);
         }
         return detalle(c, yo);
@@ -89,7 +82,10 @@ public class ConversacionService {
 
     // ------------------------------------------------------------------ acciones
 
-    /** El comprador escribe por primera vez (o de nuevo) al vendedor de una publicación. */
+    /**
+     * El comprador escribe por primera vez (o de nuevo) al vendedor de una
+     * publicación.
+     */
     @Transactional
     public ConversacionDetalleDTO iniciar(Long publicacionId, String contenido, Identidad yo) {
         if (publicacionId == null || publicacionId <= 0) {
@@ -97,7 +93,8 @@ public class ConversacionService {
         }
         limitador.registrar(yo.usuarioId());
         Publicacion p = publicaciones.findById(publicacionId)
-                .orElseThrow(() -> new PublicacionNoEncontradaException("No se encontró la publicación con id " + publicacionId));
+                .orElseThrow(() -> new PublicacionNoEncontradaException(
+                        "No se encontró la publicación con id " + publicacionId));
         if (p.getEstado() != EstadoPublicacion.ACTIVA) {
             throw new OperacionNoPermitidaException("La publicación ya no está disponible");
         }
@@ -142,7 +139,8 @@ public class ConversacionService {
         exigirPublicacionActiva(c);
         BigDecimal oferta = reglas.validarMonto(monto);
 
-        // Una oferta nueva reemplaza a la pendiente (y a una aceptada anterior: se renegoció).
+        // Una oferta nueva reemplaza a la pendiente (y a una aceptada anterior: se
+        // renegoció).
         for (MensajeConversacion previa : mensajes.findByConversacionIdAndTipoAndEstadoOfertaIn(
                 c.getId(), TipoMensaje.OFERTA, List.of(EstadoOferta.PENDIENTE, EstadoOferta.ACEPTADA))) {
             previa.setEstadoOferta(EstadoOferta.REEMPLAZADA);
@@ -182,8 +180,10 @@ public class ConversacionService {
     }
 
     /**
-     * El vendedor cierra la venta con el comprador de esta conversación. El precio de venta es el de la oferta
-     * aceptada, o el precio publicado si no hubo oferta. Las demás conversaciones de la publicación quedan
+     * El vendedor cierra la venta con el comprador de esta conversación. El precio
+     * de venta es el de la oferta
+     * aceptada, o el precio publicado si no hubo oferta. Las demás conversaciones
+     * de la publicación quedan
      * avisadas y con sus ofertas pendientes rechazadas.
      */
     @Transactional
@@ -211,7 +211,8 @@ public class ConversacionService {
                     otra.getId(), TipoMensaje.OFERTA, List.of(EstadoOferta.PENDIENTE))) {
                 pendiente.setEstadoOferta(EstadoOferta.RECHAZADA);
             }
-            agregarMensaje(otra, yo.usuarioId(), TipoMensaje.SISTEMA, "La publicación fue vendida a otra persona.", null, null);
+            agregarMensaje(otra, yo.usuarioId(), TipoMensaje.SISTEMA, "La publicación fue vendida a otra persona.",
+                    null, null);
         }
         return detalle(c, yo);
     }
@@ -241,7 +242,7 @@ public class ConversacionService {
     }
 
     private MensajeConversacion agregarMensaje(Conversacion c, Long remitenteId, TipoMensaje tipo, String contenido,
-                                               BigDecimal monto, EstadoOferta estadoOferta) {
+            BigDecimal monto, EstadoOferta estadoOferta) {
         MensajeConversacion m = new MensajeConversacion();
         m.setConversacion(c);
         m.setRemitenteId(remitenteId);
@@ -256,7 +257,10 @@ public class ConversacionService {
         return guardado;
     }
 
-    /** Mantiene actualizado el apodo de quien está usando la conversación (viene en su JWT). */
+    /**
+     * Mantiene actualizado el apodo de quien está usando la conversación (viene en
+     * su JWT).
+     */
     private void sincronizarApodo(Conversacion c, Identidad yo) {
         String apodo = limpiarApodo(yo.apodo());
         if (apodo == null) {

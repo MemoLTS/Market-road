@@ -565,6 +565,387 @@ class PublicationServicesTest {
     }
 
     @Test
+    void limitadorMensajes_noBloqueaUsuarioDiferenteYExpiraTrasVentana() {
+        AtomicLong now = new AtomicLong(0L);
+        LimitadorMensajes limitador = new LimitadorMensajes();
+        ReflectionTestUtils.setField(limitador, "reloj", new Clock() {
+            @Override public ZoneId getZone() { return ZoneId.of("UTC"); }
+            @Override public Clock withZone(ZoneId zone) { return this; }
+            @Override public Instant instant() { return Instant.ofEpochMilli(now.get()); }
+        });
+        ReflectionTestUtils.setField(limitador, "maximo", 1);
+        ReflectionTestUtils.setField(limitador, "ventanaMs", 500L);
+
+        limitador.registrar(1L);
+        limitador.registrar(2L);
+        assertThrows(DemasiadasSolicitudesException.class, () -> limitador.registrar(1L));
+
+        now.set(600L);
+        limitador.registrar(1L);
+    }
+
+    @Test
+    void reglasMensajeria_validacionesAdicionales() {
+        ReglasMensajeria reglas = new ReglasMensajeria();
+        ReflectionTestUtils.setField(reglas, "textos", new Textos());
+        ReflectionTestUtils.setField(reglas, "montoMaximo", new BigDecimal("50000"));
+
+        assertEquals("Mensaje    limpio", reglas.normalizarContenido("  Mensaje    limpio  "));
+        assertThrows(IllegalArgumentException.class, () -> reglas.validarMonto(new BigDecimal("-1")));
+        assertThrows(IllegalArgumentException.class, () -> reglas.validarMonto(new BigDecimal("50001")));
+        assertEquals("Usuario #7", reglas.apodoODefecto("   ", 7L));
+        assertEquals("Pedro", reglas.apodoODefecto("Pedro", 7L));
+        assertNull(reglas.rolDe(8L, 9L, 10L));
+    }
+
+    @Test
+    void conversacionService_listaYRechazaConversacionesPropias() {
+        ConversacionRepository conversaciones = mock(ConversacionRepository.class);
+        MensajeConversacionRepository mensajes = mock(MensajeConversacionRepository.class);
+        PublicacionRepository publicaciones = mock(PublicacionRepository.class);
+        LimitadorMensajes limitador = new LimitadorMensajes();
+        ReglasMensajeria reglas = new ReglasMensajeria();
+        ReflectionTestUtils.setField(limitador, "reloj", Clock.systemUTC());
+        ReflectionTestUtils.setField(reglas, "textos", new Textos());
+        ReflectionTestUtils.setField(reglas, "montoMaximo", new BigDecimal("9999999999.99"));
+
+        ConversacionService service = new ConversacionService();
+        ReflectionTestUtils.setField(service, "conversaciones", conversaciones);
+        ReflectionTestUtils.setField(service, "mensajes", mensajes);
+        ReflectionTestUtils.setField(service, "publicaciones", publicaciones);
+        ReflectionTestUtils.setField(service, "limitador", limitador);
+        ReflectionTestUtils.setField(service, "reglas", reglas);
+
+        Publicacion publicacion = new Publicacion();
+        ReflectionTestUtils.setField(publicacion, "id", 10L);
+        publicacion.setTitulo("Bicicleta");
+        publicacion.setPrecio(new BigDecimal("200000"));
+        publicacion.setDescripcion("Muy buena");
+        publicacion.setUbicacion("Concepción");
+        publicacion.setCategoria(CategoriaPublicacion.DEPORTES);
+        publicacion.setUsuarioId(7L);
+        publicacion.setVendedorApodo("vendedor");
+        publicacion.setEstado(EstadoPublicacion.ACTIVA);
+
+        Conversacion conversacion = new Conversacion();
+        ReflectionTestUtils.setField(conversacion, "id", 15L);
+        conversacion.setPublicacion(publicacion);
+        conversacion.setCompradorId(9L);
+        conversacion.setVendedorId(7L);
+        conversacion.setCompradorApodo("comprador");
+        conversacion.setVendedorApodo("vendedor");
+        conversacion.setUltimaActividad(OffsetDateTime.now());
+
+        List<Object[]> noLeidos = new java.util.ArrayList<>();
+        noLeidos.add(new Object[] { 15L, 2L });
+        when(conversaciones.findDelUsuario(9L)).thenReturn(List.of(conversacion));
+        when(mensajes.contarNoLeidosPorConversacion(List.of(15L), 9L)).thenReturn(noLeidos);
+        when(publicaciones.findById(10L)).thenReturn(Optional.of(publicacion));
+
+        var lista = service.listar(new Identidad(9L, "comprador"), null);
+        assertEquals(1, lista.size());
+        assertEquals(2L, lista.get(0).noLeidos());
+
+        ReflectionTestUtils.setField(limitador, "maximo", 20);
+        ReflectionTestUtils.setField(limitador, "ventanaMs", 60000L);
+        assertThrows(IllegalArgumentException.class, () -> service.iniciar(10L, "Hola", new Identidad(7L, "vendedor")));
+    }
+
+    @Test
+    void conversacionService_contadorNoLeidosYFiltraPorPublicacion() {
+        ConversacionRepository conversaciones = mock(ConversacionRepository.class);
+        MensajeConversacionRepository mensajes = mock(MensajeConversacionRepository.class);
+        PublicacionRepository publicaciones = mock(PublicacionRepository.class);
+        LimitadorMensajes limitador = new LimitadorMensajes();
+        ReglasMensajeria reglas = new ReglasMensajeria();
+        ReflectionTestUtils.setField(limitador, "reloj", Clock.systemUTC());
+        ReflectionTestUtils.setField(limitador, "maximo", 20);
+        ReflectionTestUtils.setField(limitador, "ventanaMs", 60000L);
+        ReflectionTestUtils.setField(reglas, "montoMaximo", new BigDecimal("9999999999.99"));
+
+        ConversacionService service = new ConversacionService();
+        ReflectionTestUtils.setField(service, "conversaciones", conversaciones);
+        ReflectionTestUtils.setField(service, "mensajes", mensajes);
+        ReflectionTestUtils.setField(service, "publicaciones", publicaciones);
+        ReflectionTestUtils.setField(service, "limitador", limitador);
+        ReflectionTestUtils.setField(service, "reglas", reglas);
+
+        Publicacion publicacion = new Publicacion();
+        ReflectionTestUtils.setField(publicacion, "id", 18L);
+        publicacion.setTitulo("Teclado");
+        publicacion.setPrecio(new BigDecimal("120000"));
+        publicacion.setDescripcion("Usado");
+        publicacion.setUbicacion("Valparaíso");
+        publicacion.setCategoria(CategoriaPublicacion.ELECTRONICA);
+        publicacion.setUsuarioId(12L);
+        publicacion.setVendedorApodo("vendedor");
+        publicacion.setEstado(EstadoPublicacion.ACTIVA);
+
+        Conversacion conversacion = new Conversacion();
+        ReflectionTestUtils.setField(conversacion, "id", 20L);
+        conversacion.setPublicacion(publicacion);
+        conversacion.setCompradorId(9L);
+        conversacion.setVendedorId(12L);
+        conversacion.setCompradorApodo("comprador");
+        conversacion.setVendedorApodo("vendedor");
+        conversacion.setUltimaActividad(OffsetDateTime.now());
+
+        List<Object[]> noLeidos = new java.util.ArrayList<>();
+        noLeidos.add(new Object[] { 20L, 3L });
+        when(conversaciones.findDelUsuario(9L)).thenReturn(List.of(conversacion));
+        when(mensajes.contarNoLeidosPorConversacion(List.of(20L), 9L)).thenReturn(noLeidos);
+        when(mensajes.contarNoLeidos(9L)).thenReturn(4L);
+
+        var lista = service.listar(new Identidad(9L, "comprador"), 18L);
+        assertEquals(1, lista.size());
+        assertEquals(3L, lista.get(0).noLeidos());
+        assertEquals(4L, service.contarNoLeidos(new Identidad(9L, "comprador")));
+    }
+
+    @Test
+    void conversacionService_iniciaNuevaConversacionYGuardaMensaje() {
+        ConversacionRepository conversaciones = mock(ConversacionRepository.class);
+        MensajeConversacionRepository mensajes = mock(MensajeConversacionRepository.class);
+        PublicacionRepository publicaciones = mock(PublicacionRepository.class);
+        LimitadorMensajes limitador = new LimitadorMensajes();
+        ReglasMensajeria reglas = new ReglasMensajeria();
+        ReflectionTestUtils.setField(limitador, "reloj", Clock.systemUTC());
+        ReflectionTestUtils.setField(limitador, "maximo", 20);
+        ReflectionTestUtils.setField(limitador, "ventanaMs", 60000L);
+        ReflectionTestUtils.setField(reglas, "textos", new Textos());
+        ReflectionTestUtils.setField(reglas, "montoMaximo", new BigDecimal("9999999999.99"));
+
+        ConversacionService service = new ConversacionService();
+        ReflectionTestUtils.setField(service, "conversaciones", conversaciones);
+        ReflectionTestUtils.setField(service, "mensajes", mensajes);
+        ReflectionTestUtils.setField(service, "publicaciones", publicaciones);
+        ReflectionTestUtils.setField(service, "limitador", limitador);
+        ReflectionTestUtils.setField(service, "reglas", reglas);
+
+        Publicacion publicacion = new Publicacion();
+        ReflectionTestUtils.setField(publicacion, "id", 100L);
+        publicacion.setTitulo("Mochila");
+        publicacion.setPrecio(new BigDecimal("55000"));
+        publicacion.setDescripcion("Usada");
+        publicacion.setUbicacion("Temuco");
+        publicacion.setCategoria(CategoriaPublicacion.DEPORTES);
+        publicacion.setUsuarioId(5L);
+        publicacion.setVendedorApodo("vendedor");
+        publicacion.setEstado(EstadoPublicacion.ACTIVA);
+
+        Conversacion creada = new Conversacion();
+        ReflectionTestUtils.setField(creada, "id", 77L);
+        creada.setPublicacion(publicacion);
+        creada.setCompradorId(9L);
+        creada.setVendedorId(5L);
+        creada.setCompradorApodo("comprador");
+        creada.setVendedorApodo("vendedor");
+
+        MensajeConversacion mensajeCreado = new MensajeConversacion();
+        ReflectionTestUtils.setField(mensajeCreado, "id", 14L);
+        mensajeCreado.setConversacion(new Conversacion());
+        mensajeCreado.setRemitenteId(9L);
+        mensajeCreado.setTipo(TipoMensaje.TEXTO);
+        mensajeCreado.setContenido("Hola mundo");
+        ReflectionTestUtils.setField(mensajeCreado, "fechaEnvio", OffsetDateTime.now());
+
+        when(publicaciones.findById(100L)).thenReturn(Optional.of(publicacion));
+        when(conversaciones.findByPublicacionIdAndCompradorId(100L, 9L)).thenReturn(Optional.empty());
+        when(conversaciones.save(any(Conversacion.class))).thenAnswer(inv -> {
+            Conversacion c = inv.getArgument(0);
+            ReflectionTestUtils.setField(c, "id", 77L);
+            c.setUltimaActividad(OffsetDateTime.now());
+            return c;
+        });
+        when(mensajes.save(any(MensajeConversacion.class))).thenAnswer(inv -> {
+            MensajeConversacion msg = inv.getArgument(0);
+            ReflectionTestUtils.setField(msg, "id", 14L);
+            ReflectionTestUtils.setField(msg, "fechaEnvio", OffsetDateTime.now());
+            return msg;
+        });
+        when(mensajes.findByConversacionIdOrderByIdAsc(77L)).thenReturn(List.of(mensajeCreado));
+        when(mensajes.countByConversacionIdAndRemitenteIdNotAndLeidoFalse(77L, 9L)).thenReturn(0L);
+
+        var detalle = service.iniciar(100L, "  Hola   mundo  ", new Identidad(9L, "comprador"));
+        assertEquals(77L, detalle.conversacion().id());
+        assertEquals("Hola mundo", detalle.mensajes().getFirst().contenido());
+        assertEquals("Hola mundo", detalle.conversacion().ultimoMensaje());
+        assertEquals(5L, detalle.conversacion().interlocutorId());
+    }
+
+    @Test
+    void conversacionService_ofertaYRespuestaAceptada() {
+        ConversacionRepository conversaciones = mock(ConversacionRepository.class);
+        MensajeConversacionRepository mensajes = mock(MensajeConversacionRepository.class);
+        PublicacionRepository publicaciones = mock(PublicacionRepository.class);
+        LimitadorMensajes limitador = new LimitadorMensajes();
+        ReglasMensajeria reglas = new ReglasMensajeria();
+        ReflectionTestUtils.setField(limitador, "reloj", Clock.systemUTC());
+        ReflectionTestUtils.setField(limitador, "maximo", 20);
+        ReflectionTestUtils.setField(limitador, "ventanaMs", 60000L);
+        ReflectionTestUtils.setField(reglas, "textos", new Textos());
+        ReflectionTestUtils.setField(reglas, "montoMaximo", new BigDecimal("9999999999.99"));
+
+        ConversacionService service = new ConversacionService();
+        ReflectionTestUtils.setField(service, "conversaciones", conversaciones);
+        ReflectionTestUtils.setField(service, "mensajes", mensajes);
+        ReflectionTestUtils.setField(service, "publicaciones", publicaciones);
+        ReflectionTestUtils.setField(service, "limitador", limitador);
+        ReflectionTestUtils.setField(service, "reglas", reglas);
+
+        Publicacion publicacion = new Publicacion();
+        ReflectionTestUtils.setField(publicacion, "id", 50L);
+        publicacion.setTitulo("Silla");
+        publicacion.setPrecio(new BigDecimal("120000"));
+        publicacion.setDescripcion("Buena");
+        publicacion.setUbicacion("Punta Arenas");
+        publicacion.setCategoria(CategoriaPublicacion.HOGAR);
+        publicacion.setUsuarioId(12L);
+        publicacion.setVendedorApodo("vendedor");
+        publicacion.setEstado(EstadoPublicacion.ACTIVA);
+
+        Conversacion conversacion = new Conversacion();
+        ReflectionTestUtils.setField(conversacion, "id", 21L);
+        conversacion.setPublicacion(publicacion);
+        conversacion.setCompradorId(9L);
+        conversacion.setVendedorId(12L);
+        conversacion.setCompradorApodo("comprador");
+        conversacion.setVendedorApodo("vendedor");
+
+        MensajeConversacion oferta = new MensajeConversacion();
+        ReflectionTestUtils.setField(oferta, "id", 88L);
+        oferta.setConversacion(conversacion);
+        oferta.setRemitenteId(9L);
+        oferta.setTipo(TipoMensaje.OFERTA);
+        oferta.setContenido("Ofertó $250,5");
+        oferta.setMonto(new BigDecimal("250.50"));
+        oferta.setEstadoOferta(EstadoOferta.PENDIENTE);
+        oferta.setLeido(false);
+        ReflectionTestUtils.setField(oferta, "fechaEnvio", OffsetDateTime.now());
+
+        MensajeConversacion respuesta = new MensajeConversacion();
+        respuesta.setConversacion(conversacion);
+        respuesta.setRemitenteId(12L);
+        respuesta.setTipo(TipoMensaje.SISTEMA);
+        respuesta.setContenido("Aceptó la oferta de $250,5. Coordinen la entrega por este chat.");
+        respuesta.setLeido(false);
+        ReflectionTestUtils.setField(respuesta, "fechaEnvio", OffsetDateTime.now());
+
+        when(conversaciones.findConPublicacion(21L)).thenReturn(Optional.of(conversacion));
+        when(mensajes.findByConversacionIdAndTipoAndEstadoOfertaIn(21L, TipoMensaje.OFERTA, List.of(EstadoOferta.PENDIENTE, EstadoOferta.ACEPTADA)))
+                .thenReturn(List.of());
+        when(mensajes.save(any(MensajeConversacion.class))).thenAnswer(inv -> {
+            MensajeConversacion msg = inv.getArgument(0);
+            ReflectionTestUtils.setField(msg, "id", 77L);
+            ReflectionTestUtils.setField(msg, "fechaEnvio", OffsetDateTime.now());
+            if (msg.getTipo() == TipoMensaje.SISTEMA) {
+                msg.setContenido("Aceptó la oferta de $250,5. Coordinen la entrega por este chat.");
+            }
+            return msg;
+        });
+        when(mensajes.findById(88L)).thenReturn(Optional.of(oferta));
+        when(mensajes.findByConversacionIdOrderByIdAsc(21L)).thenReturn(List.of(oferta, respuesta));
+        when(mensajes.countByConversacionIdAndRemitenteIdNotAndLeidoFalse(21L, 9L)).thenReturn(0L);
+        when(mensajes.countByConversacionIdAndRemitenteIdNotAndLeidoFalse(21L, 12L)).thenReturn(0L);
+
+        var detalleOferta = service.ofertar(21L, new BigDecimal("250.50"), new Identidad(9L, "comprador"));
+        assertEquals("Ofertó $250,5", detalleOferta.mensajes().getFirst().contenido());
+
+        var detalleRespuesta = service.responderOferta(21L, 88L, true, new Identidad(12L, "vendedor"));
+        assertEquals(EstadoOferta.ACEPTADA, oferta.getEstadoOferta());
+        assertEquals(new BigDecimal("250.50"), conversacion.getMontoAcordado());
+        assertTrue(detalleRespuesta.mensajes().getLast().contenido().contains("Aceptó la oferta"));
+    }
+
+    @Test
+    void conversacionService_marcaVentaYRechazaOfertasPendientes() {
+        ConversacionRepository conversaciones = mock(ConversacionRepository.class);
+        MensajeConversacionRepository mensajes = mock(MensajeConversacionRepository.class);
+        PublicacionRepository publicaciones = mock(PublicacionRepository.class);
+        LimitadorMensajes limitador = new LimitadorMensajes();
+        ReglasMensajeria reglas = new ReglasMensajeria();
+        ReflectionTestUtils.setField(limitador, "reloj", Clock.systemUTC());
+        ReflectionTestUtils.setField(limitador, "maximo", 20);
+        ReflectionTestUtils.setField(limitador, "ventanaMs", 60000L);
+        ReflectionTestUtils.setField(reglas, "textos", new Textos());
+        ReflectionTestUtils.setField(reglas, "montoMaximo", new BigDecimal("9999999999.99"));
+
+        ConversacionService service = new ConversacionService();
+        ReflectionTestUtils.setField(service, "conversaciones", conversaciones);
+        ReflectionTestUtils.setField(service, "mensajes", mensajes);
+        ReflectionTestUtils.setField(service, "publicaciones", publicaciones);
+        ReflectionTestUtils.setField(service, "limitador", limitador);
+        ReflectionTestUtils.setField(service, "reglas", reglas);
+
+        Publicacion publicacion = new Publicacion();
+        ReflectionTestUtils.setField(publicacion, "id", 60L);
+        publicacion.setTitulo("Mesa");
+        publicacion.setPrecio(new BigDecimal("299000"));
+        publicacion.setDescripcion("Nueva");
+        publicacion.setUbicacion("Viña del Mar");
+        publicacion.setCategoria(CategoriaPublicacion.HOGAR);
+        publicacion.setUsuarioId(12L);
+        publicacion.setVendedorApodo("vendedor");
+        publicacion.setEstado(EstadoPublicacion.ACTIVA);
+
+        Conversacion principal = new Conversacion();
+        ReflectionTestUtils.setField(principal, "id", 31L);
+        principal.setPublicacion(publicacion);
+        principal.setCompradorId(9L);
+        principal.setVendedorId(12L);
+        principal.setCompradorApodo("comprador");
+        principal.setVendedorApodo("vendedor");
+        principal.setMontoAcordado(new BigDecimal("270000"));
+
+        Conversacion otra = new Conversacion();
+        ReflectionTestUtils.setField(otra, "id", 32L);
+        otra.setPublicacion(publicacion);
+        otra.setCompradorId(15L);
+        otra.setVendedorId(12L);
+        otra.setCompradorApodo("otro");
+        otra.setVendedorApodo("vendedor");
+
+        MensajeConversacion pendiente = new MensajeConversacion();
+        pendiente.setConversacion(otra);
+        pendiente.setRemitenteId(15L);
+        pendiente.setTipo(TipoMensaje.OFERTA);
+        pendiente.setContenido("Ofertó $250.000");
+        pendiente.setMonto(new BigDecimal("250000"));
+        pendiente.setEstadoOferta(EstadoOferta.PENDIENTE);
+
+        MensajeConversacion venta = new MensajeConversacion();
+        venta.setConversacion(principal);
+        venta.setRemitenteId(12L);
+        venta.setTipo(TipoMensaje.SISTEMA);
+        venta.setContenido("Marcó la publicación como vendida por $270.000.");
+        venta.setLeido(false);
+        ReflectionTestUtils.setField(venta, "fechaEnvio", OffsetDateTime.now());
+
+        when(conversaciones.findConPublicacion(31L)).thenReturn(Optional.of(principal));
+        when(conversaciones.findByPublicacionId(60L)).thenReturn(List.of(principal, otra));
+        when(mensajes.findByConversacionIdAndTipoAndEstadoOfertaIn(32L, TipoMensaje.OFERTA, List.of(EstadoOferta.PENDIENTE)))
+                .thenReturn(List.of(pendiente));
+        when(publicaciones.save(any(Publicacion.class))).thenReturn(publicacion);
+        when(conversaciones.save(any(Conversacion.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(mensajes.save(any(MensajeConversacion.class))).thenAnswer(inv -> {
+            MensajeConversacion msg = inv.getArgument(0);
+            ReflectionTestUtils.setField(msg, "fechaEnvio", OffsetDateTime.now());
+            if (msg.getTipo() == TipoMensaje.SISTEMA && (msg.getContenido() == null || msg.getContenido().isBlank())) {
+                msg.setContenido("Marcó la publicación como vendida por $270.000.");
+            }
+            return msg;
+        });
+        when(mensajes.findByConversacionIdOrderByIdAsc(31L)).thenReturn(List.of(venta));
+        when(mensajes.countByConversacionIdAndRemitenteIdNotAndLeidoFalse(31L, 12L)).thenReturn(0L);
+
+        var detalle = service.marcarVendida(31L, new Identidad(12L, "vendedor"));
+        assertEquals(EstadoPublicacion.VENDIDA, publicacion.getEstado());
+        assertEquals(new BigDecimal("270000"), publicacion.getPrecioVenta());
+        assertEquals(EstadoOferta.RECHAZADA, pendiente.getEstadoOferta());
+        assertTrue(detalle.mensajes().getFirst().contenido().contains("vendida"));
+    }
+
+    @Test
     void globalExceptionHandler_respondeMapasEsperadas() {
         GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
