@@ -6,10 +6,12 @@ import lombok.NoArgsConstructor;
 import jakarta.validation.constraints.*;
 
 @Data
-@NoArgsConstructor
 @Entity
 @Table(name = "Usuarios")
 public class Usuario {
+
+    public Usuario() {
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

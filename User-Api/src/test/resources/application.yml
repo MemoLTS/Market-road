@@ -1,0 +1,45 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: servicio-usuarios
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+jwt:
+  secret: 12345678901234567890123456789012
+  expiration-ms: 60000
+
+superusuario:
+  habilitado: false
+  correo: admin@marketroad.local
+  contrasena: Admin12345
+  nombre: Super
+  apellido: Usuario
+  apodo: superadmin
+
+sesiones:
+  maximo-dispositivos: 5
+  maximo-por-dispositivo: 3
+
+usuarios:
+  foto:
+    max-bytes: 5242880

@@ -17,8 +17,10 @@ import lombok.Setter;
 @Table(name = "FotosPerfil")
 @Getter
 @Setter
-@NoArgsConstructor
 public class FotoPerfil {
+
+    public FotoPerfil() {
+    }
 
     @Id
     private Long usuarioId;
