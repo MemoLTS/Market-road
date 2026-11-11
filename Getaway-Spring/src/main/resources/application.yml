@@ -15,7 +15,7 @@ spring:
         - id: publication-service
           uri: http://publication-api:8083
           predicates:
-            - Path=/api/v1/publicaciones/**, /api/v1/conversaciones/**, /api/v1/admin/publicaciones/**
+            - Path=/api/v1/publicaciones/**, /api/v1/conversaciones/**, /api/v1/admin/publicaciones/**, /api/v1/admin/soporte/**
 
         - id: soporte-service
           uri: http://soporte-api:8086

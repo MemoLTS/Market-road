@@ -45,8 +45,10 @@ export function coincidir(patron: string, ruta: string): Params | null {
     if (a.length !== b.length) return null;
     const params: Params = {};
     for (let i = 0; i < a.length; i++) {
-        if (a[i].startsWith(':')) params[a[i].slice(1)] = decodeURIComponent(b[i]);
-        else if (a[i] !== b[i]) return null;
+        if (a[i].startsWith(':')) {
+            try { params[a[i].slice(1)] = decodeURIComponent(b[i]); }
+            catch { return null; }
+        } else if (a[i] !== b[i]) return null;
     }
     return params;
 }

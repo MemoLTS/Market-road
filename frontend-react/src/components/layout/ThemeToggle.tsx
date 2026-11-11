@@ -7,7 +7,7 @@ function temaInicial() {
         const guardado = localStorage.getItem(CLAVE);
         if (guardado === 'dark' || guardado === 'light') return guardado;
     } catch { /* sin acceso al almacenamiento */ }
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
 }
 
 export default function ThemeToggle() {

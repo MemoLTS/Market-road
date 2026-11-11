@@ -19,9 +19,10 @@ export function guardarSesion({ token, expiraEnMs, usuario }: DatosSesion): Sesi
 }
 
 export function obtenerSesion(): Sesion | null {
-    const raw = localStorage.getItem(CLAVE_SESION);
-    if (!raw) return null;
+    // El acceso a localStorage también puede lanzar (modo privado/restricciones del navegador).
     try {
+        const raw = localStorage.getItem(CLAVE_SESION);
+        if (!raw) return null;
         const sesion = JSON.parse(raw) as Partial<Sesion> | null;
         if (!sesion || !sesion.token || !sesion.usuario) return null;
         if (sesion.expiraEn && Date.now() >= sesion.expiraEn) {
@@ -30,7 +31,8 @@ export function obtenerSesion(): Sesion | null {
         }
         return sesion as Sesion;
     } catch {
-        localStorage.removeItem(CLAVE_SESION);
+        // No permitimos que una sesión corrupta o un almacenamiento bloqueado impida montar React.
+        try { localStorage.removeItem(CLAVE_SESION); } catch { /* almacenamiento no disponible */ }
         return null;
     }
 }

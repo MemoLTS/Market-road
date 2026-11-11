@@ -1,13 +1,11 @@
 networks:
   marketroad-net:
     driver: bridge
-
 volumes:
   mysql_data:
     name: market-road_mysql_data
   mysql_soporte_data:
     name: market-road_mysql_soporte_data
-
 services:
   mysql-db:
     image: mysql:8.0
@@ -16,18 +14,19 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
     volumes:
-      - mysql_data:/var/lib/mysql
+    - mysql_data:/var/lib/mysql
     ports:
-      - "127.0.0.1:${MYSQL_HOST_PORT:-3307}:3306"
+    - 127.0.0.1:${MYSQL_HOST_PORT:-3307}:3306
     healthcheck:
-      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysqladmin ping --host=127.0.0.1 --user=root --silent"]
+      test:
+      - CMD-SHELL
+      - MYSQL_PWD="$${MYSQL_ROOT_PASSWORD}" mysqladmin ping --host=127.0.0.1 --user=root
+        --silent
       interval: 5s
       timeout: 5s
       retries: 20
     networks:
-      - marketroad-net
-
-  # Base de datos PROPIA de Soporte (usuarios, publicaciones y soporte no comparten servidor MySQL ni credenciales).
+    - marketroad-net
   mysql-soporte:
     image: mysql:8.0
     container_name: marketroad-soporte-db
@@ -38,56 +37,54 @@ services:
       MYSQL_USER: ${SOPORTE_DB_USERNAME:-soporte_app}
       MYSQL_PASSWORD: ${SOPORTE_DB_PASSWORD:-soporte_local_dev}
     volumes:
-      - mysql_soporte_data:/var/lib/mysql
-      - ./soporte/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-    # Solo en 127.0.0.1: host 127.0.0.1, puerto 3308, usuario soporte_app.
+    - mysql_soporte_data:/var/lib/mysql
+    - ./soporte/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     ports:
-      - "127.0.0.1:${SOPORTE_MYSQL_HOST_PORT:-3308}:3306"
+    - 127.0.0.1:${SOPORTE_MYSQL_HOST_PORT:-3308}:3306
     healthcheck:
-      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysqladmin ping --host=127.0.0.1 --user=root --silent"]
+      test:
+      - CMD-SHELL
+      - MYSQL_PWD="$${MYSQL_ROOT_PASSWORD}" mysqladmin ping --host=127.0.0.1 --user=root
+        --silent
       interval: 5s
       timeout: 5s
       retries: 20
     networks:
-      - marketroad-net
-
-  # Crea las bases/permisos también cuando se reutiliza un volumen MySQL existente.
+    - marketroad-net
   database-init:
     image: mysql:8.0
-    restart: "no"
+    restart: 'no'
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
     volumes:
-      - ./database/init.sql:/init.sql:ro
-    entrypoint: ["/bin/sh", "-c"]
-    command: ["MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysql --host=mysql-db --user=root < /init.sql"]
+    - ./database/init.sql:/init.sql:ro
+    entrypoint:
+    - /bin/sh
+    - -c
+    command:
+    - MYSQL_PWD="$${MYSQL_ROOT_PASSWORD}" mysql --host=mysql-db --user=root < /init.sql
     depends_on:
       mysql-db:
         condition: service_healthy
     networks:
-      - marketroad-net
-
-  # Administrador web local de las dos bases (http://localhost:8085).
+    - marketroad-net
   phpmyadmin:
     image: phpmyadmin:5-apache
     container_name: marketroad-phpmyadmin
     restart: always
     environment:
-      # Dos servidores: el de usuarios/publicaciones y el de soporte (se elige en la pantalla de inicio).
       PMA_HOSTS: mysql-db,mysql-soporte
       PMA_PORT: 3306
       UPLOAD_LIMIT: 16M
     ports:
-      - "127.0.0.1:8085:80"
+    - 127.0.0.1:8085:80
     depends_on:
       mysql-db:
         condition: service_healthy
       mysql-soporte:
         condition: service_healthy
     networks:
-      - marketroad-net
-
-  # Microservicio Usuarios
+    - marketroad-net
   user-api:
     build:
       context: ./User-Api
@@ -101,18 +98,23 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       JWT_SECRET: cambia-este-secreto-en-produccion-minimo-32-caracteres
-      # Superusuario predeterminado (solo desarrollo local). Cambia estos valores en .env antes de desplegar.
       SUPERUSUARIO_CORREO: ${SUPERUSUARIO_CORREO:-admin@marketroad.local}
       SUPERUSUARIO_CONTRASENA: ${SUPERUSUARIO_CONTRASENA:-Admin12345}
     ports:
-      - "127.0.0.1:8084:8084"
+    - 127.0.0.1:8084:8084
     depends_on:
       database-init:
         condition: service_completed_successfully
     networks:
-      - marketroad-net
-
-  # Microservicio Publicaciones y Mensajería
+    - marketroad-net
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - bash -c '</dev/tcp/127.0.0.1/8084'
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 45s
   publication-api:
     build:
       context: ./Publication-Api
@@ -127,14 +129,20 @@ services:
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       JWT_SECRET: cambia-este-secreto-en-produccion-minimo-32-caracteres
     ports:
-      - "127.0.0.1:8083:8083"
+    - 127.0.0.1:8083:8083
     depends_on:
       database-init:
         condition: service_completed_successfully
     networks:
-      - marketroad-net
-
-  # Microservicio Soporte (tickets, chat y panel del equipo de soporte)
+    - marketroad-net
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - bash -c '</dev/tcp/127.0.0.1/8083'
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 45s
   soporte-api:
     build:
       context: ./soporte
@@ -147,25 +155,27 @@ services:
       SPRING_DATASOURCE_USERNAME: ${SOPORTE_DB_USERNAME:-soporte_app}
       SPRING_DATASOURCE_PASSWORD: ${SOPORTE_DB_PASSWORD:-soporte_local_dev}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
-      # Mismo secreto que user-api: valida los tokens de las personas usuarias.
       JWT_SECRET: cambia-este-secreto-en-produccion-minimo-32-caracteres
-      # Secreto propio del personal de soporte (distinto al anterior). Cámbialo en .env antes de desplegar.
       SOPORTE_JWT_SECRET: ${SOPORTE_JWT_SECRET:-cambia-el-secreto-del-personal-de-soporte-minimo-32}
-      # Administrador inicial del panel de soporte (solo desarrollo local). Cambia estos valores en .env antes de desplegar.
       SOPORTE_ADMIN_CORREO: ${SOPORTE_ADMIN_CORREO:-soporte-admin@marketroad.local}
       SOPORTE_ADMIN_CONTRASENA: ${SOPORTE_ADMIN_CONTRASENA:-Soporte12345}
-      # Cuenta inicial con rol SOPORTE (atiende tickets desde soporte-panel.html).
       SOPORTE_AGENTE_CORREO: ${SOPORTE_AGENTE_CORREO:-soporte@marketroad.local}
       SOPORTE_AGENTE_CONTRASENA: ${SOPORTE_AGENTE_CONTRASENA:-Agente12345}
     ports:
-      - "127.0.0.1:8086:8086"
+    - 127.0.0.1:8086:8086
     depends_on:
       mysql-soporte:
         condition: service_healthy
     networks:
-      - marketroad-net
-
-  # API Gateway
+    - marketroad-net
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - bash -c '</dev/tcp/127.0.0.1/8086'
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 45s
   gateway-service:
     build:
       context: ./Getaway-Spring
@@ -175,15 +185,24 @@ services:
     environment:
       SERVER_PORT: 8081
     ports:
-      - "127.0.0.1:8081:8081"
+    - 127.0.0.1:8081:8081
     depends_on:
-      - user-api
-      - publication-api
-      - soporte-api
+      user-api:
+        condition: service_healthy
+      publication-api:
+        condition: service_healthy
+      soporte-api:
+        condition: service_healthy
     networks:
-      - marketroad-net
-
-  # Frontend Web
+    - marketroad-net
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - bash -c '</dev/tcp/127.0.0.1/8081'
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 45s
   frontend:
     build:
       context: .
@@ -191,8 +210,9 @@ services:
     container_name: marketroad-frontend
     restart: always
     ports:
-      - "127.0.0.1:8080:80"
+    - 127.0.0.1:8080:80
     depends_on:
-      - gateway-service
+      gateway-service:
+        condition: service_healthy
     networks:
-      - marketroad-net
+    - marketroad-net

@@ -12,7 +12,7 @@ export interface Configuracion {
 }
 
 export const config: Configuracion = {
-    apiBaseUrl: env.VITE_API_URL || 'http://localhost:8081/api/v1',
+    apiBaseUrl: (env.VITE_API_URL || '/api/v1').replace(/\/+$/, ''),
     usarMock: env.VITE_USAR_MOCK === 'true',
     timeoutMs: 20000,
 };
