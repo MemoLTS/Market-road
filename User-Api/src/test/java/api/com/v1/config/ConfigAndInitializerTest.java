@@ -94,6 +94,7 @@ class ConfigAndInitializerTest {
         verify(usuarioRepository, never()).save(any(Usuario.class));
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     void usuarioSchemaMigration_agregaCiudadSiNoExiste() {
         UsuarioSchemaMigration migration = new UsuarioSchemaMigration();
@@ -107,6 +108,7 @@ class ConfigAndInitializerTest {
         verify(jdbcTemplate).execute(org.mockito.ArgumentMatchers.contains("ALTER TABLE usuarios ADD COLUMN ciudad"));
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     void usuarioSchemaMigration_noCreaCiudadSiYaExiste() {
         UsuarioSchemaMigration migration = new UsuarioSchemaMigration();
