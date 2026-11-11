@@ -1,16 +1,16 @@
 
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package*.json ./
+COPY frontend-react/package*.json ./
 RUN npm install
-COPY . .
-RUN npm run build || npx tsc
+COPY frontend-react/ ./
+ARG VITE_API_URL=/api/v1
+ENV VITE_API_URL=${VITE_API_URL}
+RUN npm run build
 
 FROM nginx:alpine
-
-COPY . /usr/share/nginx/html/
-
-COPY --from=build /app/Js /usr/share/nginx/html/Js
+COPY frontend-react/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html/
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

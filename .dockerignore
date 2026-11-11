@@ -6,3 +6,12 @@ Documentos
 .github
 README.md
 node_modules
+.git
+**/.git
+node_modules
+**/node_modules
+**/target
+**/dist
+**/coverage
+**/.env
+**/.env.*

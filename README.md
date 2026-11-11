@@ -26,6 +26,7 @@ crea las bases y ese usuario con
 [`database/init.sql`](database/init.sql), incluso si reutiliza el volumen existente.
 Para navegar las bases, abre [phpMyAdmin](http://localhost:8085); para probar la aplicación,
 abre [el frontend](http://localhost:8080). phpMyAdmin solo se publica en la propia computadora.
+El contenedor `frontend` compila y sirve [`frontend-react/`](frontend-react/README.md); las llamadas `/api/v1` se envían al gateway.
 
 Para revisar errores de inicio: `docker compose logs -f --tail 100 user-api publication-api soporte-api`.
 Para detener los servicios: `docker compose down`. Los datos MySQL permanecen en el volumen.

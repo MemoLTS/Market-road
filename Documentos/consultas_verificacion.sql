@@ -1,20 +1,9 @@
--- ============================================================================
---  Consultas para comprobar que lo que se hace en la página (React) quedó
---  guardado por los servicios Spring Boot en MySQL.
---
---  Conexión (docker compose up):
---    Usuarios y publicaciones -> host 127.0.0.1  puerto 3307  usuario marketroad_app / marketroad_local_dev
---                                (o root / rootpassword)
---    Soporte                  -> host 127.0.0.1  puerto 3308  usuario soporte_app / soporte_local_dev
---  También desde el navegador: phpMyAdmin en http://localhost:8085
--- ============================================================================
-
--- ---------------------------------------------------------------- db_usuarios
+-- db_usuarios
 USE db_usuarios;
 -- Cuentas creadas desde "Crear cuenta"
 SELECT id, nombre, apellido, apodo, correo, ciudad, rol FROM usuarios ORDER BY id DESC LIMIT 20;
 
--- -------------------------------------------------------------- marketroad_db
+-- marketroad_db
 USE marketroad_db;
 
 -- Últimas publicaciones. `unidades` es 1 cuando no se indica otra cantidad.
@@ -49,7 +38,7 @@ SELECT * FROM publicacion_modalidades_entrega WHERE publicacion_id = 1;
 SELECT * FROM conversaciones ORDER BY id DESC LIMIT 10;
 SELECT * FROM mensajes_conversacion ORDER BY id DESC LIMIT 20;
 
--- ----------------------------------------------------------------- db_soporte
+-- db_soporte
 -- (conectado al servidor del puerto 3308)
 -- USE db_soporte;
 -- SELECT * FROM tickets ORDER BY id DESC LIMIT 20;
