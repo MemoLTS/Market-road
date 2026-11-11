@@ -1,6 +1,5 @@
 package com.marketroad.soporte.config;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -66,7 +65,9 @@ class InicializadoresTest {
 
         inicializador.run(new DefaultApplicationArguments(new String[0]));
 
-        verify(repo).save(org.mockito.ArgumentMatchers.argThat(p -> ((PersonalSoporte) p).getRol() == RolPersonal.ADMIN));
-        verify(repo).save(org.mockito.ArgumentMatchers.argThat(p -> ((PersonalSoporte) p).getRol() == RolPersonal.SOPORTE));
+        verify(repo)
+                .save(org.mockito.ArgumentMatchers.argThat(p -> ((PersonalSoporte) p).getRol() == RolPersonal.ADMIN));
+        verify(repo)
+                .save(org.mockito.ArgumentMatchers.argThat(p -> ((PersonalSoporte) p).getRol() == RolPersonal.SOPORTE));
     }
 }

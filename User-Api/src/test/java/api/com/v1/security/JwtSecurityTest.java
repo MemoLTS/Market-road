@@ -2,12 +2,9 @@ package api.com.v1.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
@@ -19,7 +16,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import api.com.v1.model.Rol;
 import io.jsonwebtoken.Claims;
-import jakarta.servlet.FilterChain;
 
 class JwtSecurityTest {
 

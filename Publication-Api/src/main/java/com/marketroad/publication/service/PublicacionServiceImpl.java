@@ -33,6 +33,7 @@ public class PublicacionServiceImpl implements PublicacionService {
     private ImagenPublicacionRepository imagenRepository;
     @Autowired
     private PublicacionMapper mapper;
+    @SuppressWarnings("unused")
     @Autowired
     private Textos textos;
 

@@ -10,7 +10,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -29,13 +28,12 @@ import com.marketroad.publication.security.JwtUtil;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
 
 class PublicationApiSmokeTest {
 
     @Test
     void main_invocaSpringRun() {
-        String[] args = {"--server.port=0"};
+        String[] args = { "--server.port=0" };
         try (MockedStatic<SpringApplication> spring = mockStatic(SpringApplication.class)) {
             PublicationApi.main(args);
             spring.verify(() -> SpringApplication.run(PublicationApi.class, args));
@@ -95,7 +93,8 @@ class PublicationApiSmokeTest {
         assertThrows(NoAutorizadoException.class, () -> Identidad.de(request));
 
         GlobalExceptionHandler handler = new GlobalExceptionHandler();
-        assertEquals("mensaje de prueba", handler.argumento(new IllegalArgumentException("mensaje de prueba")).get("mensaje"));
+        assertEquals("mensaje de prueba",
+                handler.argumento(new IllegalArgumentException("mensaje de prueba")).get("mensaje"));
         assertEquals("sin acceso", handler.noAutorizado(new NoAutorizadoException("sin acceso")).get("mensaje"));
         assertEquals("La solicitud no es válida: revisa los parámetros enviados",
                 handler.peticionInvalida(new IllegalArgumentException("x")).get("mensaje"));

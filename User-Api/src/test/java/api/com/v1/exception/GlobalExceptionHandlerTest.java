@@ -1,8 +1,6 @@
 package api.com.v1.exception;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 
@@ -68,7 +66,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void exceptionClasses_creanMensajesEsperados() {
-        assertEquals("Credenciales inválidas", new CredencialesInvalidasException("Credenciales inválidas").getMessage());
+        assertEquals("Credenciales inválidas",
+                new CredencialesInvalidasException("Credenciales inválidas").getMessage());
         assertEquals("No encontrado", new RecursoNoEncontradoException("No encontrado").getMessage());
         assertEquals("Duplicado", new RecursoDuplicadoException("Duplicado").getMessage());
     }

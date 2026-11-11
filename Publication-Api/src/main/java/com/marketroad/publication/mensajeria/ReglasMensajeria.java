@@ -11,10 +11,6 @@ import org.springframework.stereotype.Component;
 
 import com.marketroad.publication.validacion.Textos;
 
-/**
- * Reglas puras de la mensajería (sin base de datos), separadas para poder
- * probarlas fácilmente. Bean de Spring.
- */
 @Component
 public class ReglasMensajeria {
     public static final int MAX_CONTENIDO = 1000;
@@ -24,13 +20,10 @@ public class ReglasMensajeria {
         COMPRADOR, VENDEDOR
     }
 
+    @SuppressWarnings("unused")
     @Autowired
     private Textos textos;
 
-    /**
-     * Monto máximo de una oferta (cabe en la columna DECIMAL(12,2)); configurable
-     * en application.yml.
-     */
     @Value("${mensajeria.monto-maximo:9999999999.99}")
     private BigDecimal montoMaximo;
 

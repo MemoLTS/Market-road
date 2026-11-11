@@ -20,7 +20,6 @@ import com.marketroad.soporte.dto.CrearTicketRequestDTO;
 import com.marketroad.soporte.dto.PaginaDTO;
 import com.marketroad.soporte.dto.TicketDetalleDTO;
 import com.marketroad.soporte.dto.TicketPanelDetalleDTO;
-import com.marketroad.soporte.exception.NoAutorizadoException;
 import com.marketroad.soporte.exception.OperacionNoPermitidaException;
 import com.marketroad.soporte.model.AutorTipo;
 import com.marketroad.soporte.model.CategoriaTicket;
@@ -77,7 +76,8 @@ class TicketServiceAdditionalTest {
     void listarDeUsuarioYContarNoLeidos() {
         TicketService service = servicioConMocks();
         TicketRepository ticketRepo = (TicketRepository) ReflectionTestUtils.getField(service, "tickets");
-        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service, "mensajes");
+        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service,
+                "mensajes");
 
         Ticket ticket = ticketBase(11L, 8L, EstadoTicket.ABIERTO, null);
         when(ticketRepo.findByUsuarioIdOrderByFechaActualizacionDesc(8L)).thenReturn(List.of(ticket));
@@ -97,7 +97,8 @@ class TicketServiceAdditionalTest {
     void responderUsuarioYCerrarUsuarioManejanEstados() {
         TicketService service = servicioConMocks();
         TicketRepository ticketRepo = (TicketRepository) ReflectionTestUtils.getField(service, "tickets");
-        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service, "mensajes");
+        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service,
+                "mensajes");
 
         Ticket ticket = ticketBase(12L, 8L, EstadoTicket.CERRADO, 3L);
         when(ticketRepo.findByIdAndUsuarioId(12L, 8L)).thenReturn(Optional.of(ticket));
@@ -106,7 +107,8 @@ class TicketServiceAdditionalTest {
         when(mensajeRepo.save(any(MensajeTicket.class))).thenAnswer(inv -> inv.getArgument(0));
 
         assertThrows(OperacionNoPermitidaException.class,
-                () -> service.responderUsuario(12L, "Mensaje", new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE")));
+                () -> service.responderUsuario(12L, "Mensaje",
+                        new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE")));
 
         ticket.setEstado(EstadoTicket.ABIERTO);
         TicketDetalleDTO detalle = service.cerrarUsuario(12L,
@@ -119,8 +121,10 @@ class TicketServiceAdditionalTest {
     void listarYObtenerPanelYCambiarPrioridad() {
         TicketService service = servicioConMocks();
         TicketRepository ticketRepo = (TicketRepository) ReflectionTestUtils.getField(service, "tickets");
-        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service, "mensajes");
-        PersonalSoporteRepository personalRepo = (PersonalSoporteRepository) ReflectionTestUtils.getField(service, "personal");
+        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service,
+                "mensajes");
+        PersonalSoporteRepository personalRepo = (PersonalSoporteRepository) ReflectionTestUtils.getField(service,
+                "personal");
 
         PersonalSoporte personal = new PersonalSoporte();
         ReflectionTestUtils.setField(personal, "id", 5L);
@@ -131,19 +135,23 @@ class TicketServiceAdditionalTest {
         when(personalRepo.findAllById(List.of(5L))).thenReturn(List.of(personal));
 
         Ticket ticket = ticketBase(21L, 3L, EstadoTicket.ABIERTO, 5L);
-        when(ticketRepo.findAll(any(Specification.class), any(PageRequest.class))).thenReturn(new PageImpl<>(List.of(ticket)));
+        when(ticketRepo.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(ticket)));
         when(mensajeRepo.contarNoLeidosPorTicket(List.of(21L), AutorTipo.USUARIO))
                 .thenReturn(List.<Object[]>of(new Object[] { 21L, 1L }));
         when(mensajeRepo.findByTicketIdOrderByIdAsc(21L)).thenReturn(List.of());
         when(ticketRepo.findById(21L)).thenReturn(Optional.of(ticket));
 
-        PaginaDTO<?> pagina = service.listarPanel(new IdentidadPersonal(5L, "Patricia", RolPersonal.SOPORTE), null, null, null, null, null, 0, 20);
+        PaginaDTO<?> pagina = service.listarPanel(new IdentidadPersonal(5L, "Patricia", RolPersonal.SOPORTE), null,
+                null, null, null, null, 0, 20);
         assertEquals(1, pagina.contenido().size());
 
-        TicketPanelDetalleDTO detalle = service.obtenerPanel(21L, new IdentidadPersonal(5L, "Patricia", RolPersonal.SOPORTE));
+        TicketPanelDetalleDTO detalle = service.obtenerPanel(21L,
+                new IdentidadPersonal(5L, "Patricia", RolPersonal.SOPORTE));
         assertEquals(21L, detalle.ticket().id());
 
-        TicketPanelDetalleDTO prioridad = service.cambiarPrioridad(21L, "ALTA", new IdentidadPersonal(5L, "Patricia", RolPersonal.SOPORTE));
+        TicketPanelDetalleDTO prioridad = service.cambiarPrioridad(21L, "ALTA",
+                new IdentidadPersonal(5L, "Patricia", RolPersonal.SOPORTE));
         assertEquals(PrioridadTicket.ALTA.name(), prioridad.ticket().prioridad());
     }
 
@@ -151,8 +159,10 @@ class TicketServiceAdditionalTest {
     void tomarYAsignarYRechazarAccionesNoPermitidas() {
         TicketService service = servicioConMocks();
         TicketRepository ticketRepo = (TicketRepository) ReflectionTestUtils.getField(service, "tickets");
-        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service, "mensajes");
-        PersonalSoporteRepository personalRepo = (PersonalSoporteRepository) ReflectionTestUtils.getField(service, "personal");
+        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service,
+                "mensajes");
+        PersonalSoporteRepository personalRepo = (PersonalSoporteRepository) ReflectionTestUtils.getField(service,
+                "personal");
 
         Ticket ticket = ticketBase(30L, 9L, EstadoTicket.ABIERTO, null);
         when(ticketRepo.findById(30L)).thenReturn(Optional.of(ticket));
@@ -182,14 +192,16 @@ class TicketServiceAdditionalTest {
         ticket.setEstado(EstadoTicket.ABIERTO);
         when(ticketRepo.findById(30L)).thenReturn(Optional.of(ticket));
         assertThrows(com.marketroad.soporte.exception.TicketNoEncontradoException.class,
-                () -> service.cambiarEstado(30L, "CERRADO", new IdentidadPersonal(5L, "Patricia", RolPersonal.SOPORTE)));
+                () -> service.cambiarEstado(30L, "CERRADO",
+                        new IdentidadPersonal(5L, "Patricia", RolPersonal.SOPORTE)));
     }
 
     @Test
     void crearTicketGuardaMensajeInicialYDevuelveDetalle() {
         TicketService service = servicioConMocks();
         TicketRepository ticketRepo = (TicketRepository) ReflectionTestUtils.getField(service, "tickets");
-        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service, "mensajes");
+        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service,
+                "mensajes");
 
         when(ticketRepo.countByUsuarioIdAndEstadoIn(eq(8L), any())).thenReturn(0L);
         when(ticketRepo.save(any(Ticket.class))).thenAnswer(inv -> {
@@ -222,7 +234,8 @@ class TicketServiceAdditionalTest {
     void responderPanelComoPersonalTomayReabreTicket() {
         TicketService service = servicioConMocks();
         TicketRepository ticketRepo = (TicketRepository) ReflectionTestUtils.getField(service, "tickets");
-        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service, "mensajes");
+        MensajeTicketRepository mensajeRepo = (MensajeTicketRepository) ReflectionTestUtils.getField(service,
+                "mensajes");
 
         Ticket ticket = ticketBase(42L, 4L, EstadoTicket.ABIERTO, 5L);
         when(ticketRepo.findById(42L)).thenReturn(Optional.of(ticket));

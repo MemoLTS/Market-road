@@ -36,8 +36,6 @@ import com.marketroad.publication.catalogo.CatalogoConsulta;
 import com.marketroad.publication.catalogo.CatalogoProcesador;
 import com.marketroad.publication.catalogo.Resultado;
 import com.marketroad.publication.dto.AdminPublicacionDTO;
-import com.marketroad.publication.dto.CategoriaDTO;
-import com.marketroad.publication.dto.ImagenDTO;
 import com.marketroad.publication.dto.PaginaDTO;
 import com.marketroad.publication.dto.PublicacionResponseDTO;
 import com.marketroad.publication.dto.TicketSoporteDTO;
@@ -358,8 +356,9 @@ class PublicationServicesTest {
         ReflectionTestUtils.setField(service, "maxBytesPorFoto", 5L * 1024 * 1024);
         ReflectionTestUtils.setField(service, "tiposPermitidos", List.of("image/jpeg", "image/png", "image/webp"));
 
-        byte[] invalid = new byte[] {1, 2, 3};
-        MockMultipartFile fotoInvalida = new MockMultipartFile("fotos", "foto.bin", "application/octet-stream", invalid);
+        byte[] invalid = new byte[] { 1, 2, 3 };
+        MockMultipartFile fotoInvalida = new MockMultipartFile("fotos", "foto.bin", "application/octet-stream",
+                invalid);
 
         assertThrows(IllegalArgumentException.class, () -> service.crear(
                 new com.marketroad.publication.dto.NuevaPublicacionDTO(
@@ -431,7 +430,8 @@ class PublicationServicesTest {
         assertTrue(dto.modalidadesEntrega().stream().anyMatch(m -> "Entrega en persona".equals(m.nombre())));
         assertTrue(dto.modalidadesEntrega().stream().anyMatch(m -> "Envío".equals(m.nombre())));
 
-        when(imagenRepo.contarPorPublicacion(List.of(7L, 8L))).thenReturn(List.of(new Object[] {7L, 2}, new Object[] {8L, 1}));
+        when(imagenRepo.contarPorPublicacion(List.of(7L, 8L)))
+                .thenReturn(List.of(new Object[] { 7L, 2 }, new Object[] { 8L, 1 }));
         Map<Long, Integer> conteos = mapper.contarImagenes(List.of(7L, 8L));
         assertEquals(2, conteos.get(7L));
         assertEquals(1, conteos.get(8L));
@@ -440,7 +440,8 @@ class PublicationServicesTest {
     @Test
     void limitadorMensajes_soloPermiteNumeroDeAccionesConfigurado() {
         LimitadorMensajes limitador = new LimitadorMensajes();
-        ReflectionTestUtils.setField(limitador, "reloj", Clock.fixed(OffsetDateTime.parse("2025-01-01T10:00:00Z").toInstant(), java.time.ZoneOffset.UTC));
+        ReflectionTestUtils.setField(limitador, "reloj",
+                Clock.fixed(OffsetDateTime.parse("2025-01-01T10:00:00Z").toInstant(), java.time.ZoneOffset.UTC));
         ReflectionTestUtils.setField(limitador, "maximo", 2);
         ReflectionTestUtils.setField(limitador, "ventanaMs", 1000L);
 
@@ -537,9 +538,20 @@ class PublicationServicesTest {
         AtomicLong now = new AtomicLong(1000L);
         LimitadorMensajes limitador = new LimitadorMensajes();
         ReflectionTestUtils.setField(limitador, "reloj", new Clock() {
-            @Override public ZoneId getZone() { return ZoneId.of("UTC"); }
-            @Override public Clock withZone(ZoneId zone) { return this; }
-            @Override public Instant instant() { return Instant.ofEpochMilli(now.get()); }
+            @Override
+            public ZoneId getZone() {
+                return ZoneId.of("UTC");
+            }
+
+            @Override
+            public Clock withZone(ZoneId zone) {
+                return this;
+            }
+
+            @Override
+            public Instant instant() {
+                return Instant.ofEpochMilli(now.get());
+            }
         });
         ReflectionTestUtils.setField(limitador, "maximo", 1);
         ReflectionTestUtils.setField(limitador, "ventanaMs", 500L);
@@ -569,9 +581,20 @@ class PublicationServicesTest {
         AtomicLong now = new AtomicLong(0L);
         LimitadorMensajes limitador = new LimitadorMensajes();
         ReflectionTestUtils.setField(limitador, "reloj", new Clock() {
-            @Override public ZoneId getZone() { return ZoneId.of("UTC"); }
-            @Override public Clock withZone(ZoneId zone) { return this; }
-            @Override public Instant instant() { return Instant.ofEpochMilli(now.get()); }
+            @Override
+            public ZoneId getZone() {
+                return ZoneId.of("UTC");
+            }
+
+            @Override
+            public Clock withZone(ZoneId zone) {
+                return this;
+            }
+
+            @Override
+            public Instant instant() {
+                return Instant.ofEpochMilli(now.get());
+            }
         });
         ReflectionTestUtils.setField(limitador, "maximo", 1);
         ReflectionTestUtils.setField(limitador, "ventanaMs", 500L);
@@ -832,7 +855,8 @@ class PublicationServicesTest {
         ReflectionTestUtils.setField(respuesta, "fechaEnvio", OffsetDateTime.now());
 
         when(conversaciones.findConPublicacion(21L)).thenReturn(Optional.of(conversacion));
-        when(mensajes.findByConversacionIdAndTipoAndEstadoOfertaIn(21L, TipoMensaje.OFERTA, List.of(EstadoOferta.PENDIENTE, EstadoOferta.ACEPTADA)))
+        when(mensajes.findByConversacionIdAndTipoAndEstadoOfertaIn(21L, TipoMensaje.OFERTA,
+                List.of(EstadoOferta.PENDIENTE, EstadoOferta.ACEPTADA)))
                 .thenReturn(List.of());
         when(mensajes.save(any(MensajeConversacion.class))).thenAnswer(inv -> {
             MensajeConversacion msg = inv.getArgument(0);
@@ -923,7 +947,8 @@ class PublicationServicesTest {
 
         when(conversaciones.findConPublicacion(31L)).thenReturn(Optional.of(principal));
         when(conversaciones.findByPublicacionId(60L)).thenReturn(List.of(principal, otra));
-        when(mensajes.findByConversacionIdAndTipoAndEstadoOfertaIn(32L, TipoMensaje.OFERTA, List.of(EstadoOferta.PENDIENTE)))
+        when(mensajes.findByConversacionIdAndTipoAndEstadoOfertaIn(32L, TipoMensaje.OFERTA,
+                List.of(EstadoOferta.PENDIENTE)))
                 .thenReturn(List.of(pendiente));
         when(publicaciones.save(any(Publicacion.class))).thenReturn(publicacion);
         when(conversaciones.save(any(Conversacion.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -949,13 +974,21 @@ class PublicationServicesTest {
     void globalExceptionHandler_respondeMapasEsperadas() {
         GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
-        assertEquals("mensaje", handler.argumento(new IllegalArgumentException("Faltan datos")).keySet().iterator().next());
+        assertEquals("mensaje",
+                handler.argumento(new IllegalArgumentException("Faltan datos")).keySet().iterator().next());
         assertEquals("Faltan datos", handler.argumento(new IllegalArgumentException("Faltan datos")).get("mensaje"));
-        assertEquals("Acceso denegado", handler.noAutorizado(new NoAutorizadoException("Acceso denegado")).get("mensaje"));
-        assertEquals("Publicación no encontrada", handler.noEncontrada(new PublicacionNoEncontradaException("Publicación no encontrada")).get("mensaje"));
-        assertEquals("Conversación no encontrada", handler.conversacionNoEncontrada(new ConversacionNoEncontradaException("Conversación no encontrada")).get("mensaje"));
-        assertEquals("Demasiadas solicitudes", handler.demasiadas(new DemasiadasSolicitudesException("Demasiadas solicitudes")).get("mensaje"));
-        assertEquals("Operación restringida", handler.conflicto(new OperacionNoPermitidaException("Operación restringida")).get("mensaje"));
-        assertEquals("Ocurrió un error inesperado en el servidor", handler.generico(new RuntimeException("boom")).get("mensaje"));
+        assertEquals("Acceso denegado",
+                handler.noAutorizado(new NoAutorizadoException("Acceso denegado")).get("mensaje"));
+        assertEquals("Publicación no encontrada",
+                handler.noEncontrada(new PublicacionNoEncontradaException("Publicación no encontrada")).get("mensaje"));
+        assertEquals("Conversación no encontrada",
+                handler.conversacionNoEncontrada(new ConversacionNoEncontradaException("Conversación no encontrada"))
+                        .get("mensaje"));
+        assertEquals("Demasiadas solicitudes",
+                handler.demasiadas(new DemasiadasSolicitudesException("Demasiadas solicitudes")).get("mensaje"));
+        assertEquals("Operación restringida",
+                handler.conflicto(new OperacionNoPermitidaException("Operación restringida")).get("mensaje"));
+        assertEquals("Ocurrió un error inesperado en el servidor",
+                handler.generico(new RuntimeException("boom")).get("mensaje"));
     }
 }
