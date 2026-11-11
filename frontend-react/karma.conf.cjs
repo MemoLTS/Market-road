@@ -1,6 +1,6 @@
 /**
  * Karma + Jasmine para probar los componentes React en un Chrome real (headless).
- *  - karma-webpack empaqueta tests/index.js (que reúne todos los *.spec) con babel-loader (JSX).
+ *  - karma-webpack empaqueta tests/index.ts (que reúne todos los *.spec) con babel-loader (TypeScript + JSX).
  *  - babel-plugin-istanbul instrumenta src/ y karma-coverage genera el informe en coverage/.
  * Ejecutar: npm test
  */
@@ -8,16 +8,16 @@ module.exports = function (config) {
     config.set({
         basePath: '',
         frameworks: ['jasmine', 'webpack'],
-        files: [{ pattern: 'tests/index.js', watched: false }],
-        preprocessors: { 'tests/index.js': ['webpack', 'sourcemap'] },
+        files: [{ pattern: 'tests/index.ts', watched: false }],
+        preprocessors: { 'tests/index.ts': ['webpack', 'sourcemap'] },
 
         webpack: {
             mode: 'development',
             devtool: 'inline-source-map',
-            resolve: { extensions: ['.js', '.jsx'] },
+            resolve: { extensions: ['.ts', '.tsx', '.js', '.jsx'] },
             module: {
                 rules: [{
-                    test: /\.jsx?$/,
+                    test: /\.[jt]sx?$/,
                     exclude: /node_modules/,
                     use: {
                         loader: 'babel-loader',
@@ -25,6 +25,7 @@ module.exports = function (config) {
                             presets: [
                                 ['@babel/preset-env', { targets: { chrome: '100' }, modules: false }],
                                 ['@babel/preset-react', { runtime: 'automatic' }],
+                                '@babel/preset-typescript',
                             ],
                             plugins: [['istanbul', { exclude: ['tests/**', '**/*.spec.*'] }]],
                         },

@@ -1,60 +1,76 @@
-# Diagramas de clases de Market-Road (StarUML)
+# Diagramas de clases de Market-Road
 
-Generados a partir del código fuente real del proyecto (Java y TypeScript).
+Modelo StarUML (`Market-Road.mdj`) y vistas previas PNG (`imagenes/`) de los cuatro servicios del backend, el gateway y la arquitectura general.
 
-## Cómo abrirlos
+## Cómo se usa
 
-1. Abrir **StarUML** → `File → Open` → seleccionar `Market-Road.mdj`.
-2. En el *Model Explorer* (panel izquierdo) cada servicio es un paquete; los diagramas cuelgan de él.
-3. En `imagenes/` hay una vista previa PNG de cada diagrama, útil para consultar sin abrir StarUML.
+- Abrir `Market-Road.mdj` con [StarUML](https://staruml.io/): el árbol del modelo tiene un paquete por servicio y cada diagrama dentro de su paquete.
+- Las vistas previas de `imagenes/` son las mismas vistas exportadas; sirven para el informe y para ver los diagramas sin abrir StarUML.
 
-## Contenido (14 diagramas)
+## Servicios modelados
 
-| Paquete | Diagramas |
-|---|---|
-| **Vista general** | Arquitectura del sistema (frontend, gateway, User-Api, Publication-Api y MySQL con sus dos esquemas) |
-| **User-Api** | Arquitectura por capas · DTOs · Excepciones |
-| **Publication-Api** | Modelo de dominio · Publicaciones: capas · Publicaciones: DTOs · Mensajería y ofertas: capas · Mensajería y ofertas: DTOs · Catálogo y búsqueda · Seguridad, validación y excepciones |
-| **Getaway-Spring** | Clases |
-| **Frontend** | Tipos de datos de la API · Módulos del frontend |
+| Paquete | Servicio | Puerto | Responsabilidad |
+|---|---|---|---|
+| Getaway-Spring | Gateway | 8081 | Punto de entrada único. Enruta `/auth`, `/usuarios`, `/admin/usuarios` a User-Api; `/publicaciones`, `/conversaciones`, `/admin/publicaciones` a Publication-Api; `/soporte` a Soporte-Api. |
+| User-Api | usuarios | 8084 | Cuentas, JWT, perfil, dispositivos, administración de usuarios. |
+| Publication-Api | publicaciones | 8083 | Publicaciones, catálogo, mensajería y ofertas entre comprador y vendedor. |
+| Soporte-Api | soporte | 8086 | Tickets con chat, panel del personal y estadísticas (sesión del personal independiente). |
+
+## Diagramas
+
+| Paquete | Diagrama | Vista previa |
+|---|---|---|
+| Vista general | Arquitectura del sistema | `imagenes/Vista general - Arquitectura del sistema.png` |
+| Frontend | Tipos de datos de la API | `imagenes/Frontend - Tipos de datos de la API.png` |
+| Frontend | Módulos del frontend | `imagenes/Frontend - M#U00f3dulos del frontend.png` |
+| Getaway-Spring | Arquitectura del gateway | `imagenes/Getaway-Spring - Arquitectura del gateway.png` |
+| User-Api | Arquitectura por capas | `imagenes/User-Api - Arquitectura por capas.png` |
+| User-Api | Seguridad y configuración | `imagenes/User-Api - Seguridad y configuración.png` |
+| User-Api | DTOs | `imagenes/User-Api - DTOs.png` |
+| User-Api | Excepciones | `imagenes/User-Api - Excepciones.png` |
+| Publication-Api | Modelo de dominio | `imagenes/Publication-Api - Modelo de dominio.png` |
+| Publication-Api | Publicaciones: capas | `imagenes/Publication-Api - Publicaciones - capas.png` |
+| Publication-Api | Publicaciones: DTOs | `imagenes/Publication-Api - Publicaciones - DTOs.png` |
+| Publication-Api | Mensajería y ofertas: capas | `imagenes/Publication-Api - Mensajería y ofertas - capas.png` |
+| Publication-Api | Mensajería y ofertas: DTOs | `imagenes/Publication-Api - Mensajería y ofertas - DTOs.png` |
+| Publication-Api | Catálogo y búsqueda | `imagenes/Publication-Api - Catálogo y búsqueda.png` |
+| Publication-Api | Seguridad, validación y excepciones | `imagenes/Publication-Api - Seguridad, validación y excepciones.png` |
+| Publication-Api | Soporte duplicado (legado) | `imagenes/Publication-Api - Soporte duplicado (legado).png` |
+| Soporte-Api | Modelo de dominio | `imagenes/Soporte-Api - Modelo de dominio.png` |
+| Soporte-Api | Tickets de usuario: capas | `imagenes/Soporte-Api - Tickets de usuario - capas.png` |
+| Soporte-Api | Panel del personal: capas | `imagenes/Soporte-Api - Panel del personal - capas.png` |
+| Soporte-Api | DTOs de tickets | `imagenes/Soporte-Api - DTOs de tickets.png` |
+| Soporte-Api | DTOs del personal | `imagenes/Soporte-Api - DTOs del personal.png` |
+| Soporte-Api | Seguridad, configuración y excepciones | `imagenes/Soporte-Api - Seguridad, configuración y excepciones.png` |
+
+El paquete **Frontend** (módulos del frontend original y tipos de datos de la API) no se regenera: su contenido no cambió.
 
 ## Criterios de modelado
 
-- **Estereotipos:** `«controller»`, `«service»`, `«repository»`, `«entity»`, `«dto»`, `«record»`, `«configuration»`, `«filter»`, `«exceptionHandler»`, `«enumeration»`, `«módulo»`.
-- **Enumeraciones:** se modelan como clase con estereotipo `«enumeration»` y sus constantes como atributos.
-- **Asociaciones:** nacen de los campos (`@Autowired`, `@ManyToOne`, `@OneToMany`, componentes de records, atributos de tipo enum). `Publicacion ◆── ImagenPublicacion` es una composición bidireccional.
-- **Dependencias** (líneas punteadas): clases que usan a otras en su código; los repositorios dependen de la entidad que gestionan.
-- **Realización:** `UsuarioServiceImpl` → `UsuarioService`, `PublicacionServiceImpl` → `PublicacionService`.
-- **No se muestran:** métodos privados, constantes privadas ni getters/setters de campos existentes (para que los diagramas sean legibles). Los métodos de controladores llevan su ruta HTTP en la documentación del elemento.
-- Cada clase aparece una sola vez en el modelo y puede dibujarse en varios diagramas.
+- Un paquete UML por servicio y, dentro, un subpaquete por paquete Java (`controller`, `service`, `repository`, `model`, `dto`, `security`, `exception`...).
+- Estereotipos: `controller`, `service`, `repository`, `entity`, `configuration`, `filter`, `exceptionHandler`, `exception`, `dto`, `record`, `enumeration`. Los enum se modelan como clase con sus constantes como atributos.
+- Se muestran los atributos no estáticos y los métodos públicos o protegidos; se omiten constructores, getters/setters y `equals`/`hashCode`/`toString`.
+- En los controladores, la documentación de cada operación indica el método y la ruta HTTP (por ejemplo `GET /{id}`); la ruta base está en la documentación de la clase.
+- Los campos y los componentes de `record` generan **asociaciones** (con el nombre del campo); las firmas de métodos y la entidad de cada repositorio generan **dependencias**; `extends`/`implements` generan generalizaciones y realizaciones.
 
-## Enfoque: Market-Road es un intermediario
+## Cómo regenerar
 
-La plataforma es solo un **puente entre vendedor y comprador**. No gestiona stock, no regula ni fija precios,
-no cobra, no entrega y no se hace responsable del producto. Por eso los diagramas se corrigieron así:
+Los diagramas se generan desde el código, así que no se desactualizan si se vuelve a ejecutar:
 
-- **Se eliminó el paquete Prod-Api** (inventario con `Producto`, stock, descuento, `ProveedorLog`, `StockResponse`)
-  y sus 3 diagramas. El producto no existe como entidad propia: sus datos viven dentro de `Publicacion`.
-- **Vista general:** sin Prod-Api ni rutas `/productos`, `/inventario`; MySQL muestra sus dos esquemas
-  (`db_usuarios` para User-Api y `marketroad_db` para Publication-Api); nota con el alcance de la plataforma.
-- **Modelo de dominio (Publication-Api):** `Publicacion` es un aviso del vendedor. `precio`, `precioVenta` y
-  `montoAcordado` quedan documentados como datos informados por las partes (referenciales, sin regulación ni
-  verificación). Se agregó `ModalidadEntrega` (ya existía en el código y faltaba en el modelo): la entrega la
-  coordinan las partes. Nota explicativa en el diagrama.
+```bash
+python3 "Documentos/diagrama de clases/generador/generar.py"   # requiere Python 3, Pillow y Graphviz (dot)
+```
 
-## Sincronización con el código (inyección de dependencias)
+El script lee `src/main/java` de cada servicio y `Getaway-Spring/src/main/resources/application.yml`, reescribe `Market-Road.mdj` (conservando el paquete Frontend) y vuelve a dibujar los PNG.
 
-El código pasó de inyección por constructor a `@Autowired` / `@Value` en campos. Se actualizaron:
+## Cambios de esta versión
 
-- `JwtAuthFilter` (User-Api y Publication-Api): sin constructor; campos `@Autowired`.
-- `JwtUtil` (User-Api y Publication-Api): sin constructor; nuevo campo `secreto` / `secret` (`@Value`) y método
-  `inicializar()` (`@PostConstruct`) que crea la clave de firma.
+- **Se agregó el servicio de soporte** (Soporte-Api), que no estaba modelado, con 6 diagramas y su base de datos propia en la vista general.
+- **User-Api**: ahora incluye dispositivos de inicio de sesión, foto de perfil, rol, administración de usuarios y el filtro `ControlAccesoUsuariosFilter`.
+- **Publication-Api**: ahora incluye la administración de publicaciones, la edición (`ActualizarPublicacionDTO`, `PATCH /publicaciones/{id}`), los DTOs de mensajería y el catálogo.
+- **Gateway**: el diagrama lee las rutas reales del `application.yml` (las tres rutas cubren los tres servicios).
+- **Vista general**: agrega Soporte-Api, la base de datos `db_soporte` (instancia `mysql-soporte`) y el frontend React.
 
-Diagramas afectados: *User-Api · Arquitectura por capas* y *Publication-Api · Seguridad, validación y excepciones*.
+## Deuda técnica visible en los diagramas
 
-Las vistas previas de los 4 diagramas modificados en `imagenes/` fueron regeneradas a partir del `.mdj`; para el
-estilo exacto de StarUML, ábrelo y usa `File → Export Diagrams as Images`.
-
-## Regenerar
-
-Si el código cambia, los diagramas deben regenerarse (el generador lee `src/main/java` de cada servicio y `src/*.ts`).
+- `Publication-Api - Soporte duplicado (legado)`: Publication-Api conserva una copia antigua del soporte (`SoporteController`, `TicketSoporte`...). El gateway no la enruta; conviene eliminarla junto con sus pruebas.

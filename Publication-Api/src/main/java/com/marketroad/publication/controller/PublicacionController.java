@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.marketroad.publication.catalogo.CatalogoConsulta;
+import com.marketroad.publication.dto.ActualizarPublicacionDTO;
 import com.marketroad.publication.dto.CategoriaDTO;
 import com.marketroad.publication.dto.ImagenDTO;
 import com.marketroad.publication.dto.NuevaPublicacionDTO;
@@ -47,16 +48,29 @@ public class PublicacionController {
             @RequestParam("fotos") List<MultipartFile> fotos,
             HttpServletRequest request) {
         NuevaPublicacionDTO datos = new NuevaPublicacionDTO(
-                titulo, precio, descripcion, ubicacion, categoria, modalidadesEntrega, latitud, longitud);
+                titulo, precio, descripcion, ubicacion, categoria, modalidadesEntrega, latitud, longitud,
+                unidadesDe(request));
         PublicacionResponseDTO creada = service.crear(datos, fotos, Identidad.de(request));
         return ResponseEntity.created(URI.create("/api/v1/publicaciones/" + creada.id())).body(creada);
     }
 
     /**
-     * Catálogo público paginado.
-     * Parámetros: q, categoria (repetible o separada por comas), precioMin, precioMax, lat, lon, radioKm,
-     * orden (RELEVANCIA | PRECIO_ASC | PRECIO_DESC | DISTANCIA | RECIENTES), pagina (desde 0), tamano.
+     * Campo multipart opcional `unidades`: sin valor la publicación queda con 1
+     * unidad.
+     * Se lee del request para no cambiar la firma pública de {@link #crear}.
      */
+    private static Integer unidadesDe(HttpServletRequest request) {
+        String texto = request == null ? null : request.getParameter("unidades");
+        if (texto == null || texto.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(texto.trim());
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException("Las unidades deben ser un número entero");
+        }
+    }
+
     @GetMapping
     public ResponseEntity<PaginaDTO<PublicacionResponseDTO>> catalogo(
             @RequestParam(value = "q", required = false) String q,
@@ -85,12 +99,15 @@ public class PublicacionController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PublicacionResponseDTO> obtener(@PathVariable @Positive(message = "El identificador indicado no es válido") Long id) {
+    public ResponseEntity<PublicacionResponseDTO> obtener(
+            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
 
     @GetMapping("/{id}/imagenes/{posicion}")
-    public ResponseEntity<byte[]> imagen(@PathVariable @Positive(message = "El identificador indicado no es válido") Long id, @PathVariable Integer posicion) {
+    public ResponseEntity<byte[]> imagen(
+            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id,
+            @PathVariable Integer posicion) {
         if (posicion == null || posicion < 0 || posicion > 7) {
             return ResponseEntity.badRequest().build();
         }
@@ -101,8 +118,18 @@ public class PublicacionController {
                 .body(imagen.datos());
     }
 
+    @PatchMapping("/{id}")
+    public ResponseEntity<PublicacionResponseDTO> actualizar(
+            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id,
+            @RequestBody ActualizarPublicacionDTO datos,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(service.actualizar(id, datos, Identidad.de(request).usuarioId()));
+    }
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable @Positive(message = "El identificador indicado no es válido") Long id, HttpServletRequest request) {
+    public ResponseEntity<Void> eliminar(
+            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id,
+            HttpServletRequest request) {
         service.eliminar(id, Identidad.de(request).usuarioId());
         return ResponseEntity.noContent().build();
     }

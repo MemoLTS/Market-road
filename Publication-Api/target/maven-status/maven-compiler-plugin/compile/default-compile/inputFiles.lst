@@ -10,6 +10,7 @@ F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\pub
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\controller\ConversacionController.java
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\controller\PublicacionController.java
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\controller\SoporteController.java
+F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\dto\ActualizarPublicacionDTO.java
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\dto\AdminPublicacionDTO.java
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\dto\CategoriaDTO.java
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\dto\ConversacionDetalleDTO.java
@@ -25,6 +26,7 @@ F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\pub
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\dto\OfertaRequestDTO.java
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\dto\PaginaDTO.java
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\dto\PublicacionResponseDTO.java
+F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\dto\ResumenPublicacionesDTO.java
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\dto\TicketSoporteDTO.java
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\dto\TicketSoporteRequestDTO.java
 F:\Clases\Fullstack\Market-road\Publication-Api\src\main\java\com\marketroad\publication\dto\TicketSoporteRespuestaDTO.java

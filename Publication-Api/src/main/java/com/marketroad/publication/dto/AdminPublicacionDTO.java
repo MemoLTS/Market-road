@@ -17,5 +17,6 @@ public record AdminPublicacionDTO(
                 BigDecimal precioVenta,
                 OffsetDateTime fechaVenta,
                 OffsetDateTime fechaCreacion,
-                int cantidadImagenes) {
+                int cantidadImagenes,
+                int unidades) {
 }

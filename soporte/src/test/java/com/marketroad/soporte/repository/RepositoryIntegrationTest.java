@@ -1,4 +1,4 @@
-﻿package com.marketroad.soporte.repository;
+package com.marketroad.soporte.repository;
 
 import static org.junit.jupiter.api.Assertions.*;
 

@@ -100,3 +100,29 @@ beans de Spring que los servicios reciben con `@Autowired`.
 La versión 2 del frontend está en [`frontend-react/`](frontend-react/README.md): React + Bootstrap, nuevas vistas y rutas, capa de datos con CRUD y pruebas Jasmine + Karma.
 La documentación de la entrega (ERS V2, cobertura de testing y planilla Scrum) está en [`Documentos/`](Documentos/).
 El frontend original (HTML + TypeScript) se mantiene en la raíz del repositorio y sus 28 pruebas con `node --test` siguen vigentes.
+
+## Verificar que React guarda en Spring Boot y MySQL
+
+Flujo real: **React** (`npm run dev`, puerto 5173) → **gateway** (`http://localhost:8081/api/v1`) → servicios
+Spring Boot (User-Api 8084, Publication-Api 8083, Soporte-Api 8086) → **MySQL**. Con `npm run dev:demo` (modo demostración)
+los datos viven solo en el navegador y **no** llegan al backend; React muestra un aviso amarillo cuando está en ese modo.
+
+1. `docker compose up --build` (levanta MySQL, los tres servicios y el gateway).
+2. En `frontend-react`: `npm install` y `npm run dev`. Crea una cuenta y una publicación desde la página.
+3. Revisa la base de datos:
+   - **Cliente SQL** (Workbench, DBeaver…): host `127.0.0.1`, puerto `3307`, usuario `marketroad_app`, contraseña `marketroad_local_dev`
+     (soporte: puerto `3308`, usuario `soporte_app`). Los puertos solo escuchan en tu equipo (`127.0.0.1`).
+   - **phpMyAdmin:** http://localhost:8085
+   - Consultas listas para ejecutar: `Documentos/consultas_verificacion.sql`.
+4. Prueba la API sin la página con **Postman**: importa `Documentos/postman/Market-Road.postman_collection.json` y
+   `Documentos/postman/Market-Road.local.postman_environment.json`, elige el entorno *Market-Road local* y ejecuta en orden
+   *Registrar usuario → Login → Crear publicación → Editar publicación*. El login guarda `{{token}}` automáticamente.
+
+## Unidades a la venta y dashboard
+
+- Cada publicación tiene `unidades` (entero entre 1 y 9999). Si no se indica, queda en **1**. En React se ve el campo
+  *Unidades a la venta* al publicar y editar, y una marca “N unidades disponibles” cuando hay más de una.
+  API: campo multipart `unidades` en `POST /publicaciones` y campo JSON `unidades` en `PATCH /publicaciones/{id}`.
+- Dashboard (React, pestaña *Dashboard* del superusuario): apartado **Actividad de publicaciones** con publicaciones nuevas
+  y publicaciones cerradas en ventas en las últimas 24 h, 7 o 30 días. API: `GET /api/v1/admin/publicaciones/resumen?dias=7`.
+- Una venta cerrada sigue cerrando la publicación completa (no descuenta unidades).

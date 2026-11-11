@@ -45,6 +45,10 @@ public class Publicacion {
 
     private Double longitud;
 
+    /** Unidades a la venta de esta publicación. Si la persona no lo indica queda en 1 (también en filas antiguas). */
+    @Column(nullable = false, columnDefinition = "int not null default 1")
+    private Integer unidades = 1;
+
     @Column(name = "usuario_id", nullable = false)
     private Long usuarioId;
 
@@ -93,6 +97,8 @@ public class Publicacion {
     public void setLatitud(Double latitud) { this.latitud = latitud; }
     public Double getLongitud() { return longitud; }
     public void setLongitud(Double longitud) { this.longitud = longitud; }
+    public Integer getUnidades() { return unidades == null || unidades < 1 ? 1 : unidades; }
+    public void setUnidades(Integer unidades) { this.unidades = unidades == null || unidades < 1 ? 1 : unidades; }
     public String getVendedorApodo() { return vendedorApodo; }
     public void setVendedorApodo(String vendedorApodo) { this.vendedorApodo = vendedorApodo; }
     public Long getCompradorId() { return compradorId; }

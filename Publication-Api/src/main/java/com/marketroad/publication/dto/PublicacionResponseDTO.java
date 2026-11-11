@@ -20,5 +20,16 @@ public record PublicacionResponseDTO(
                 String vendedorApodo,
                 String estado,
                 OffsetDateTime fechaCreacion,
-                List<String> imagenUrls) {
+                List<String> imagenUrls,
+                int unidades) {
+
+        /** Sin unidades indicadas (equivale a 1). */
+        public PublicacionResponseDTO(Long id, String titulo, BigDecimal precio, String descripcion, String ubicacion,
+                        String categoria, String categoriaNombre, List<ModalidadEntregaDTO> modalidadesEntrega,
+                        Double latitud, Double longitud, Double distanciaKm, Long usuarioId, String vendedorApodo,
+                        String estado, OffsetDateTime fechaCreacion, List<String> imagenUrls) {
+                this(id, titulo, precio, descripcion, ubicacion, categoria, categoriaNombre, modalidadesEntrega,
+                                latitud, longitud, distanciaKm, usuarioId, vendedorApodo, estado, fechaCreacion,
+                                imagenUrls, 1);
+        }
 }

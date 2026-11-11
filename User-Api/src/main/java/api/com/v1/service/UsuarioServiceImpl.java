@@ -104,7 +104,7 @@ public class UsuarioServiceImpl implements UsuarioService {
             usuario.setApellido(dto.apellido());
         }
         if (dto.apodo() != null) {
-            String apodo = dto.apodo().isBlank() ? null : dto.apodo();
+            String apodo = normalizarApodo(dto.apodo());
             if (apodo != null) {
                 validarApodoDisponible(apodo, id);
             }

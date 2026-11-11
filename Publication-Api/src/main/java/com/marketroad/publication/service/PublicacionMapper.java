@@ -31,7 +31,7 @@ public class PublicacionMapper {
                         .toList(),
                 p.getLatitud(), p.getLongitud(), distanciaKm,
                 p.getUsuarioId(), p.getVendedorApodo(),
-                p.getEstado().name(), p.getFechaCreacion(), urls);
+                p.getEstado().name(), p.getFechaCreacion(), urls, p.getUnidades());
     }
 
     public Map<Long, Integer> contarImagenes(Collection<Long> ids) {

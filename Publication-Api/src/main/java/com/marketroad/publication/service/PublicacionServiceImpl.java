@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.marketroad.publication.catalogo.Geo;
+import com.marketroad.publication.dto.ActualizarPublicacionDTO;
 import com.marketroad.publication.dto.ImagenDTO;
 import com.marketroad.publication.dto.NuevaPublicacionDTO;
 import com.marketroad.publication.dto.PublicacionResponseDTO;
@@ -34,6 +35,8 @@ public class PublicacionServiceImpl implements PublicacionService {
     private PublicacionMapper mapper;
     @Autowired
     private Textos textos;
+
+    static final int UNIDADES_MAXIMAS = 9999;
 
     @Value("${publicaciones.fotos.maximo:8}")
     private int maxFotos;
@@ -115,6 +118,7 @@ public class PublicacionServiceImpl implements PublicacionService {
         publicacion.setModalidadesEntrega(modalidadesEntrega);
         publicacion.setLatitud(latitud);
         publicacion.setLongitud(longitud);
+        publicacion.setUnidades(normalizarUnidades(datos.unidades()));
         publicacion.setUsuarioId(autor.usuarioId());
         publicacion.setVendedorApodo(apodoLimpio(autor.apodo()));
 
@@ -209,8 +213,83 @@ public class PublicacionServiceImpl implements PublicacionService {
         Publicacion p = buscar(id);
         if (!p.getUsuarioId().equals(usuarioId))
             throw new NoAutorizadoException("Solo el propietario puede eliminar la publicación");
+        // Una venta cerrada queda como registro (comprador, precio y fecha): eliminarla
+        // la borraría de las estadísticas.
+        if (p.getEstado() == EstadoPublicacion.VENDIDA)
+            throw new IllegalArgumentException("Una publicación vendida no se puede eliminar");
         p.setEstado(EstadoPublicacion.ELIMINADA);
         repository.save(p);
+    }
+
+    @Override
+    @Transactional
+    public PublicacionResponseDTO actualizar(Long id, ActualizarPublicacionDTO datos, Long usuarioId) {
+        if (datos == null)
+            throw new IllegalArgumentException("Faltan los datos a modificar");
+        Publicacion p = buscar(id);
+        if (p.getEstado() == EstadoPublicacion.ELIMINADA)
+            throw new PublicacionNoEncontradaException("No se encontró la publicación con id " + id);
+        if (!p.getUsuarioId().equals(usuarioId))
+            throw new NoAutorizadoException("Solo el propietario puede editar la publicación");
+        if (p.getEstado() != EstadoPublicacion.ACTIVA)
+            throw new IllegalArgumentException("Solo se pueden editar publicaciones activas");
+
+        if (datos.titulo() != null) {
+            String titulo = Textos.limpiar(datos.titulo(), false, "El título");
+            if (titulo.length() < 3 || titulo.length() > 100) {
+                throw new IllegalArgumentException("El título debe tener entre 3 y 100 caracteres");
+            }
+            p.setTitulo(titulo);
+        }
+        if (datos.descripcion() != null) {
+            String descripcion = Textos.limpiar(datos.descripcion(), true, "La descripción");
+            if (descripcion.length() < 10 || descripcion.length() > 1000) {
+                throw new IllegalArgumentException("La descripción debe tener entre 10 y 1000 caracteres");
+            }
+            p.setDescripcion(descripcion);
+        }
+        if (datos.ubicacion() != null) {
+            String ubicacion = Textos.limpiar(datos.ubicacion(), false, "La ubicación");
+            if (ubicacion.length() < 2 || ubicacion.length() > 120) {
+                throw new IllegalArgumentException("La ubicación debe tener entre 2 y 120 caracteres");
+            }
+            p.setUbicacion(ubicacion);
+        }
+        if (datos.categoria() != null) {
+            p.setCategoria(CategoriaPublicacion.desdeCodigo(datos.categoria()));
+        }
+        if (datos.precio() != null) {
+            String precioTexto = datos.precio().trim();
+            if (!precioTexto.matches("^[0-9]{1,10}(?:\\.[0-9]{1,2})?$")) {
+                throw new IllegalArgumentException(
+                        "El precio debe ser un número positivo de hasta 10 dígitos y máximo 2 decimales");
+            }
+            BigDecimal precio = new BigDecimal(precioTexto);
+            if (precio.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("El precio debe ser mayor que 0 y tener hasta 2 decimales");
+            }
+            p.setPrecio(precio.setScale(2, RoundingMode.UNNECESSARY));
+        }
+
+        if (datos.unidades() != null) {
+            p.setUnidades(normalizarUnidades(datos.unidades()));
+        }
+
+        Publicacion guardada = repository.save(p);
+        int cantidad = mapper.contarImagenes(List.of(guardada.getId())).getOrDefault(guardada.getId(), 0);
+        return mapper.aDTO(guardada, cantidad, null);
+    }
+
+    /**
+     * Sin valor son 1 unidad; si viene, debe ser un entero entre 1 y
+     * {@value #UNIDADES_MAXIMAS}.
+     */
+    private int normalizarUnidades(Integer unidades) {
+        if (unidades == null)
+            return 1;
+        if (unidades < 1 || unidades > UNIDADES_MAXIMAS)
+            throw new IllegalArgumentException("Las unidades deben ser un número entero entre 1 y " + UNIDADES_MAXIMAS);
+        return unidades;
     }
 
     private Publicacion buscar(Long id) {

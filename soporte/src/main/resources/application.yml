@@ -17,12 +17,9 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
 
-# Token de los usuarios comunes: lo emite User-Api, por eso es el MISMO secreto que usan las otras APIs.
 jwt:
   secret: ${JWT_SECRET:cambia-este-secreto-en-produccion-minimo-32-caracteres}
 
-# Personal de soporte: usuarios propios de este servicio, con su propio token y su propio secreto.
-# Un token de usuario común no sirve en el panel, y uno del personal no sirve en el resto de la plataforma.
 soporte:
   jwt:
     secret: ${SOPORTE_JWT_SECRET:cambia-el-secreto-del-personal-de-soporte-minimo-32}

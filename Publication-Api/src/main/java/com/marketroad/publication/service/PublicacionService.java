@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import com.marketroad.publication.dto.ActualizarPublicacionDTO;
 import com.marketroad.publication.dto.ImagenDTO;
 import com.marketroad.publication.dto.NuevaPublicacionDTO;
 import com.marketroad.publication.dto.PublicacionResponseDTO;
@@ -15,4 +16,7 @@ public interface PublicacionService {
     PublicacionResponseDTO obtenerPorId(Long id);
     ImagenDTO obtenerImagen(Long id, Integer posicion);
     void eliminar(Long id, Long usuarioId);
+
+    /** Edición parcial por la persona dueña; solo mientras la publicación está activa. */
+    PublicacionResponseDTO actualizar(Long id, ActualizarPublicacionDTO datos, Long usuarioId);
 }

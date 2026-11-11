@@ -1,0 +1,608 @@
+{
+  "info": {
+    "name": "Market-Road API (vía gateway)",
+    "description": "Todas las peticiones pasan por el gateway (puerto 8081), igual que el frontend React.\nOrden sugerido: 1) Registrar usuario, 2) Login (guarda {{token}}), 3) Crear publicación, 4) Editar, 5) Ver en SQL (Documentos/consultas_verificacion.sql).\nEl dashboard requiere un login de SUPERUSUARIO (variables adminCorreo / adminContrasena).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Usuarios y sesión",
+      "item": [
+        {
+          "name": "Registrar usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/usuarios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "usuarios"
+              ]
+            },
+            "description": "Crea la cuenta en db_usuarios (tabla Usuarios).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Ana\",\n  \"apellido\": \"Prueba\",\n  \"apodo\": \"ana_prueba\",\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login (guarda el token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\",\n  \"dispositivoId\": \"{{$guid}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.environment.set('token', j.token);",
+                  "pm.environment.set('usuarioId', j.usuario.id);",
+                  "pm.test('login correcto', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login SUPERUSUARIO (para el dashboard)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Reemplaza {{token}} por el del superusuario. Vuelve a ejecutar 'Login' para volver a la cuenta normal.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"{{adminCorreo}}\",\n  \"contrasena\": \"{{adminContrasena}}\",\n  \"dispositivoId\": \"{{$guid}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.environment.set('token', j.token);",
+                  "pm.environment.set('usuarioId', j.usuario.id);",
+                  "pm.test('login correcto', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mi perfil",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/usuarios/{{usuarioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "usuarios",
+                "{{usuarioId}}"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Publicaciones",
+      "item": [
+        {
+          "name": "Categorías",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/publicaciones/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "publicaciones",
+                "categorias"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Crear publicación (unidades opcional)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/publicaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "publicaciones"
+              ]
+            },
+            "description": "Form-data. Elige un JPG/PNG/WEBP en el campo 'fotos'. Quita el campo 'unidades' para comprobar el valor por defecto 1.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "titulo",
+                  "value": "Mesa de centro",
+                  "type": "text"
+                },
+                {
+                  "key": "precio",
+                  "value": "45000",
+                  "type": "text"
+                },
+                {
+                  "key": "descripcion",
+                  "value": "Mesa de madera en buen estado.",
+                  "type": "text"
+                },
+                {
+                  "key": "ubicacion",
+                  "value": "Concepción",
+                  "type": "text"
+                },
+                {
+                  "key": "categoria",
+                  "value": "HOGAR",
+                  "type": "text"
+                },
+                {
+                  "key": "modalidadesEntrega",
+                  "value": "ENVIO",
+                  "type": "text"
+                },
+                {
+                  "key": "latitud",
+                  "value": "-36.8201",
+                  "type": "text"
+                },
+                {
+                  "key": "longitud",
+                  "value": "-73.0444",
+                  "type": "text"
+                },
+                {
+                  "key": "unidades",
+                  "value": "3",
+                  "type": "text",
+                  "description": "Opcional. Si se omite, la publicación queda con 1 unidad."
+                },
+                {
+                  "key": "fotos",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.environment.set('publicacionId', j.id);",
+                  "pm.test('publicación creada (201)', () => pm.response.to.have.status(201));",
+                  "pm.test('unidades por defecto = 1 si no se envían', () => pm.expect(j.unidades).to.be.a('number'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catálogo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/publicaciones?pagina=0&tamano=12&orden=RECIENTES",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "publicaciones"
+              ],
+              "query": [
+                {
+                  "key": "pagina",
+                  "value": "0"
+                },
+                {
+                  "key": "tamano",
+                  "value": "12"
+                },
+                {
+                  "key": "orden",
+                  "value": "RECIENTES"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Mis publicaciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/publicaciones/mias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "publicaciones",
+                "mias"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Ver publicación",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/publicaciones/{{publicacionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "publicaciones",
+                "{{publicacionId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Editar publicación (incluye unidades)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/publicaciones/{{publicacionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "publicaciones",
+                "{{publicacionId}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"precio\": \"42000\",\n  \"unidades\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Eliminar publicación",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/publicaciones/{{publicacionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "publicaciones",
+                "{{publicacionId}}"
+              ]
+            },
+            "description": "Eliminación lógica (estado ELIMINADA). Una publicación vendida responde 400."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Mensajes y ventas",
+      "item": [
+        {
+          "name": "Iniciar conversación (comprador)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/conversaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "conversaciones"
+              ]
+            },
+            "description": "Usa otra cuenta distinta a la del vendedor.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"publicacionId\": \"{{publicacionId}}\",\n  \"contenido\": \"Hola, ¿sigue disponible?\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Mis conversaciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/conversaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "conversaciones"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Marcar vendida (vendedor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/conversaciones/{{conversacionId}}/venta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "conversaciones",
+                "{{conversacionId}}",
+                "venta"
+              ]
+            },
+            "description": "Pone la publicación en VENDIDA, con comprador, precio y fecha de venta."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Administración / Dashboard",
+      "item": [
+        {
+          "name": "Resumen: nuevas y cerradas en ventas (7 días)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/publicaciones/resumen?dias=7",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "publicaciones",
+                "resumen"
+              ],
+              "query": [
+                {
+                  "key": "dias",
+                  "value": "7"
+                }
+              ]
+            },
+            "description": "Solo SUPERUSUARIO. dias entre 1 y 365 (1 = últimas 24 h)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 y campos del resumen', () => { pm.response.to.have.status(200); const j = pm.response.json(); pm.expect(j).to.have.property('nuevas'); pm.expect(j).to.have.property('cerradasVentas'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resumen (30 días)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/publicaciones/resumen?dias=30",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "publicaciones",
+                "resumen"
+              ],
+              "query": [
+                {
+                  "key": "dias",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Todas las publicaciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/publicaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "publicaciones"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Todos los usuarios",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/usuarios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "usuarios"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Soporte",
+      "item": [
+        {
+          "name": "Categorías de soporte",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/soporte/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "soporte",
+                "categorias"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    }
+  ],
+  "variable": []
+}
