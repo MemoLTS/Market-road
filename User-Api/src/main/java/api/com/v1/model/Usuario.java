@@ -2,7 +2,6 @@ package api.com.v1.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import jakarta.validation.constraints.*;
 
 @Data
@@ -45,8 +44,10 @@ public class Usuario {
     private String contrasena;
 
     /**
-     * Rol de la cuenta. El default en la columna permite agregarla a una tabla que ya tiene filas;
-     * nunca se asigna desde los DTO de registro/edición, así nadie puede auto-promoverse.
+     * Rol de la cuenta. El default en la columna permite agregarla a una tabla que
+     * ya tiene filas;
+     * nunca se asigna desde los DTO de registro/edición, así nadie puede
+     * auto-promoverse.
      */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20, columnDefinition = "varchar(20) not null default 'USUARIO'")

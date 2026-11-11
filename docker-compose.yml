@@ -100,7 +100,6 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-marketroad_app}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
-      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
       JWT_SECRET: cambia-este-secreto-en-produccion-minimo-32-caracteres
       # Superusuario predeterminado (solo desarrollo local). Cambia estos valores en .env antes de desplegar.
       SUPERUSUARIO_CORREO: ${SUPERUSUARIO_CORREO:-admin@marketroad.local}
@@ -126,7 +125,6 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-marketroad_app}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
-      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
       JWT_SECRET: cambia-este-secreto-en-produccion-minimo-32-caracteres
     ports:
       - "127.0.0.1:8083:8083"
@@ -149,7 +147,6 @@ services:
       SPRING_DATASOURCE_USERNAME: ${SOPORTE_DB_USERNAME:-soporte_app}
       SPRING_DATASOURCE_PASSWORD: ${SOPORTE_DB_PASSWORD:-soporte_local_dev}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
-      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
       # Mismo secreto que user-api: valida los tokens de las personas usuarias.
       JWT_SECRET: cambia-este-secreto-en-produccion-minimo-32-caracteres
       # Secreto propio del personal de soporte (distinto al anterior). Cámbialo en .env antes de desplegar.

@@ -51,8 +51,10 @@ class TicketServiceTest {
         ReflectionTestUtils.setField(service, "mensajes", mensajeRepo);
         ReflectionTestUtils.setField(service, "personal", personalRepo);
         ReflectionTestUtils.setField(service, "reglas", reglas);
-        ReflectionTestUtils.setField(service, "limitadorMensajes", new LimitadorAcciones(10, 60_000, "Espera un momento"));
-        ReflectionTestUtils.setField(service, "limitadorTickets", new LimitadorAcciones(3, 60_000, "Espera un momento"));
+        ReflectionTestUtils.setField(service, "limitadorMensajes",
+                new LimitadorAcciones(10, 60_000, "Espera un momento"));
+        ReflectionTestUtils.setField(service, "limitadorTickets",
+                new LimitadorAcciones(3, 60_000, "Espera un momento"));
 
         List<MensajeTicket> mensajeGuardado = new java.util.ArrayList<>();
         when(ticketRepo.countByUsuarioIdAndEstadoIn(eq(4L), anyCollection())).thenReturn(0L);
@@ -92,8 +94,10 @@ class TicketServiceTest {
         ReflectionTestUtils.setField(service, "mensajes", mensajeRepo);
         ReflectionTestUtils.setField(service, "personal", personalRepo);
         ReflectionTestUtils.setField(service, "reglas", reglas);
-        ReflectionTestUtils.setField(service, "limitadorMensajes", new LimitadorAcciones(10, 60_000, "Espera un momento"));
-        ReflectionTestUtils.setField(service, "limitadorTickets", new LimitadorAcciones(3, 60_000, "Espera un momento"));
+        ReflectionTestUtils.setField(service, "limitadorMensajes",
+                new LimitadorAcciones(10, 60_000, "Espera un momento"));
+        ReflectionTestUtils.setField(service, "limitadorTickets",
+                new LimitadorAcciones(3, 60_000, "Espera un momento"));
 
         Ticket ticket = new Ticket();
         ReflectionTestUtils.setField(ticket, "id", 33L);
@@ -140,6 +144,7 @@ class TicketServiceTest {
         assertTrue(detalle.puedeResponder());
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     void ticketServiceCubreFlujoDeUsuarioYPanel() {
         TicketRepository ticketRepo = mock(TicketRepository.class);
@@ -153,8 +158,10 @@ class TicketServiceTest {
         ReflectionTestUtils.setField(service, "mensajes", mensajeRepo);
         ReflectionTestUtils.setField(service, "personal", personalRepo);
         ReflectionTestUtils.setField(service, "reglas", reglas);
-        ReflectionTestUtils.setField(service, "limitadorMensajes", new LimitadorAcciones(10, 60_000, "Espera un momento"));
-        ReflectionTestUtils.setField(service, "limitadorTickets", new LimitadorAcciones(3, 60_000, "Espera un momento"));
+        ReflectionTestUtils.setField(service, "limitadorMensajes",
+                new LimitadorAcciones(10, 60_000, "Espera un momento"));
+        ReflectionTestUtils.setField(service, "limitadorTickets",
+                new LimitadorAcciones(3, 60_000, "Espera un momento"));
 
         assertEquals(6, service.categorias().size());
 
@@ -169,15 +176,17 @@ class TicketServiceTest {
         usuarioTicket.setPrioridad(PrioridadTicket.NORMAL);
         when(ticketRepo.findByUsuarioIdOrderByFechaActualizacionDesc(8L)).thenReturn(List.of(usuarioTicket));
         java.util.ArrayList<Object[]> noLeidosUsuario = new java.util.ArrayList<>();
-        noLeidosUsuario.add(new Object[] {44L, 1L});
+        noLeidosUsuario.add(new Object[] { 44L, 1L });
         when(mensajeRepo.contarNoLeidosPorTicket(List.of(44L), AutorTipo.PERSONAL)).thenReturn(noLeidosUsuario);
         when(mensajeRepo.contarNoLeidosDeUsuario(8L, AutorTipo.PERSONAL)).thenReturn(2L);
         when(ticketRepo.findByIdAndUsuarioId(44L, 8L)).thenReturn(Optional.of(usuarioTicket));
 
-        var resumenUsuario = service.listarDeUsuario(new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE"));
+        var resumenUsuario = service
+                .listarDeUsuario(new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE"));
         assertEquals(1, resumenUsuario.size());
         assertEquals(1L, resumenUsuario.get(0).noLeidos());
-        assertEquals(2L, service.contarNoLeidos(new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE")).cantidad());
+        assertEquals(2L, service.contarNoLeidos(new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE"))
+                .cantidad());
 
         MensajeTicket respuesta = new MensajeTicket();
         respuesta.setTicket(usuarioTicket);
@@ -189,13 +198,17 @@ class TicketServiceTest {
         when(mensajeRepo.findByTicketIdOrderByIdAsc(44L)).thenReturn(List.of(respuesta));
         when(mensajeRepo.countByTicketId(44L)).thenReturn(0L);
         when(mensajeRepo.save(any(MensajeTicket.class))).thenAnswer(inv -> inv.getArgument(0));
-        var detalleUsuario = service.obtenerDeUsuario(44L, new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE"));
+        var detalleUsuario = service.obtenerDeUsuario(44L,
+                new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE"));
         assertEquals("Pago fallido", detalleUsuario.ticket().asunto());
 
-        var detalleRespuesta = service.responderUsuario(44L, "Necesito ayuda", new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE"));
-        assertTrue(detalleRespuesta.ticket().estado().contains("ABIERTO") || detalleRespuesta.ticket().estado().contains("ABIERTO"));
+        var detalleRespuesta = service.responderUsuario(44L, "Necesito ayuda",
+                new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE"));
+        assertTrue(detalleRespuesta.ticket().estado().contains("ABIERTO")
+                || detalleRespuesta.ticket().estado().contains("ABIERTO"));
 
-        var detalleCierre = service.cerrarUsuario(44L, new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE"));
+        var detalleCierre = service.cerrarUsuario(44L,
+                new IdentidadUsuario(8L, "Cliente", "cliente@marketroad.cl", "CLIENTE"));
         assertEquals(EstadoTicket.CERRADO, usuarioTicket.getEstado());
         assertEquals("Pago fallido", detalleCierre.ticket().asunto());
 
@@ -217,18 +230,20 @@ class TicketServiceTest {
         panelTicket.setEstado(EstadoTicket.ABIERTO);
         panelTicket.setAsignadoId(null);
         panelTicket.setPrioridad(PrioridadTicket.NORMAL);
-        when(ticketRepo.findAll(any(Specification.class), any(PageRequest.class))).thenReturn(new PageImpl<>(List.of(panelTicket), PageRequest.of(0, 10), 1));
+        when(ticketRepo.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(panelTicket), PageRequest.of(0, 10), 1));
         java.util.ArrayList<Object[]> noLeidosPanel = new java.util.ArrayList<>();
-        noLeidosPanel.add(new Object[] {55L, 2L});
+        noLeidosPanel.add(new Object[] { 55L, 2L });
         when(mensajeRepo.contarNoLeidosPorTicket(List.of(55L), AutorTipo.USUARIO)).thenReturn(noLeidosPanel);
         when(ticketRepo.findById(55L)).thenReturn(Optional.of(panelTicket));
         java.util.ArrayList<Object[]> estados = new java.util.ArrayList<>();
-        estados.add(new Object[] {EstadoTicket.ABIERTO, 2L});
-        estados.add(new Object[] {EstadoTicket.CERRADO, 1L});
+        estados.add(new Object[] { EstadoTicket.ABIERTO, 2L });
+        estados.add(new Object[] { EstadoTicket.CERRADO, 1L });
         when(ticketRepo.contarPorEstado()).thenReturn(estados);
         when(ticketRepo.countByAsignadoIdIsNullAndEstadoIn(anyCollection())).thenReturn(1L);
 
-        var pagina = service.listarPanel(new IdentidadPersonal(9L, "Patricia", RolPersonal.SOPORTE), null, null, null, null, null, 0, 10);
+        var pagina = service.listarPanel(new IdentidadPersonal(9L, "Patricia", RolPersonal.SOPORTE), null, null, null,
+                null, null, 0, 10);
         assertEquals(1, pagina.contenido().size());
         assertEquals(55L, pagina.contenido().get(0).id());
 
@@ -241,11 +256,13 @@ class TicketServiceTest {
         assertEquals(EstadoTicket.EN_PROGRESO, panelTicket.getEstado());
         assertEquals("Error", tomado.ticket().asunto());
 
-        var estadoCambiado = service.cambiarEstado(55L, "RESUELTO", new IdentidadPersonal(9L, "Patricia", RolPersonal.SOPORTE));
+        var estadoCambiado = service.cambiarEstado(55L, "RESUELTO",
+                new IdentidadPersonal(9L, "Patricia", RolPersonal.SOPORTE));
         assertEquals(EstadoTicket.RESUELTO, panelTicket.getEstado());
         assertEquals("Error", estadoCambiado.ticket().asunto());
 
-        var prioridadCambiada = service.cambiarPrioridad(55L, "ALTA", new IdentidadPersonal(9L, "Patricia", RolPersonal.SOPORTE));
+        var prioridadCambiada = service.cambiarPrioridad(55L, "ALTA",
+                new IdentidadPersonal(9L, "Patricia", RolPersonal.SOPORTE));
         assertEquals(PrioridadTicket.ALTA, panelTicket.getPrioridad());
         assertEquals("Error", prioridadCambiada.ticket().asunto());
 

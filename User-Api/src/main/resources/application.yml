@@ -25,7 +25,6 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
 
 # Configuración del token de sesión (login).
 # jwt.secret DEBE sobreescribirse por variable de entorno en producción.

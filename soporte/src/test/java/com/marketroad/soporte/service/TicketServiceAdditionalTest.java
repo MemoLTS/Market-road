@@ -117,6 +117,7 @@ class TicketServiceAdditionalTest {
         assertEquals("Asunto", detalle.ticket().asunto());
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     void listarYObtenerPanelYCambiarPrioridad() {
         TicketService service = servicioConMocks();
