@@ -24,6 +24,7 @@ export default function HomePage() {
     const [versionFiltros, setVersionFiltros] = useState(0);
     const [pagina, setPagina] = useState(0);
     const [publicando, setPublicando] = useState(false);
+    const [busquedaAbierta, setBusquedaAbierta] = useState(false);
     const [aviso, setAviso] = useState('');
     const { publicaciones, total, totalPaginas, cargando, error, recargar } = usePublicaciones({ ...filtros, pagina, tamano: TAMANO });
 
@@ -48,9 +49,12 @@ export default function HomePage() {
             </section>
 
             <Alert mensaje={aviso} tipo="success" onCerrar={() => setAviso('')} />
-            <FiltersForm key={versionFiltros} categorias={categorias} valores={filtros}
-                onAplicar={f => { setFiltros(f); setPagina(0); }}
-                onLimpiar={() => { setFiltros(FILTROS_INICIALES); setPagina(0); setVersionFiltros(v => v + 1); }} />
+            <div className="mb-4"><button type="button" className="btn btn-outline-primary" onClick={() => setBusquedaAbierta(true)}>🔎 ¿Qué buscas? · Búsqueda avanzada</button></div>
+            <Modal abierto={busquedaAbierta} titulo="¿Qué buscas? · Búsqueda avanzada" onCerrar={() => setBusquedaAbierta(false)} tamano="modal-lg">
+                <FiltersForm key={versionFiltros} categorias={categorias} valores={filtros}
+                    onAplicar={f => { setFiltros(f); setPagina(0); setBusquedaAbierta(false); }}
+                    onLimpiar={() => { setFiltros(FILTROS_INICIALES); setPagina(0); setVersionFiltros(v => v + 1); }} />
+            </Modal>
 
             <p className="text-secondary small" aria-live="polite" data-testid="resumen">
                 {cargando ? 'Buscando...' : `${total} resultado${total === 1 ? '' : 's'}`}

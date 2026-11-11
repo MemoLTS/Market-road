@@ -9,9 +9,7 @@ import ThemeToggle from './ThemeToggle';
 const ENLACES = [
     { to: '/', texto: 'Inicio', end: true },
     { to: '/categorias', texto: 'Categorías' },
-    { to: '/nosotros', texto: 'Nosotros' },
-    { to: '/contacto', texto: 'Contacto' },
-    { to: '/soporte', texto: 'Soporte' },
+
 ];
 
 /** Barra de navegación responsiva: se colapsa en pantallas menores a "lg" (breakpoint de Bootstrap). */
@@ -71,12 +69,12 @@ export default function Navbar() {
                             <div className="dropdown">
                                 <button type="button" className="btn btn-outline-secondary btn-sm dropdown-toggle" aria-expanded={menuUsuario}
                                     onClick={() => setMenuUsuario(m => !m)}>
-                                    {usuario?.apodo || usuario?.nombre || 'Usuario'}
+                                    {((usuario as any)?.fotoUrl || (usuario as any)?.fotoPerfilUrl) ? <img src={((usuario as any)?.fotoUrl || (usuario as any)?.fotoPerfilUrl)} alt="Foto de perfil" width="30" height="30" className="rounded-circle object-fit-cover me-1" /> : <span className="rounded-circle bg-secondary-subtle d-inline-flex align-items-center justify-content-center me-1" style={{width:30,height:30}} aria-label="Perfil">{(usuario?.apodo || usuario?.nombre || 'U').slice(0,1).toUpperCase()}</span>}
                                     {noLeidos > 0 && <span className="badge text-bg-danger ms-2" aria-label={`${noLeidos} mensajes sin leer`}>{noLeidos}</span>}
                                 </button>
                                 <ul className={`dropdown-menu dropdown-menu-end ${menuUsuario ? 'show' : ''}`}>
                                     <li><Link to="/perfil" className="dropdown-item" onClick={cerrarMenus}>Mi perfil</Link></li>
-                                    <li><Link to="/mensajes" className="dropdown-item" onClick={cerrarMenus}>Mensajes</Link></li>
+                                    <li><Link to="/mensajes" className="dropdown-item" onClick={cerrarMenus}>Mensajes{noLeidos > 0 ? ` (${noLeidos})` : ''}</Link></li>\n                                    {(['SOPORTE', 'ADMIN', 'SUPERUSUARIO'].includes(String((usuario as any)?.rol).toUpperCase()) || esAdmin) && <li><Link to="/soporte-panel" className="dropdown-item" onClick={cerrarMenus}>Tickets de soporte</Link></li>}
                                     {esAdmin && <li><Link to="/admin" className="dropdown-item" onClick={cerrarMenus}>Administración</Link></li>}
                                     <li><hr className="dropdown-divider" /></li>
                                     <li><button type="button" className="dropdown-item" onClick={salir}>Cerrar sesión</button></li>
