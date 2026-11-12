@@ -91,12 +91,28 @@ export function actualizarNavegacion() {
     opcionalPorId('navAuthInvitado')?.classList.toggle('d-none', sesion !== null);
     opcionalPorId('navAuthUsuario')?.classList.toggle('d-none', sesion === null);
     opcionalPorId('navAdminItem')?.classList.toggle('d-none', !esSuperusuario());
-    // Limpia secuencias literales \u002f n que pudieron quedar visibles en etiquetas del menú.
-    document.querySelectorAll('#navAuthUsuario .dropdown-menu .dropdown-item').forEach(item => {
-        const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
-        let nodo;
-        while ((nodo = walker.nextNode())) nodo.textContent = nodo.textContent.replace(/\/n/g, '');
-    });
+    // Limpia las secuencias de escape que se muestran literalmente en el menú.
+    const limpiarEscapesMenu = () => {
+        document.querySelectorAll('#navAuthUsuario .dropdown-menu').forEach(menu => {
+            const walker = document.createTreeWalker(menu, NodeFilter.SHOW_TEXT);
+            const textos = [];
+            let nodo;
+            while ((nodo = walker.nextNode())) textos.push(nodo);
+            textos.forEach(n => {
+                const original = n.nodeValue || '';
+                const limpio = original.replace(/\\n|\/n/g, '');
+                if (limpio !== original) n.nodeValue = limpio;
+            });
+        });
+    };
+    limpiarEscapesMenu();
+    const menuPerfil = document.querySelector('#navAuthUsuario .dropdown-menu');
+    if (menuPerfil && menuPerfil.dataset.limpiarEscapes !== '1') {
+        menuPerfil.dataset.limpiarEscapes = '1';
+        new MutationObserver(() => limpiarEscapesMenu()).observe(menuPerfil, {
+            childList: true, subtree: true, characterData: true
+        });
+    }
     const apodo = opcionalPorId('navApodoUsuario');
     if (apodo && sesion)
         apodo.textContent = usuarioActual()?.apodo || 'Usuario';
@@ -116,5 +132,23 @@ export function actualizarNavegacion() {
             };
             foto.src = urlAbsoluta(`/api/v1/usuarios/${sesion.usuario.id}/foto?v=${Date.now()}`);
         }
+        foto.alt = '';
+        foto.style.objectFit = 'cover';
+    }
+    // Elimina los caracteres literales \\n o /n que se hayan inyectado en el dropdown.
+    const limpiarTextoMenu = () => {
+        document.querySelectorAll('.dropdown-menu').forEach(menu => {
+            const walker = document.createTreeWalker(menu, NodeFilter.SHOW_TEXT);
+            let node;
+            while ((node = walker.nextNode())) {
+                node.textContent = node.textContent.replace(/\\n|\/n/g, '');
+            }
+        });
+    };
+    limpiarTextoMenu();
+    const menuPerfil = document.querySelector('.dropdown-menu');
+    if (menuPerfil && !menuPerfil.dataset.limpiezaNActiva) {
+        menuPerfil.dataset.limpiezaNActiva = '1';
+        new MutationObserver(limpiarTextoMenu).observe(menuPerfil, { childList: true, subtree: true, characterData: true });
     }
 }

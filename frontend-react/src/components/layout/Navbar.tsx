@@ -56,6 +56,15 @@ export default function Navbar() {
                                 <NavLink to={e.to} end={e.end} className="nav-link" onClick={cerrarMenus}>{e.texto}</NavLink>
                             </li>
                         ))}
+                        {autenticado && (
+                            <li className="nav-item">
+                                <NavLink to="/mensajes" className="nav-link d-flex align-items-center gap-2" onClick={cerrarMenus}>
+                                    <i className="bi bi-chat-dots" aria-hidden="true" />
+                                    Mensajes
+                                    {noLeidos > 0 && <span className="badge rounded-pill text-bg-danger" aria-label={`${noLeidos} mensajes sin leer`}>{noLeidos}</span>}
+                                </NavLink>
+                            </li>
+                        )}
                     </ul>
                     <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
                         <ThemeToggle />
@@ -69,12 +78,12 @@ export default function Navbar() {
                             <div className="dropdown">
                                 <button type="button" className="btn btn-outline-secondary btn-sm dropdown-toggle" aria-expanded={menuUsuario}
                                     onClick={() => setMenuUsuario(m => !m)}>
-                                    {((usuario as any)?.fotoUrl || (usuario as any)?.fotoPerfilUrl) ? <img src={((usuario as any)?.fotoUrl || (usuario as any)?.fotoPerfilUrl)} alt="Foto de perfil" width="30" height="30" className="rounded-circle object-fit-cover me-1" /> : <span className="rounded-circle bg-secondary-subtle d-inline-flex align-items-center justify-content-center me-1" style={{width:30,height:30}} aria-label="Perfil">{(usuario?.apodo || usuario?.nombre || 'U').slice(0,1).toUpperCase()}</span>}
-                                    {noLeidos > 0 && <span className="badge text-bg-danger ms-2" aria-label={`${noLeidos} mensajes sin leer`}>{noLeidos}</span>}
+                                    {usuario ? <img src={`${config.apiBaseUrl}/usuarios/${usuario.id}/foto?v=${Date.now()}`} alt="Foto de perfil" width="36" height="36" className="rounded-circle object-fit-cover me-1" style={{ width: 36, height: 36 }} /> : null}
                                 </button>
                                 <ul className={`dropdown-menu dropdown-menu-end ${menuUsuario ? 'show' : ''}`}>
                                     <li><Link to="/perfil" className="dropdown-item" onClick={cerrarMenus}>Mi perfil</Link></li>
-                                    <li><Link to="/mensajes" className="dropdown-item" onClick={cerrarMenus}>Mensajes{noLeidos > 0 ? ` (${noLeidos})` : ''}</Link></li>\n                                    {(['SOPORTE', 'ADMIN', 'SUPERUSUARIO'].includes(String((usuario as any)?.rol).toUpperCase()) || esAdmin) && <li><Link to="/soporte-panel" className="dropdown-item" onClick={cerrarMenus}>Tickets de soporte</Link></li>}
+                                    <li><Link to="/categorias" className="dropdown-item" onClick={cerrarMenus}><i className="bi bi-tags me-2" aria-hidden="true" />Búsqueda</Link></li>
+                                    {(['SOPORTE', 'ADMIN', 'SUPERUSUARIO'].includes(String((usuario as any)?.rol).toUpperCase()) || esAdmin) && <li><Link to="/soporte-panel" className="dropdown-item" onClick={cerrarMenus}>Tickets de soporte</Link></li>}
                                     {esAdmin && <li><Link to="/admin" className="dropdown-item" onClick={cerrarMenus}>Administración</Link></li>}
                                     <li><hr className="dropdown-divider" /></li>
                                     <li><button type="button" className="dropdown-item" onClick={salir}>Cerrar sesión</button></li>
