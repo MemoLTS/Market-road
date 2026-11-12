@@ -104,6 +104,12 @@ export function actualizarNavegacion(): void {
     opcionalPorId('navAuthInvitado')?.classList.toggle('d-none', sesion !== null);
     opcionalPorId('navAuthUsuario')?.classList.toggle('d-none', sesion === null);
     opcionalPorId('navAdminItem')?.classList.toggle('d-none', !esSuperusuario());
+    // Limpia secuencias literales /n que pudieron quedar visibles en etiquetas del menú.
+    document.querySelectorAll('#navAuthUsuario .dropdown-menu .dropdown-item').forEach(item => {
+        const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
+        let nodo: Node | null;
+        while ((nodo = walker.nextNode())) nodo.textContent = (nodo.textContent ?? '').replace(/\/n/g, '');
+    });
     const apodo = opcionalPorId('navApodoUsuario');
     if (apodo && sesion) apodo.textContent = usuarioActual()?.apodo || 'Usuario';
 

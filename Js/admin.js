@@ -108,8 +108,10 @@ function iniciar() {
     const permitido = esSuperusuario();
     opcionalPorId('adminSinAcceso')?.classList.toggle('d-none', permitido);
     opcionalPorId('adminContenido')?.classList.toggle('d-none', !permitido);
-    if (permitido)
+    if (permitido) {
+        registrarYdibujarTrafico();
         void cargarDatos();
+    }
 }
 function normalizar(texto) {
     return texto.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
@@ -271,4 +273,63 @@ async function abrirTicketSoporte(id) {
         porId('ticketSoporteDatos').textContent = '';
         mostrarAlerta(alerta, mensajeDeError(error, 'No se pudo cargar el ticket.'));
     }
+}
+
+
+// Registro sencillo de visitas al dashboard, almacenado localmente en este navegador.
+function registrarYdibujarTrafico() {
+    const clave = 'marketRoadAdminTrafficDaily';
+    let registro = {};
+    try {
+        registro = JSON.parse(localStorage.getItem(clave) || '{}');
+        if (!registro || typeof registro !== 'object' || Array.isArray(registro)) registro = {};
+    } catch { registro = {}; }
+    const hoy = new Date();
+    const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
+    registro[fecha] = Math.max(0, Number(registro[fecha]) || 0) + 1;
+    try { localStorage.setItem(clave, JSON.stringify(registro)); } catch { /* almacenamiento no disponible */ }
+    const dias = [];
+    for (let i = 6; i >= 0; i--) {
+        const dia = new Date(hoy);
+        dia.setDate(hoy.getDate() - i);
+        const key = `${dia.getFullYear()}-${String(dia.getMonth()+1).padStart(2,'0')}-${String(dia.getDate()).padStart(2,'0')}`;
+        dias.push({ fecha: key, etiqueta: dia.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' }), valor: Math.max(0, Number(registro[key]) || 0) });
+    }
+    const total = Object.values(registro).reduce((s, v) => s + Math.max(0, Number(v) || 0), 0);
+    const totalEl = document.getElementById('traficoTotal');
+    if (totalEl) totalEl.textContent = total.toLocaleString('es-CL');
+    const valores = document.getElementById('traficoValores');
+    if (valores) valores.innerHTML = dias.map(d => `<span class="badge text-bg-light border">${d.etiqueta}: <strong>${d.valor}</strong></span>`).join('');
+    const canvas = document.getElementById('graficoTrafico');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const ancho = Math.max(canvas.clientWidth || 600, 300);
+    const alto = 220;
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = ancho * ratio; canvas.height = alto * ratio;
+    canvas.style.width = `${ancho}px`; canvas.style.height = `${alto}px`;
+    ctx.scale(ratio, ratio);
+    ctx.clearRect(0, 0, ancho, alto);
+    const margen = { izquierda: 36, derecha: 14, arriba: 20, abajo: 34 };
+    const w = ancho - margen.izquierda - margen.derecha;
+    const h = alto - margen.arriba - margen.abajo;
+    const max = Math.max(1, ...dias.map(d => d.valor));
+    ctx.font = '12px sans-serif'; ctx.textAlign = 'right'; ctx.fillStyle = '#6c757d';
+    for (let tick = 0; tick <= 4; tick++) {
+        const n = Math.ceil(max * tick / 4);
+        const y = margen.arriba + h - (h * tick / 4);
+        ctx.fillText(String(n), margen.izquierda - 8, y + 4);
+        ctx.strokeStyle = 'rgba(108,117,125,.22)'; ctx.beginPath(); ctx.moveTo(margen.izquierda, y); ctx.lineTo(ancho-margen.derecha, y); ctx.stroke();
+    }
+    const step = w / dias.length;
+    dias.forEach((d, i) => {
+        const x = margen.izquierda + step * (i + .5);
+        const y = margen.arriba + h - (d.valor / max) * h;
+        ctx.fillStyle = '#0d6efd';
+        const barW = Math.min(28, step * .55);
+        ctx.fillRect(x - barW/2, y, barW, margen.arriba + h - y);
+        ctx.fillStyle = '#495057'; ctx.textAlign = 'center';
+        ctx.fillText(String(d.valor), x, Math.max(13, y - 6));
+        ctx.fillText(d.etiqueta, x, alto - 10);
+    });
 }

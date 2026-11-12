@@ -64,6 +64,23 @@
 
             <div class="row g-3 mb-3" id="adminResumen" aria-live="polite"></div>
 
+            <section class="admin-panel mb-4" aria-labelledby="tituloRegistroTrafico">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <div>
+                        <h2 class="h5 mb-1" id="tituloRegistroTrafico"><i class="bi bi-graph-up" aria-hidden="true"></i> Registro del tráfico</h2>
+                        <p class="small text-muted mb-0">Visitas registradas a este dashboard por día (datos locales de este navegador).</p>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold fs-4" id="traficoTotal">0</div>
+                        <div class="small text-muted">Registros acumulados</div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <canvas id="graficoTrafico" height="220" aria-label="Gráfico de visitas diarias del dashboard con valores numéricos" role="img"></canvas>
+                </div>
+                <div id="traficoValores" class="d-flex flex-wrap gap-2 mt-3 small" aria-live="polite"></div>
+            </section>
+
             <ul class="nav nav-tabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="tabUsuarios" data-bs-toggle="tab" data-bs-target="#panelUsuarios"
