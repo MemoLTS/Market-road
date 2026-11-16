@@ -46,7 +46,7 @@ export function ActividadPublicaciones() {
     const r = actividad.datos;
     const etiqueta = PERIODOS.find(([d]) => d === dias)?.[1] ?? `${dias} días`;
     return (
-        <section className="card card-body mt-3" aria-label="Actividad de publicaciones" data-testid="actividad-publicaciones">
+        <section className="card card-body border-0 shadow-sm mt-4 p-3 p-md-4" aria-label="Actividad de publicaciones" data-testid="actividad-publicaciones">
             <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                 <h2 className="h5 mb-0">Actividad de publicaciones</h2>
                 <div className="btn-group btn-group-sm" role="group" aria-label="Período">
@@ -58,11 +58,11 @@ export function ActividadPublicaciones() {
             <Alert mensaje={actividad.error} />
             {actividad.cargando && !r ? <Spinner /> : (
                 <div className="row g-3">
-                    <div className="col-12 col-md-6"><div className="border rounded p-3 h-100 text-center">
+                    <div className="col-12 col-md-6"><div className="rounded-3 bg-body-tertiary p-3 p-md-4 h-100 text-center">
                         <div className="display-6 fw-bold" data-testid="pub-nuevas">{r?.nuevas ?? '—'}</div>
                         <div>Publicaciones nuevas</div><div className="small text-secondary">{etiqueta === 'Hoy' ? 'en las últimas 24 horas' : `en los últimos ${etiqueta}`}</div>
                     </div></div>
-                    <div className="col-12 col-md-6"><div className="border rounded p-3 h-100 text-center">
+                    <div className="col-12 col-md-6"><div className="rounded-3 bg-body-tertiary p-3 p-md-4 h-100 text-center">
                         <div className="display-6 fw-bold" data-testid="pub-cerradas">{r?.cerradasVentas ?? '—'}</div>
                         <div>Cerradas en ventas</div><div className="small text-secondary">{etiqueta === 'Hoy' ? 'en las últimas 24 horas' : `en los últimos ${etiqueta}`}{r ? ` · ${r.totalVendidas} vendidas en total` : ''}</div>
                     </div></div>
@@ -75,17 +75,22 @@ export function ActividadPublicaciones() {
 function Dashboard({ usuarios, publicaciones, resumen }: { usuarios: Usuario[]; publicaciones: AdminPublicacion[]; resumen: ResumenSoporte | null }) {
     const activas = publicaciones.filter(p => p.estado === 'ACTIVA').length;
     const vendidas = publicaciones.filter(p => p.estado === 'VENDIDA').length;
-    const tarjetas = [
-        ['Usuarios', usuarios.length, 'text-bg-primary'],
-        ['Publicaciones activas', activas, 'text-bg-success'],
-        ['Publicaciones vendidas', vendidas, 'text-bg-secondary'],
-        ['Tickets de soporte', resumen?.total ?? '—', 'text-bg-warning'],
+    const tarjetas: [string, number | string, string, string][] = [
+        ['Usuarios', usuarios.length, 'text-primary bg-primary-subtle', 'bi-people'],
+        ['Publicaciones activas', activas, 'text-success bg-success-subtle', 'bi-bag-check'],
+        ['Publicaciones vendidas', vendidas, 'text-secondary bg-secondary-subtle', 'bi-cash-coin'],
+        ['Tickets de soporte', resumen?.total ?? '—', 'text-warning-emphasis bg-warning-subtle', 'bi-life-preserver'],
     ];
     return (
         <>
             <div className="row g-3">
-                {tarjetas.map(([t, v, c]) => (
-                    <div className="col-6 col-lg-3" key={t}><div className={`card ${c} h-100`}><div className="card-body text-center"><div className="display-6 fw-bold">{v}</div><div>{t}</div></div></div></div>
+                {tarjetas.map(([t, v, c, icono]) => (
+                    <div className="col-12 col-sm-6 col-xl-3" key={t}>
+                        <div className="card stat-card"><div className="card-body d-flex align-items-center gap-3">
+                            <span className={`stat-icono ${c}`}><i className={`bi ${icono}`} aria-hidden="true" /></span>
+                            <div><div className="stat-valor">{v}</div><div className="stat-etiqueta">{t}</div></div>
+                        </div></div>
+                    </div>
                 ))}
             </div>
             <ActividadPublicaciones />
@@ -106,7 +111,7 @@ export default function AdminPage() {
 
     return (
         <div className="container py-4">
-            <h1 className="h2 mb-3">Administración</h1>
+            <h1 className="h2 mb-4">Administración</h1>
             <ul className="nav nav-tabs mb-3" role="tablist">
                 {PESTANAS.map(([k, t]) => (
                     <li className="nav-item" key={k} role="presentation">
@@ -134,7 +139,7 @@ export default function AdminPage() {
                             columnas={[
                                 { titulo: 'ID', celda: p => p.id }, { titulo: 'Título', celda: p => p.titulo }, { titulo: 'Precio', celda: p => formatoPrecio(p.precio) },
                                 { titulo: 'Categoría', celda: p => p.categoriaNombre }, { titulo: 'Unidades', celda: p => p.unidades ?? 1 }, { titulo: 'Vendedor', celda: p => p.vendedorApodo ?? '—' },
-                                { titulo: 'Estado', celda: p => <span className="badge text-bg-light border">{p.estado}</span> }, { titulo: 'Creada', celda: p => formatoFechaCorta(p.fechaCreacion) },
+                                { titulo: 'Estado', celda: p => <span className="badge text-bg-light border">{p.estado}</span> }, { titulo: 'Venta cerrada', celda: p => p.estado === 'VENDIDA' ? `${formatoPrecio(p.precioVenta ?? p.precio)}${p.fechaVenta ? ' · ' + formatoFechaCorta(p.fechaVenta) : ''}` : '—' }, { titulo: 'Creada', celda: p => formatoFechaCorta(p.fechaCreacion) },
                             ]} />
                     )}
                     {pestana === 'soporte' && (config.usarMock

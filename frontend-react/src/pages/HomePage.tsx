@@ -40,23 +40,27 @@ export default function HomePage() {
 
     return (
         <div className="container py-4">
-            <section className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
-                <div>
-                    <h1 className="h2 mb-1">Compra y vende cerca de ti</h1>
-                    <p className="text-secondary mb-0">Market-Road conecta a quien vende con quien compra. Tú coordinas el pago y la entrega.</p>
+            <section className="hero mb-4 mb-lg-5">
+                <h1 className="mb-2">Compra y vende cerca de ti</h1>
+                <p className="lead text-secondary mb-4">Market-Road conecta a quien vende con quien compra. Tú coordinas el pago y la entrega.</p>
+                <div className="d-grid d-sm-flex gap-2">
+                    <button type="button" className="btn btn-primary btn-lg btn-icono" onClick={() => (autenticado ? setPublicando(true) : abrirLogin())}>
+                        <i className="bi bi-plus-lg" aria-hidden="true" />Publicar artículo
+                    </button>
+                    <button type="button" className="btn btn-outline-primary btn-lg btn-icono bg-body" onClick={() => setBusquedaAbierta(true)}>
+                        <i className="bi bi-search" aria-hidden="true" />¿Qué buscas? · Búsqueda avanzada
+                    </button>
                 </div>
-                <button type="button" className="btn btn-primary" onClick={() => (autenticado ? setPublicando(true) : abrirLogin())}>+ Publicar artículo</button>
             </section>
 
             <Alert mensaje={aviso} tipo="success" onCerrar={() => setAviso('')} />
-            <div className="mb-4"><button type="button" className="btn btn-outline-primary" onClick={() => setBusquedaAbierta(true)}>🔎 ¿Qué buscas? · Búsqueda avanzada</button></div>
             <Modal abierto={busquedaAbierta} titulo="¿Qué buscas? · Búsqueda avanzada" onCerrar={() => setBusquedaAbierta(false)} tamano="modal-lg">
                 <FiltersForm key={versionFiltros} categorias={categorias} valores={filtros}
                     onAplicar={f => { setFiltros(f); setPagina(0); setBusquedaAbierta(false); }}
                     onLimpiar={() => { setFiltros(FILTROS_INICIALES); setPagina(0); setVersionFiltros(v => v + 1); }} />
             </Modal>
 
-            <p className="text-secondary small" aria-live="polite" data-testid="resumen">
+            <p className="text-secondary fw-semibold mb-3" aria-live="polite" data-testid="resumen">
                 {cargando ? 'Buscando...' : `${total} resultado${total === 1 ? '' : 's'}`}
             </p>
             <PublicationList publicaciones={publicaciones} cargando={cargando} error={error}

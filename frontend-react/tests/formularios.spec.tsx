@@ -21,7 +21,7 @@ describe('LoginForm (estado, eventos y mocks)', () => {
     });
 
     it('llama a authService.login con los datos escritos y avisa el éxito', async () => {
-        const login = spyOn(authService, 'login').and.resolveTo({ id: 1 });
+        const login = spyOn(authService, 'login').and.resolveTo({ id: 1 } as never);
         const onExito = jasmine.createSpy('onExito');
         const c = await montarConApp(<LoginForm onExito={onExito} />);
         await escribir(c.querySelector('#loginCorreo'), ' ana@correo.cl ');

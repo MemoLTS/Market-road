@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { mensajeDeError } from '../../core/formato';
-import { buscarLugares } from '../../core/geocodificacion';
+import { buscarLugares, buscarLugarEnCoordenadas } from '../../core/geocodificacion';
 import type { Lugar } from '../../core/geocodificacion';
+import type { Ubicacion } from '../../core/formato';
 import {
     LIMITES, primerError, validarCoordenadas, validarDescripcion, validarFotos, validarMonto, validarTitulo, validarUbicacion, validarUnidades,
 } from '../../core/validaciones';
@@ -11,6 +12,7 @@ import type { Categoria, Publicacion } from '../../types/api';
 import type { DatosPublicacion } from '../../types/app';
 import Alert from '../common/Alert';
 import Campo from '../common/Campo';
+import MapaSelector from './MapaSelector';
 
 const MODALIDADES = [
     { codigo: 'ENTREGA_PERSONAL', nombre: 'Entrega en persona' },
@@ -84,6 +86,8 @@ export default function PublicationForm({ categorias, onEnviar, onCancelar, modo
     const [buscando, setBuscando] = useState(false);
     const [error, setError] = useState('');
     const [enviando, setEnviando] = useState(false);
+    const [mapaAbierto, setMapaAbierto] = useState(false);
+    const [estadoMapa, setEstadoMapa] = useState('');
 
     const cambiar = (campo: 'titulo' | 'precio' | 'descripcion' | 'categoria' | 'unidades') => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): void => setV(x => ({ ...x, [campo]: e.target.value }));
     const alternarModalidad = (codigo: string): void => setV(x => ({
@@ -103,6 +107,22 @@ export default function PublicationForm({ categorias, onEnviar, onCancelar, modo
             setError(mensajeDeError(e));
         } finally {
             setBuscando(false);
+        }
+    }
+
+    /** Un clic en el mapa: se identifica la ciudad o pueblo de ese punto y se confirma como localidad. */
+    async function elegirEnMapa(punto: Ubicacion): Promise<void> {
+        setError('');
+        setResultados([]);
+        setV(x => ({ ...x, lugar: null }));
+        setEstadoMapa('Verificando la ciudad o pueblo de esta zona...');
+        try {
+            const lugar = await buscarLugarEnCoordenadas(punto);
+            setV(x => ({ ...x, ubicacion: lugar.nombre, lugar }));
+            setEstadoMapa('');
+        } catch (e) {
+            setEstadoMapa('');
+            setError(mensajeDeError(e, 'No se pudo identificar una ciudad o pueblo en esa zona.'));
         }
     }
 
@@ -155,7 +175,16 @@ export default function PublicationForm({ categorias, onEnviar, onCancelar, modo
                     {modo === 'crear' && (
                         <button type="button" className="btn btn-outline-secondary" onClick={buscarLocalidad} disabled={buscando}>{buscando ? 'Buscando...' : 'Buscar'}</button>
                     )}
+                    {modo === 'crear' && (
+                        <button type="button" className="btn btn-outline-secondary" aria-expanded={mapaAbierto} onClick={() => setMapaAbierto(a => !a)}>
+                            {mapaAbierto ? 'Ocultar mapa' : 'Elegir en el mapa'}
+                        </button>
+                    )}
                 </div>
+                {estadoMapa && <div className="form-text" role="status">{estadoMapa}</div>}
+                {mapaAbierto && modo === 'crear' && (
+                    <div className="mt-2"><MapaSelector posicion={v.lugar?.ubicacion ?? null} onSeleccionar={p => { void elegirEnMapa(p); }} /></div>
+                )}
                 {resultados.length > 0 && !v.lugar && (
                     <ul className="list-group mt-2" aria-label="Resultados de localidades">
                         {resultados.map(l => (

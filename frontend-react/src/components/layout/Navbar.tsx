@@ -39,10 +39,10 @@ export default function Navbar() {
     }
 
     return (
-        <nav className="navbar navbar-expand-lg bg-body-tertiary border-bottom sticky-top" aria-label="Navegación principal">
+        <nav className="navbar navbar-expand-lg bg-body border-bottom sticky-top" aria-label="Navegación principal">
             <div className="container">
                 <Link to="/" className="navbar-brand d-flex align-items-center gap-2" onClick={cerrarMenus}>
-                    <img src="logo.png" alt="" width="32" height="32" />
+                    <img src="logo.png" alt="" width="34" height="34" className="rounded-3" />
                     <span className="fw-bold">Market-Road</span>
                 </Link>
                 <button className="navbar-toggler" type="button" aria-label="Mostrar u ocultar el menú" aria-expanded={abierto}
@@ -50,7 +50,7 @@ export default function Navbar() {
                     <span className="navbar-toggler-icon" />
                 </button>
                 <div className={`collapse navbar-collapse ${abierto ? 'show' : ''}`}>
-                    <ul className="navbar-nav me-auto mb-2 mb-lg-0">
+                    <ul className="navbar-nav me-auto mb-2 mb-lg-0 gap-lg-1">
                         {ENLACES.map(e => (
                             <li className="nav-item" key={e.to}>
                                 <NavLink to={e.to} end={e.end} className="nav-link" onClick={cerrarMenus}>{e.texto}</NavLink>
@@ -66,19 +66,25 @@ export default function Navbar() {
                             </li>
                         )}
                     </ul>
-                    <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+                    <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
                         <ThemeToggle />
                         {!autenticado && (
                             <>
-                                <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => { cerrarMenus(); abrirLogin(); }}>Iniciar sesión</button>
-                                <button type="button" className="btn btn-primary btn-sm" onClick={() => { cerrarMenus(); abrirRegistro(); }}>Crear cuenta</button>
+                                <button type="button" className="btn btn-outline-primary" onClick={() => { cerrarMenus(); abrirLogin(); }}>Iniciar sesión</button>
+                                <button type="button" className="btn btn-primary" onClick={() => { cerrarMenus(); abrirRegistro(); }}>Crear cuenta</button>
                             </>
                         )}
                         {autenticado && (
                             <div className="dropdown">
-                                <button type="button" className="btn btn-outline-secondary btn-sm dropdown-toggle" aria-expanded={menuUsuario}
+                                <button type="button" className="btn btn-light border dropdown-toggle d-flex align-items-center justify-content-center" aria-expanded={menuUsuario}
                                     onClick={() => setMenuUsuario(m => !m)}>
-                                    {usuario ? <img src={`${config.apiBaseUrl}/usuarios/${usuario.id}/foto?v=${Date.now()}`} alt="Foto de perfil" width="36" height="36" className="rounded-circle object-fit-cover me-1" style={{ width: 36, height: 36 }} /> : null}
+                                    {usuario ? (
+                                        <span className="avatar me-2">
+                                            <span className="avatar-inicial" aria-hidden="true">{(usuario.nombre || usuario.apodo || '?').charAt(0).toUpperCase()}</span>
+                                            <img src={`${config.apiBaseUrl}/usuarios/${usuario.id}/foto?v=${Date.now()}`} alt="Foto de perfil" width="36" height="36"
+                                                className="avatar-foto" onError={e => { e.currentTarget.style.visibility = 'hidden'; }} />
+                                        </span>
+                                    ) : null}
                                 </button>
                                 <ul className={`dropdown-menu dropdown-menu-end ${menuUsuario ? 'show' : ''}`}>
                                     <li><Link to="/perfil" className="dropdown-item" onClick={cerrarMenus}>Mi perfil</Link></li>

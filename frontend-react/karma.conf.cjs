@@ -46,7 +46,7 @@ module.exports = function (config) {
                 { type: 'html', subdir: 'html' },
                 { type: 'json-summary', subdir: '.', file: 'resumen.json' },
             ],
-            check: { global: { statements: 65, branches: 55, functions: 60, lines: 65 } },
+            check: { global: { statements: 78, branches: 68, functions: 74, lines: 80 } },
         },
 
         browsers: ['ChromeHeadless'],

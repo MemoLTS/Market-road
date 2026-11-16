@@ -18,9 +18,9 @@ export default function ThemeToggle() {
     }, [tema]);
     const oscuro = tema === 'dark';
     return (
-        <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setTema(oscuro ? 'light' : 'dark')}
+        <button type="button" className="btn btn-outline-secondary btn-icono" onClick={() => setTema(oscuro ? 'light' : 'dark')}
             aria-label={oscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} aria-pressed={oscuro}>
-            {oscuro ? '☀️ Claro' : '🌙 Oscuro'}
+            <i className={`bi ${oscuro ? 'bi-sun' : 'bi-moon-stars'}`} aria-hidden="true" />{oscuro ? 'Claro' : 'Oscuro'}
         </button>
     );
 }

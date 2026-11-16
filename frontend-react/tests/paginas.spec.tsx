@@ -11,6 +11,7 @@ import PublicationDetailPage, { contactarVendedor } from '../src/pages/Publicati
 import SoportePage from '../src/pages/SoportePage';
 import SoportePanelPage from '../src/pages/SoportePanelPage';
 import { ContactoPage, NoEncontradaPage, NosotrosPage } from '../src/pages/StaticPages';
+import { adminService } from '../src/services/adminService';
 import { authService } from '../src/services/authService';
 import { mensajesService } from '../src/services/mensajesService';
 import { guardarSesion } from '../src/services/sesion';
@@ -101,12 +102,12 @@ describe('PublicationDetailPage', () => {
 
     it('contactarVendedor reutiliza la conversación existente o crea una nueva (mocks)', async () => {
         const deLaPublicacion = spyOn(mensajesService, 'deLaPublicacion');
-        deLaPublicacion.and.resolveTo([{ id: 5 }]);
+        deLaPublicacion.and.resolveTo([{ id: 5 }] as never);
         const iniciar = spyOn(mensajesService, 'iniciar');
         expect(await contactarVendedor(1, 'Hola')).toBe(5);
         expect(iniciar).not.toHaveBeenCalled();
         deLaPublicacion.and.resolveTo([]);
-        iniciar.and.resolveTo({ conversacion: { id: 11 } });
+        iniciar.and.resolveTo({ conversacion: { id: 11 } } as never);
         expect(await contactarVendedor(1, 'Hola')).toBe(11);
         expect(iniciar).toHaveBeenCalledWith(1, 'Hola');
     });
@@ -187,7 +188,7 @@ describe('MensajesPage (con servicios simulados)', () => {
         conversacion: { id: 7, rol: 'COMPRADOR', publicacionId: 1, publicacionTitulo: 'Bicicleta', publicacionPrecio: 150000, montoAcordado: null, publicacionEstado: 'ACTIVA', interlocutorApodo: 'luis' },
         mensajes: [{ id: 1, remitenteId: 2, tipo: 'TEXTO', contenido: 'Hola, sigue disponible', fechaEnvio: '2026-10-01T10:00:00Z', leido: true }],
     };
-    beforeEach(() => { preparar(); config.usarMock = false; sesion(demo); spyOn(mensajesService, 'listar').and.resolveTo([conversacion]); });
+    beforeEach(() => { preparar(); config.usarMock = false; sesion(demo); spyOn(mensajesService, 'listar').and.resolveTo([conversacion] as never); });
     afterEach(limpiar);
 
     it('lista las conversaciones con su contador de no leídos', async () => {
@@ -205,8 +206,8 @@ describe('MensajesPage (con servicios simulados)', () => {
     });
 
     it('abre una conversación, muestra los mensajes y permite enviar una oferta', async () => {
-        spyOn(mensajesService, 'detalle').and.resolveTo(detalle);
-        const enviarOferta = spyOn(mensajesService, 'enviarOferta').and.resolveTo(detalle);
+        spyOn(mensajesService, 'detalle').and.resolveTo(detalle as never);
+        const enviarOferta = spyOn(mensajesService, 'enviarOferta').and.resolveTo(detalle as never);
         window.location.hash = '#/mensajes/7';
         const c = await montarConApp(<Routes><Route path="/mensajes/:id" element={<MensajesPage />} /></Routes>);
         await esperar(40);
@@ -219,7 +220,7 @@ describe('MensajesPage (con servicios simulados)', () => {
     });
 
     it('rechaza una oferta con monto inválido sin llamar al servicio', async () => {
-        spyOn(mensajesService, 'detalle').and.resolveTo(detalle);
+        spyOn(mensajesService, 'detalle').and.resolveTo(detalle as never);
         const enviarOferta = spyOn(mensajesService, 'enviarOferta');
         window.location.hash = '#/mensajes/7';
         const c = await montarConApp(<Routes><Route path="/mensajes/:id" element={<MensajesPage />} /></Routes>);
@@ -232,8 +233,8 @@ describe('MensajesPage (con servicios simulados)', () => {
     });
 
     it('envía un mensaje de texto a través del servicio', async () => {
-        spyOn(mensajesService, 'detalle').and.resolveTo(detalle);
-        const enviar = spyOn(mensajesService, 'enviarMensaje').and.resolveTo(detalle);
+        spyOn(mensajesService, 'detalle').and.resolveTo(detalle as never);
+        const enviar = spyOn(mensajesService, 'enviarMensaje').and.resolveTo(detalle as never);
         window.location.hash = '#/mensajes/7';
         const c = await montarConApp(<Routes><Route path="/mensajes/:id" element={<MensajesPage />} /></Routes>);
         await esperar(40);
@@ -256,12 +257,12 @@ describe('SoportePage (usuario)', () => {
 
     it('lista los tickets y abre el detalle con su chat', async () => {
         sesion(demo);
-        spyOn(soporteUsuarioService, 'listar').and.resolveTo([ticket]);
+        spyOn(soporteUsuarioService, 'listar').and.resolveTo([ticket] as never);
         spyOn(soporteUsuarioService, 'categorias').and.resolveTo([{ codigo: 'CUENTA', nombre: 'Mi cuenta' }]);
         spyOn(soporteUsuarioService, 'detalle').and.resolveTo({
             ticket: { id: 3, asunto: 'No puedo entrar', categoriaNombre: 'Mi cuenta' }, puedeEscribir: true,
             mensajes: [{ id: 1, autorTipo: 'USUARIO', autorNombre: 'demo', contenido: 'No me deja ingresar', fecha: '2026-10-01T10:00:00Z' }],
-        });
+        } as never);
         const c = await montarConApp(<SoportePage />);
         await esperar(30);
         expect(texto(c)).toContain('#3 · No puedo entrar');
@@ -297,8 +298,8 @@ describe('SoportePanelPage (personal)', () => {
     });
 
     it('al ingresar guarda la sesión del personal y muestra el panel con la lista', async () => {
-        spyOn(soportePanelService, 'login').and.resolveTo({ token: 'p', expiraEnMs: 60000, personal });
-        spyOn(soportePanelService, 'tickets').and.resolveTo({ contenido: [{ id: 9, asunto: 'Error al publicar', estado: 'ABIERTO', estadoNombre: 'Abierto', prioridadNombre: 'Normal', usuarioApodo: 'demo', asignadoNombre: null, sinLeer: 0 }], totalPaginas: 1 });
+        spyOn(soportePanelService, 'login').and.resolveTo({ token: 'p', expiraEnMs: 60000, personal } as never);
+        spyOn(soportePanelService, 'tickets').and.resolveTo({ contenido: [{ id: 9, asunto: 'Error al publicar', estado: 'ABIERTO', estadoNombre: 'Abierto', prioridadNombre: 'Normal', usuarioApodo: 'demo', asignadoNombre: null, sinLeer: 0 }], totalPaginas: 1  } as never);
         const c = await montar(<SoportePanelPage />);
         await escribir(c.querySelector('#spCorreo'), 'sol@marketroad.cl');
         await escribir(c.querySelector('#spClave'), 'secreto123');
@@ -318,8 +319,8 @@ describe('AdminPage (modo simulado)', () => {
         await esperar(40);
         expect(texto(c)).toContain('Usuarios');
         expect(texto(c)).toContain('Publicaciones activas');
-        expect(c.querySelectorAll('.display-6')[0].textContent).toBe('2');
-        expect(c.querySelectorAll('.display-6')[1].textContent).toBe('8');
+        expect(c.querySelectorAll('.stat-valor')[0].textContent).toBe('2');
+        expect(c.querySelectorAll('.stat-valor')[1].textContent).toBe('8');
     });
 
     it('la pestaña Usuarios lista y filtra la tabla', async () => {
@@ -336,6 +337,29 @@ describe('AdminPage (modo simulado)', () => {
         await esperar(40);
         await clic(Array.from(c.querySelectorAll('[role=tab]')).find(t => t.textContent === 'Publicaciones'));
         expect(c.querySelectorAll('tbody tr').length).toBe(8);
+    });
+
+    it('el dashboard incluye el apartado de actividad con nuevas y cerradas en ventas', async () => {
+        const c = await montarConApp(<AdminPage />);
+        await esperar(60);
+        expect(c.querySelector('[data-testid="actividad-publicaciones"]')).not.toBeNull();
+        expect(c.querySelector('[data-testid="pub-nuevas"]')).not.toBeNull();
+        expect(c.querySelector('[data-testid="pub-cerradas"]')).not.toBeNull();
+    });
+
+    it('el listado muestra la venta cerrada (precio y fecha) solo de las publicaciones vendidas', async () => {
+        const base = { id: 1, titulo: 'Bicicleta', precio: 150000, categoriaNombre: 'Deportes', unidades: 1, vendedorApodo: 'demo', fechaCreacion: '2026-10-01T10:00:00Z' };
+        spyOn(adminService, 'publicaciones').and.resolveTo([
+            { ...base, id: 1, estado: 'VENDIDA', precioVenta: 140000, fechaVenta: '2026-10-05T10:00:00Z' },
+            { ...base, id: 2, titulo: 'Mesa', estado: 'ACTIVA', precioVenta: null, fechaVenta: null },
+        ] as never);
+        const c = await montarConApp(<AdminPage />);
+        await esperar(60);
+        await clic(Array.from(c.querySelectorAll('[role=tab]')).find(t => t.textContent === 'Publicaciones'));
+        const filas = Array.from(c.querySelectorAll('tbody tr')).map(f => f.textContent);
+        expect(filas.length).toBe(2);
+        expect(filas[0]).toContain('140.000');
+        expect(filas[1]).not.toContain('·');
     });
 });
 

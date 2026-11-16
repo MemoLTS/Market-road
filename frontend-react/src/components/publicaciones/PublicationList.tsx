@@ -4,7 +4,7 @@ import Spinner from '../common/Spinner';
 import PublicationCard from './PublicationCard';
 
 /**
- * Lista responsiva: 1 columna en móvil, 2 en tablet pequeña, 3 en escritorio y 4 en pantallas grandes
+ * Lista responsiva: 2 columnas en móvil, 3 en tablet y 4 en escritorio
  * (clases de grilla de Bootstrap). Maneja los estados cargando, error y vacío.
  */
 export interface PropsPublicationList {
@@ -19,9 +19,9 @@ export default function PublicationList({ publicaciones, cargando = false, error
     if (error) return <Alert mensaje={error} />;
     if (!publicaciones.length) return <p className="text-center text-secondary py-5" data-testid="lista-vacia">{vacio}</p>;
     return (
-        <div className="row g-3" data-testid="publication-list">
+        <div className="row g-3 g-lg-4" data-testid="publication-list">
             {publicaciones.map(p => (
-                <div className="col-12 col-sm-6 col-lg-4 col-xl-3" key={p.id}>
+                <div className="col-6 col-md-4 col-xl-3" key={p.id}>
                     <PublicationCard publicacion={p} />
                 </div>
             ))}

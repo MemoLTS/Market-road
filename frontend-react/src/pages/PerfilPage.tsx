@@ -6,7 +6,8 @@ import PublicationList from '../components/publicaciones/PublicationList';
 import { config } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { formatoFechaCorta, mensajeDeError } from '../core/formato';
-import { primerError, validarApodo, validarCorreo } from '../core/validaciones';
+import { calcularRecorte, ZOOM_MIN, ZOOM_MAX } from '../core/recorte';
+import { primerError, TIPOS_FOTO, validarApodo, validarCorreo } from '../core/validaciones';
 import { useAsync } from '../hooks/useAsync';
 import { authService } from '../services/authService';
 import type { Usuario } from '../types/api';
@@ -74,47 +75,63 @@ function CambiarCorreo({ usuario }: { usuario: Usuario }) {
     );
 }
 
-function FotoPerfil() {
+/**
+ * Foto de perfil con recorte cuadrado: se elige el archivo, se ajusta el zoom y la posición viendo una
+ * vista previa circular y se sube la imagen ya recortada (512 x 512). La cuenta del recorte está en core/recorte.ts.
+ */
+export function FotoPerfil() {
     const [estado, setEstado] = useState({ mensaje: '', tipo: 'danger' });
     const [vista, setVista] = useState('');
-    const [zoom, setZoom] = useState(1);
+    const [zoom, setZoom] = useState(ZOOM_MIN);
+    const [x, setX] = useState(50);
+    const [y, setY] = useState(50);
     const [archivo, setArchivo] = useState<File | null>(null);
+    const [guardando, setGuardando] = useState(false);
     const imagenRef = useRef<HTMLImageElement>(null);
+
     async function seleccionar(e: ChangeEvent<HTMLInputElement>): Promise<void> {
         const file = e.target.files?.[0];
         if (!file) return;
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setEstado({ mensaje: 'Solo se permiten fotos JPG, PNG o WEBP.', tipo: 'danger' }); return; }
+        if (!TIPOS_FOTO.includes(file.type)) { setEstado({ mensaje: 'Solo se permiten fotos JPG, PNG o WEBP.', tipo: 'danger' }); return; }
         if (file.size > 5 * 1024 * 1024) { setEstado({ mensaje: 'La foto puede pesar como máximo 5 MB.', tipo: 'danger' }); return; }
-        setArchivo(file); setZoom(1); setEstado({ mensaje: '', tipo: 'danger' });
+        setArchivo(file); setZoom(ZOOM_MIN); setX(50); setY(50); setEstado({ mensaje: '', tipo: 'danger' });
         setVista(await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); }));
     }
+
     async function guardar(): Promise<void> {
         const img = imagenRef.current;
         if (!archivo || !img) return;
-        const lado = Math.min(img.naturalWidth, img.naturalHeight) / zoom;
-        const x = (img.naturalWidth - lado) / 2, y = (img.naturalHeight - lado) / 2;
+        const { origenX, origenY, lado } = calcularRecorte(img.naturalWidth, img.naturalHeight, zoom, x, y);
         const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512;
         const ctx = canvas.getContext('2d');
         if (!ctx) { setEstado({ mensaje: 'No se pudo preparar la imagen.', tipo: 'danger' }); return; }
-        ctx.drawImage(img, x, y, lado, lado, 0, 0, 512, 512);
+        ctx.drawImage(img, origenX, origenY, lado, lado, 0, 0, 512, 512);
         const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', .92));
-        if (!blob) return;
+        if (!blob) { setEstado({ mensaje: 'No se pudo generar la imagen recortada.', tipo: 'danger' }); return; }
+        setGuardando(true);
         try { await authService.subirFoto(new File([blob], 'perfil.jpg', { type: 'image/jpeg' })); setEstado({ mensaje: 'Foto guardada.', tipo: 'success' }); }
         catch (err) { setEstado({ mensaje: mensajeDeError(err), tipo: 'danger' }); }
+        finally { setGuardando(false); }
     }
+
     return (
         <div>
             <Alert mensaje={estado.mensaje} tipo={estado.tipo} />
             <label htmlFor="fotoPerfil" className="form-label">Foto de perfil</label>
             <input id="fotoPerfil" type="file" accept="image/jpeg,image/png,image/webp" className="form-control" onChange={seleccionar} />
             {vista && <div className="mt-3">
-                <p className="small text-secondary mb-2">Ajusta el recorte cuadrado y el zoom antes de guardar.</p>
+                <p className="small text-secondary mb-2">Ajusta el zoom y la posición del recorte cuadrado antes de guardar.</p>
                 <div className="rounded-circle overflow-hidden border mx-auto" style={{ width: 180, height: 180 }}>
-                    <img ref={imagenRef} src={vista} alt="Vista previa de recorte" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${zoom})` }} />
+                    <img ref={imagenRef} src={vista} alt="Vista previa de recorte"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${x}% ${y}%`, transform: `scale(${zoom})`, transformOrigin: `${x}% ${y}%` }} />
                 </div>
-                <label className="form-label mt-3" htmlFor="zoomFoto">Zoom</label>
-                <input id="zoomFoto" type="range" min="1" max="3" step=".05" className="form-range" value={zoom} onChange={e => setZoom(Number(e.target.value))} />
-                <button type="button" className="btn btn-primary" onClick={guardar}>Guardar foto ajustada</button>
+                <label className="form-label mt-3 mb-0" htmlFor="zoomFoto">Zoom</label>
+                <input id="zoomFoto" type="range" min={ZOOM_MIN} max={ZOOM_MAX} step=".05" className="form-range" value={zoom} onChange={e => setZoom(Number(e.target.value))} />
+                <label className="form-label mb-0" htmlFor="posXFoto">Posición horizontal</label>
+                <input id="posXFoto" type="range" min="0" max="100" className="form-range" value={x} onChange={e => setX(Number(e.target.value))} />
+                <label className="form-label mb-0" htmlFor="posYFoto">Posición vertical</label>
+                <input id="posYFoto" type="range" min="0" max="100" className="form-range" value={y} onChange={e => setY(Number(e.target.value))} />
+                <button type="button" className="btn btn-primary mt-2" onClick={guardar} disabled={guardando}>{guardando ? 'Guardando...' : 'Guardar foto ajustada'}</button>
             </div>}
         </div>
     );

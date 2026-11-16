@@ -30,9 +30,9 @@ src/
   data/        baseDatos.ts  → "base de datos" JS con CRUD y persistencia en localStorage
   context/     AuthContext (sesión) y UiContext (modales de acceso)
   hooks/       useAsync, usePublicaciones
-  components/  common · layout · auth · publicaciones · chat
+  components/  common · layout · auth · publicaciones · chat · soporte
   pages/       Home, Categorías, Detalle, Mensajes, Perfil, Soporte, Panel de soporte, Admin, estáticas
-tests/         8 archivos *.spec (Jasmine) + helpers
+tests/         11 archivos *.spec (Jasmine) + helpers
 ```
 
 ## Rutas
@@ -49,12 +49,31 @@ tests/         8 archivos *.spec (Jasmine) + helpers
 
 ## Pruebas
 
-128 pruebas Jasmine sobre componentes, formularios, páginas, servicios y lógica; sin llamadas reales a la red (`spyOn(window, 'fetch')`, spies sobre servicios).
+208 pruebas Jasmine (11 archivos en `tests/`) sobre componentes, formularios, páginas, servicios y lógica pura, ejecutadas con Karma en Chrome headless;
+sin llamadas reales a la red (`spyOn(window, 'fetch')`, spies sobre servicios y un doble de Leaflet para el mapa).
+Cobertura (Istanbul): 82,6 % de sentencias, 74,1 % de ramas, 80,0 % de funciones y 86,7 % de líneas; los umbrales de `karma.conf.cjs` hacen fallar la ejecución si bajan.
+
+```bash
+npm test             # una ejecución con informe de cobertura (coverage/html/index.html)
+npm run typecheck    # tsc sobre src/ y tests/
+```
+
 Detalle y análisis en `../Documentos/Cobertura_Testing_Market-Road.docx`.
-Antes de entregar, ejecuta `npm test` y revisa `coverage/html/index.html` para completar las cifras oficiales de cobertura.
+
+## Diseño (Bootstrap)
+
+- **Bootstrap 5.3** para grilla, componentes y utilidades; `src/styles.css` agrega una capa de diseño que solo usa variables `--bs-*` (se adapta al tema claro/oscuro): radios y sombras consistentes, botones y formularios con tamaños uniformes, tarjetas con efecto al pasar el cursor, tablas y pestañas del panel, modales y pie de página.
+- **Catálogo responsivo:** 2 columnas en móvil, 3 en tablet y 4 en escritorio; la portada apila sus botones a ancho completo en pantallas pequeñas.
+- **Iconos:** Bootstrap Icons desde CDN (`index.html`); son decorativos, así que sin conexión la interfaz sigue siendo legible.
+
+## Funcionalidades recientes
+
+- **Unidades a la venta** en publicaciones (opcional, 1 por defecto) y marca "N unidades disponibles".
+- **Editar publicaciones** (`PATCH /publicaciones/{id}`), disponible para quien publicó mientras la publicación esté activa.
+- **Dashboard:** apartado *Actividad de publicaciones* (nuevas y cerradas en ventas en las últimas 24 h, 7 o 30 días).
+- **Mapa** para elegir la ubicación (Leaflet cargado bajo demanda), **recorte de foto de perfil** con zoom y posición, y **alta/edición del equipo de soporte**.
 
 ## Limitaciones
 
-- El backend no ofrece `PATCH /publicaciones/{id}`: editar solo funciona en modo demo.
-- No se portó el recorte de foto de perfil ni el mapa para elegir ubicación.
-- El panel de soporte React muestra el equipo en solo lectura; crear y editar personal sigue en `soporte-panel.html`.
+- El mapa descarga Leaflet desde un CDN; sin conexión se puede elegir la ciudad o pueblo buscándolo por nombre.
+- En modo demostración (`npm run dev:demo`) mensajería, soporte, foto de perfil y cambio de correo no están disponibles porque dependen del backend.

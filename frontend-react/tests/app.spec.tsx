@@ -57,7 +57,9 @@ describe('Navbar (sesión y menú responsivo)', () => {
         guardarSesion({ token: 't', expiraEnMs: 60000, usuario: { id: 1, nombre: 'Ana', apodo: 'ana', rol: 'USUARIO' } as Usuario });
         const logout = spyOn(authService, 'logout').and.resolveTo();
         const c = await montarConApp(<Navbar />);
-        expect(texto(c)).toContain('ana');
+        // La barra muestra la foto de perfil (alt) y el menú de la cuenta, no el apodo escrito.
+        expect(c.querySelector('img[alt="Foto de perfil"]')).not.toBeNull();
+        expect(texto(c)).toContain('Mi perfil');
         expect(texto(c)).not.toContain('Administración');
         await clic(Array.from(c.querySelectorAll('button')).find(b => b.textContent.trim() === 'Cerrar sesión'));
         expect(logout).toHaveBeenCalled();
@@ -99,6 +101,8 @@ describe('HomePage (integración con la base simulada)', () => {
     it('filtra al aplicar el texto de búsqueda', async () => {
         const c = await montarConApp(<HomePage />);
         await esperar(20);
+        // Los filtros viven en el modal «Búsqueda avanzada»: primero se abre.
+        await clic(Array.from(c.querySelectorAll('button')).find(b => b.textContent.includes('Búsqueda avanzada')));
         await escribir(c.querySelector('#filtroTexto'), 'sofá');
         await enviarFormulario(c.querySelector('form[aria-label="Filtros del catálogo"]'));
         await esperar(20);

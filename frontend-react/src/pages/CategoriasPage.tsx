@@ -13,8 +13,8 @@ export function CategoriasPage() {
             <div className="row g-3">
                 {categorias.map(c => (
                     <div className="col-6 col-md-4 col-lg-3" key={c.codigo}>
-                        <Link to={`/categorias/${c.codigo}`} className="card h-100 text-center text-decoration-none shadow-sm">
-                            <div className="card-body d-flex align-items-center justify-content-center"><span className="fw-semibold">{c.nombre}</span></div>
+                        <Link to={`/categorias/${c.codigo}`} className="card h-100 text-center text-decoration-none shadow-sm border-0">
+                            <div className="card-body py-4 d-flex align-items-center justify-content-center"><span className="fw-semibold fs-6">{c.nombre}</span></div>
                         </Link>
                     </div>
                 ))}

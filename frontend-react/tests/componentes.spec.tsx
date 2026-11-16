@@ -39,7 +39,7 @@ describe('Renderizado correcto: PublicationList', () => {
     it('usa clases de grilla de Bootstrap para el diseño responsivo', async () => {
         const c = await montar(<Router><PublicationList publicaciones={[publicacionDePrueba()]} /></Router>);
         const col = c.querySelector('.row > div');
-        ['col-12', 'col-sm-6', 'col-lg-4', 'col-xl-3'].forEach(clase => expect(col.classList.contains(clase)).toBe(true));
+        ['col-6', 'col-md-4', 'col-xl-3'].forEach(clase => expect(col.classList.contains(clase)).toBe(true));
     });
 });
 

@@ -1,5 +1,6 @@
 import type { Categoria } from '../types/api';
 import type {
+    RolPersonal,
     Estadisticas, EstadoTicket, LoginSoporteRespuesta, PaginaSoporte, PersonalSoporte, PrioridadTicket,
     TicketDetalle, TicketPanelDetalle, TicketPanelResumen, TicketResumen,
 } from '../types/soporte';
@@ -32,4 +33,9 @@ export const soportePanelService = {
     responder: (id: number, contenido: string) => soporteFetch<TicketPanelDetalle>(`/soporte/panel/tickets/${id}/mensajes`, post({ contenido })),
     personal: () => soporteFetch<PersonalSoporte[]>('/soporte/panel/personal'),
     estadisticas: () => soporteFetch<Estadisticas>('/soporte/panel/estadisticas'),
+    /** Alta de una persona del equipo (solo ADMIN). */
+    crearPersonal: (datos: { nombre: string; correo: string; contrasena: string; rol: RolPersonal }) => soporteFetch<PersonalSoporte>('/soporte/panel/personal', post(datos)),
+    /** Edición parcial: nombre, rol, activo o contraseña (solo ADMIN). */
+    actualizarPersonal: (id: number, cambios: { nombre?: string; rol?: RolPersonal; activo?: boolean; contrasena?: string }) =>
+        soporteFetch<PersonalSoporte>(`/soporte/panel/personal/${id}`, { method: 'PATCH', body: JSON.stringify(cambios) }),
 };

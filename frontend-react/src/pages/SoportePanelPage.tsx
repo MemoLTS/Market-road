@@ -4,6 +4,9 @@ import Alert from '../components/common/Alert';
 import Pagination from '../components/common/Pagination';
 import Spinner from '../components/common/Spinner';
 import ChatThread from '../components/chat/ChatThread';
+import Modal from '../components/common/Modal';
+import FormularioPersonal from '../components/soporte/FormularioPersonal';
+import type { DatosPersonal } from '../components/soporte/FormularioPersonal';
 import { formatoFechaCorta, mensajeDeError } from '../core/formato';
 import { useAsync } from '../hooks/useAsync';
 import { EVENTO_SESION_SOPORTE, guardarSesionSoporte, limpiarSesionSoporte, obtenerSesionSoporte } from '../services/sesionSoporte';
@@ -141,13 +144,40 @@ function Tickets({ yo }: { yo: PersonalSoporte }) {
     );
 }
 
-function Equipo() {
-    const { datos, error, cargando } = useAsync(() => soportePanelService.personal(), []);
+export function Equipo() {
+    const [version, setVersion] = useState(0);
+    const [modal, setModal] = useState<PersonalSoporte | 'nuevo' | null>(null);
+    const [aviso, setAviso] = useState({ mensaje: '', tipo: 'success' });
+    const { datos, error, cargando } = useAsync(() => soportePanelService.personal(), [version]);
+
+    async function guardar(datosFormulario: DatosPersonal): Promise<void> {
+        if (modal === 'nuevo') {
+            await soportePanelService.crearPersonal({
+                nombre: datosFormulario.nombre ?? '', correo: datosFormulario.correo ?? '', contrasena: datosFormulario.contrasena ?? '', rol: datosFormulario.rol ?? 'SOPORTE',
+            });
+            setAviso({ mensaje: 'Persona agregada al equipo.', tipo: 'success' });
+        } else if (modal) {
+            await soportePanelService.actualizarPersonal(modal.id, datosFormulario);
+            setAviso({ mensaje: 'Cambios guardados.', tipo: 'success' });
+        }
+        setModal(null);
+        setVersion(n => n + 1);
+    }
+
+    async function alternarActivo(p: PersonalSoporte): Promise<void> {
+        try {
+            await soportePanelService.actualizarPersonal(p.id, { activo: !p.activo });
+            setAviso({ mensaje: p.activo ? 'Cuenta desactivada: sus tickets quedaron sin asignar.' : 'Cuenta activada.', tipo: 'success' });
+            setVersion(n => n + 1);
+        } catch (e) { setAviso({ mensaje: mensajeDeError(e), tipo: 'danger' }); }
+    }
+
     const { datos: est } = useAsync(() => soportePanelService.estadisticas(), []);
-    if (cargando) return <Spinner />;
+    if (cargando && !datos) return <Spinner />;
     return (
         <div>
             <Alert mensaje={error} />
+            <Alert mensaje={aviso.mensaje} tipo={aviso.tipo} />
             {est && (
                 <div className="row g-3 mb-4">
                     {[['Tickets', est.totalTickets], ['Sin asignar', est.sinAsignar], ['Últimos 7 días', est.creadosUltimos7Dias], ['Personal activo', est.personalActivo]].map(([t, v]) => (
@@ -155,15 +185,18 @@ function Equipo() {
                     ))}
                 </div>
             )}
+            <div className="d-flex justify-content-between align-items-center mb-2"><h2 className="h5 mb-0">Equipo de soporte</h2><button type="button" className="btn btn-primary btn-sm" onClick={() => setModal('nuevo')}>Nueva persona</button></div>
             <div className="table-responsive">
                 <table className="table table-sm align-middle">
-                    <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Activo</th><th>En curso</th><th>Último acceso</th></tr></thead>
+                    <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Activo</th><th>En curso</th><th>Último acceso</th><th><span className="visually-hidden">Acciones</span></th></tr></thead>
                     <tbody>{(datos ?? []).map(p => (
-                        <tr key={p.id}><td>{p.nombre}</td><td>{p.correo}</td><td>{p.rolNombre}</td><td>{p.activo ? 'Sí' : 'No'}</td><td>{p.ticketsEnCurso}</td><td>{p.ultimoAcceso ? formatoFechaCorta(p.ultimoAcceso) : '—'}</td></tr>
+                        <tr key={p.id}><td>{p.nombre}</td><td>{p.correo}</td><td>{p.rolNombre}</td><td>{p.activo ? 'Sí' : 'No'}</td><td>{p.ticketsEnCurso}</td><td>{p.ultimoAcceso ? formatoFechaCorta(p.ultimoAcceso) : '—'}</td><td className="text-end text-nowrap"><button type="button" className="btn btn-sm btn-outline-primary me-1" onClick={() => setModal(p)}>Editar</button><button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => alternarActivo(p)}>{p.activo ? 'Desactivar' : 'Activar'}</button></td></tr>
                     ))}</tbody>
                 </table>
             </div>
-            <p className="small text-secondary">La creación y edición del equipo sigue disponible en el panel original (soporte-panel.html).</p>
+            <Modal abierto={modal !== null} titulo={modal === 'nuevo' ? 'Nueva persona del equipo' : 'Editar persona del equipo'} onCerrar={() => setModal(null)}>
+                {modal !== null && <FormularioPersonal persona={modal === 'nuevo' ? null : modal} onGuardar={guardar} onCancelar={() => setModal(null)} />}
+            </Modal>
         </div>
     );
 }

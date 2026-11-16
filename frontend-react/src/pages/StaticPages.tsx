@@ -7,6 +7,7 @@ import { primerError, validarCorreo, validarMensaje, validarNombre } from '../co
 export function NosotrosPage() {
     return (
         <div className="container py-4" style={{ maxWidth: 820 }}>
+            <div className="card border-0 shadow-sm"><div className="card-body p-4 p-md-5">
             <h1 className="h2 mb-3">Sobre Market-Road</h1>
             <p>Market-Road es una plataforma que conecta a personas que quieren vender con personas que quieren comprar artículos de segunda mano.</p>
             <p>Somos solo intermediarios: no cobramos comisiones, no procesamos pagos ni gestionamos envíos. El acuerdo de precio, pago y entrega se coordina entre las dos partes a través del chat y las ofertas de la plataforma.</p>
@@ -17,6 +18,7 @@ export function NosotrosPage() {
                 <li>Recibe mensajes y ofertas, y acuerda la entrega.</li>
             </ol>
             <Link to="/" className="btn btn-primary">Ver publicaciones</Link>
+            </div></div>
         </div>
     );
 }
@@ -39,12 +41,12 @@ export function ContactoPage() {
         <div className="container py-4" style={{ maxWidth: 640 }}>
             <h1 className="h2 mb-3">Contacto</h1>
             <p className="text-secondary">¿Tienes una consulta general? Escríbenos. Para problemas con tu cuenta usa el <Link to="/soporte">centro de soporte</Link>.</p>
-            <form onSubmit={enviar} noValidate aria-label="Formulario de contacto">
+            <form onSubmit={enviar} noValidate aria-label="Formulario de contacto" className="card card-body border-0 shadow-sm p-3 p-md-4">
                 <Alert mensaje={estado.mensaje} tipo={estado.tipo} />
                 <div className="mb-3"><label htmlFor="ctNombre" className="form-label">Nombre</label><input id="ctNombre" className="form-control" value={v.nombre} onChange={cambiar('nombre')} /></div>
                 <div className="mb-3"><label htmlFor="ctCorreo" className="form-label">Correo</label><input id="ctCorreo" type="email" className="form-control" value={v.correo} onChange={cambiar('correo')} /></div>
                 <div className="mb-3"><label htmlFor="ctMensaje" className="form-label">Mensaje</label><textarea id="ctMensaje" className="form-control" rows={5} value={v.mensaje} onChange={cambiar('mensaje')} /></div>
-                <button type="submit" className="btn btn-primary">Enviar</button>
+                <div className="d-grid d-sm-flex justify-content-sm-end"><button type="submit" className="btn btn-primary px-4">Enviar</button></div>
             </form>
         </div>
     );

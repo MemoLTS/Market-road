@@ -37,7 +37,7 @@ describe('capa HTTP (con fetch simulado)', () => {
         const datos = await apiFetch('/algo');
         expect(datos).toEqual({ ok: true });
         const opciones = espia.calls.mostRecent().args[1];
-        expect(opciones.headers.get('Authorization')).toBe('Bearer abc');
+        expect((opciones.headers as Headers).get('Authorization')).toBe('Bearer abc');
     });
 
     it('un 401 con token cierra la sesión y avisa', async () => {
@@ -76,8 +76,19 @@ describe('capa HTTP (con fetch simulado)', () => {
     });
 
     it('completa las rutas relativas de imágenes con el origen del gateway', () => {
-        expect(urlAbsoluta('/api/v1/publicaciones/1/imagenes/0')).toContain('http://localhost:8081/api/v1/publicaciones/1/imagenes/0');
+        // Con la URL base relativa (/api/v1) el origen es el del propio sitio (Nginx hace de proxy).
+        expect(urlAbsoluta('/api/v1/publicaciones/1/imagenes/0')).toBe(new URL('/api/v1/publicaciones/1/imagenes/0', config.apiBaseUrl).href);
         expect(urlAbsoluta('data:image/png;base64,AAA')).toBe('data:image/png;base64,AAA');
+    });
+
+    it('usa el origen del gateway cuando VITE_API_URL es absoluta', () => {
+        const original = config.apiBaseUrl;
+        config.apiBaseUrl = 'http://localhost:8081/api/v1';
+        try {
+            expect(urlAbsoluta('/api/v1/publicaciones/1/imagenes/0')).toBe('http://localhost:8081/api/v1/publicaciones/1/imagenes/0');
+        } finally {
+            config.apiBaseUrl = original;
+        }
     });
 });
 
