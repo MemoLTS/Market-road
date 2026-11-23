@@ -167,6 +167,12 @@ describe('contrato con el backend (servicios React)', () => {
             });
         });
 
+        it('entrar con el token de usuario pega a /soporte/panel/auth/sso con el token de la tienda', async () => {
+            espia.and.callFake(async () => respuestaJson({ token: 'p', expiraEnMs: 1000, personal: {} }));
+            await soportePanelService.entrarConUsuario();
+            expect(ultima()).toEqual(jasmine.objectContaining({ metodo: 'POST', url: '/soporte/panel/auth/sso' }));
+        });
+
         it('login del personal no envía token (es público)', async () => {
             espia.and.callFake(async () => respuestaJson({ token: 'p', expiraEnMs: 1000, personal: {} }));
             await soportePanelService.login('sol@correo.cl', 'Clave1234');

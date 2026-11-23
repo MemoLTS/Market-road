@@ -22,6 +22,8 @@ export const soporteUsuarioService = {
 /** Panel del personal de soporte (sesión propia). */
 export const soportePanelService = {
     login: (correo: string, contrasena: string) => soporteFetch<LoginSoporteRespuesta>('/soporte/panel/auth/login', post({ correo, contrasena })),
+    /** Entra al panel con el token de la persona usuaria (superusuario), sin volver a ingresar clave: POST /soporte/panel/auth/sso. */
+    entrarConUsuario: () => apiFetch<LoginSoporteRespuesta>('/soporte/panel/auth/sso', post()),
     yo: () => soporteFetch<PersonalSoporte>('/soporte/panel/auth/yo'),
     categorias: () => soporteFetch<Categoria[]>('/soporte/categorias'),
     tickets: (params: Record<string, string>) => soporteFetch<PaginaSoporte<TicketPanelResumen>>(`/soporte/panel/tickets?${new URLSearchParams(params)}`),

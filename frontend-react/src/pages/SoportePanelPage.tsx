@@ -10,6 +10,7 @@ import FormularioPersonal from '../components/soporte/FormularioPersonal';
 import type { DatosPersonal } from '../components/soporte/FormularioPersonal';
 import { formatoFechaCorta, mensajeDeError } from '../core/formato';
 import { useAsync } from '../hooks/useAsync';
+import { esSuperusuario, obtenerSesion } from '../services/sesion';
 import { EVENTO_SESION_SOPORTE, guardarSesionSoporte, limpiarSesionSoporte, obtenerSesionSoporte } from '../services/sesionSoporte';
 import { soportePanelService } from '../services/soporteService';
 import type { EstadoTicket, PersonalSoporte, PrioridadTicket, TicketPanelDetalle } from '../types/soporte';
@@ -23,6 +24,17 @@ function LoginPanel() {
     const [correo, setCorreo] = useState('');
     const [clave, setClave] = useState('');
     const [error, setError] = useState('');
+    // Si hay una sesión de superusuario en la tienda, su token se valida solo: no se pide volver a ingresar.
+    const [validando, setValidando] = useState(() => esSuperusuario(obtenerSesion()));
+    useEffect(() => {
+        if (!validando) return undefined;
+        let activo = true;
+        soportePanelService.entrarConUsuario()
+            .then(r => { if (activo) guardarSesionSoporte(r); })
+            .catch(err => { if (activo) { setError(mensajeDeError(err)); setValidando(false); } });
+        return () => { activo = false; };
+    }, [validando]);
+    if (validando) return <div className="container py-5"><Spinner /></div>;
     async function entrar(e: FormEvent<HTMLFormElement>): Promise<void> {
         e.preventDefault();
         if (!correo.trim() || !clave) { setError('Ingresa tu correo y tu contraseña.'); return; }

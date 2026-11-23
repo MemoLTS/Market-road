@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,6 +19,7 @@ import com.marketroad.soporte.dto.LoginRequestDTO;
 import com.marketroad.soporte.dto.LoginResponseDTO;
 import com.marketroad.soporte.dto.PersonalDTO;
 import com.marketroad.soporte.exception.CredencialesInvalidasException;
+import com.marketroad.soporte.exception.NoAutorizadoException;
 import com.marketroad.soporte.exception.OperacionNoPermitidaException;
 import com.marketroad.soporte.exception.PersonalNoEncontradoException;
 import com.marketroad.soporte.model.EstadoTicket;
@@ -29,6 +31,7 @@ import com.marketroad.soporte.reglas.ReglasTicket;
 import com.marketroad.soporte.repository.PersonalSoporteRepository;
 import com.marketroad.soporte.repository.TicketRepository;
 import com.marketroad.soporte.security.IdentidadPersonal;
+import com.marketroad.soporte.security.IdentidadUsuario;
 import com.marketroad.soporte.security.JwtPersonalUtil;
 
 import jakarta.annotation.PostConstruct;
@@ -77,6 +80,36 @@ public class PersonalService {
         }
         limitadorLogin.reiniciar(correo);
         cuenta.setUltimoAcceso(OffsetDateTime.now());
+        return new LoginResponseDTO(jwt.generarToken(cuenta.getId()), jwt.getExpiracionMs(), aDTO(cuenta, 0));
+    }
+
+    /**
+     * Entrada al panel con la sesión de la tienda (sin volver a escribir correo y contraseña): soporte recibe el token de la
+     * persona usuaria, lo valida con JWT_SECRET y, si es superusuario, le entrega el token del panel. Su cuenta del equipo se
+     * crea sola la primera vez (rol ADMIN, con una contraseña aleatoria que nadie conoce: entra siempre por esta vía o
+     * con la contraseña que el equipo le asigne). Si ya existe una cuenta con ese correo, se respeta su rol y que esté activa.
+     */
+    @Transactional
+    public LoginResponseDTO loginConUsuario(IdentidadUsuario usuario) {
+        usuario.exigirSuperusuario();
+        if (usuario.correo() == null || usuario.correo().isBlank()) {
+            throw new NoAutorizadoException("Tu sesión no trae un correo válido");
+        }
+        String correo = reglas.normalizarCorreo(usuario.correo());
+        PersonalSoporte cuenta = personal.findByCorreo(correo).orElse(null);
+        if (cuenta == null) {
+            cuenta = new PersonalSoporte();
+            String nombre = usuario.nombreVisible();
+            cuenta.setNombre(nombre.length() > 80 ? nombre.substring(0, 80) : nombre);
+            cuenta.setCorreo(correo);
+            cuenta.setContrasenaHash(passwordEncoder.encode(UUID.randomUUID() + "-" + UUID.randomUUID()));
+            cuenta.setRol(RolPersonal.ADMIN);
+            cuenta.setActivo(true);
+        } else if (!cuenta.isActivo()) {
+            throw new NoAutorizadoException("Tu cuenta de soporte está desactivada");
+        }
+        cuenta.setUltimoAcceso(OffsetDateTime.now());
+        cuenta = personal.save(cuenta);
         return new LoginResponseDTO(jwt.generarToken(cuenta.getId()), jwt.getExpiracionMs(), aDTO(cuenta, 0));
     }
 

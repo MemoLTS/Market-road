@@ -60,4 +60,49 @@ class SeguridadTest {
         assertEquals(401, response.getStatus());
         assertTrue(response.getContentAsString().contains("Debes iniciar sesión"));
     }
+
+    @Test
+    void laRutaSsoDelPanelSeValidaConElTokenDeUsuarioYNoConElDelPersonal() throws Exception {
+        JwtUsuarioUtil jwtUsuario = mock(JwtUsuarioUtil.class);
+        JwtPersonalUtil jwtPersonal = mock(JwtPersonalUtil.class);
+        IdentidadUsuario identidad = new IdentidadUsuario(23L, "superadmin", "admin@marketroad.local", "SUPERUSUARIO");
+        org.mockito.Mockito.when(jwtUsuario.obtenerIdentidad("token-usuario")).thenReturn(identidad);
+        SoporteAuthFilter filter = new SoporteAuthFilter();
+        ReflectionTestUtils.setField(filter, "jwtUsuario", jwtUsuario);
+        ReflectionTestUtils.setField(filter, "jwtPersonal", jwtPersonal);
+        ReflectionTestUtils.setField(filter, "personalRepository", mock(PersonalSoporteRepository.class));
+        ReflectionTestUtils.setField(filter, "mapper", new ObjectMapper());
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/soporte/panel/auth/sso");
+        request.addHeader("Authorization", "Bearer token-usuario");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertEquals(200, response.getStatus());
+        assertEquals(identidad, request.getAttribute(IdentidadUsuario.ATRIBUTO));
+        org.mockito.Mockito.verifyNoInteractions(jwtPersonal);
+    }
+
+    @Test
+    void lasDemasRutasDelPanelSiguenExigiendoElTokenDelPersonal() throws Exception {
+        JwtUsuarioUtil jwtUsuario = mock(JwtUsuarioUtil.class);
+        JwtPersonalUtil jwtPersonal = mock(JwtPersonalUtil.class);
+        org.mockito.Mockito.when(jwtPersonal.obtenerPersonalId("token-usuario"))
+                .thenThrow(new IllegalArgumentException("El token no es del personal de soporte"));
+        SoporteAuthFilter filter = new SoporteAuthFilter();
+        ReflectionTestUtils.setField(filter, "jwtUsuario", jwtUsuario);
+        ReflectionTestUtils.setField(filter, "jwtPersonal", jwtPersonal);
+        ReflectionTestUtils.setField(filter, "personalRepository", mock(PersonalSoporteRepository.class));
+        ReflectionTestUtils.setField(filter, "mapper", new ObjectMapper());
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/soporte/panel/tickets");
+        request.addHeader("Authorization", "Bearer token-usuario");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertEquals(401, response.getStatus());
+        org.mockito.Mockito.verifyNoInteractions(jwtUsuario);
+    }
 }

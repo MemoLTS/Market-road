@@ -24,6 +24,8 @@ import jakarta.servlet.http.HttpServletResponse;
 public class SoporteAuthFilter extends HttpFilter {
     private static final String BASE = "/api/v1/soporte";
     private static final String PANEL = BASE + "/panel/";
+    /** Entrada al panel con el token de la persona usuaria (superusuario): se valida con JWT_SECRET, no con el del personal. */
+    static final String SSO = PANEL + "auth/sso";
 
     @Autowired
     private JwtUsuarioUtil jwtUsuario;
@@ -51,7 +53,7 @@ public class SoporteAuthFilter extends HttpFilter {
         // La autenticación va en su propio try: así un error de un controlador nunca se
         // confunde con un token inválido.
         try {
-            if (path.startsWith(PANEL)) {
+            if (path.startsWith(PANEL) && !path.equals(SSO)) {
                 Long personalId = jwtPersonal.obtenerPersonalId(token);
                 Optional<PersonalSoporte> personal = personalRepository.findById(personalId);
                 if (personal.isEmpty() || !personal.get().isActivo()) {

@@ -312,6 +312,42 @@ describe('SoportePanelPage (personal)', () => {
     });
 });
 
+describe('SoportePanelPage (entrada con el token de usuario)', () => {
+    const personal = { id: 7, nombre: 'admin', rol: 'ADMIN', rolNombre: 'Administración' };
+    beforeEach(() => { preparar(); config.usarMock = false; });
+    afterEach(limpiar);
+
+    it('el superusuario entra solo, sin pedir correo ni contraseña', async () => {
+        sesion(admin);
+        const sso = spyOn(soportePanelService, 'entrarConUsuario').and.resolveTo({ token: 'p', expiraEnMs: 60000, personal } as never);
+        spyOn(soportePanelService, 'tickets').and.resolveTo({ contenido: [], totalPaginas: 1 } as never);
+        const c = await montar(<SoportePanelPage />);
+        await esperar(60);
+        expect(sso).toHaveBeenCalledTimes(1);
+        expect(c.querySelector('#spCorreo')).toBeNull();
+        expect(texto(c)).toContain('Panel de soporte');
+        expect(texto(c)).toContain('Administración');
+    });
+
+    it('si la entrada automática falla, muestra el error y deja el acceso manual', async () => {
+        sesion(admin);
+        spyOn(soportePanelService, 'entrarConUsuario').and.rejectWith(new Error('Tu cuenta de soporte está desactivada'));
+        const c = await montar(<SoportePanelPage />);
+        await esperar(60);
+        expect(c.querySelector('#spCorreo')).not.toBeNull();
+        expect(c.querySelector('[role=alert]').textContent).toContain('desactivada');
+    });
+
+    it('una persona usuaria normal no intenta entrar sola', async () => {
+        sesion(demo);
+        const sso = spyOn(soportePanelService, 'entrarConUsuario');
+        const c = await montar(<SoportePanelPage />);
+        await esperar(30);
+        expect(sso).not.toHaveBeenCalled();
+        expect(c.querySelector('#spCorreo')).not.toBeNull();
+    });
+});
+
 describe('AdminPage (modo simulado)', () => {
     beforeEach(preparar);
     afterEach(limpiar);

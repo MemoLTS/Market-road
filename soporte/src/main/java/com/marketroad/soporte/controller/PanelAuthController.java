@@ -13,6 +13,7 @@ import com.marketroad.soporte.dto.LoginRequestDTO;
 import com.marketroad.soporte.dto.LoginResponseDTO;
 import com.marketroad.soporte.dto.PersonalDTO;
 import com.marketroad.soporte.security.IdentidadPersonal;
+import com.marketroad.soporte.security.IdentidadUsuario;
 import com.marketroad.soporte.service.PersonalService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +28,12 @@ public class PanelAuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO body) {
         return ResponseEntity.ok(service.login(body));
+    }
+
+    /** Entra al panel con el token de la persona usuaria (solo superusuario), sin pedir credenciales otra vez. */
+    @PostMapping("/sso")
+    public ResponseEntity<LoginResponseDTO> entrarConSesionDeUsuario(HttpServletRequest request) {
+        return ResponseEntity.ok(service.loginConUsuario(IdentidadUsuario.de(request)));
     }
 
     @GetMapping("/yo")
