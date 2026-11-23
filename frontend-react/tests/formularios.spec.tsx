@@ -96,10 +96,12 @@ describe('PublicationForm', () => {
         expect(validarPublicacion({ ...valido, modalidadesEntrega: [] })).toContain('modalidad de entrega');
         expect(validarPublicacion({ ...valido, lugar: null })).toContain('Busca y elige la localidad');
         expect(validarPublicacion({ ...valido, lugar: null }, { exigirLugar: false })).toBeNull();
+        expect(validarPublicacion({ ...valido, lugar: null }, { modo: 'editar', ubicacionOriginal: 'Coronel' })).toBeNull();
+        expect(validarPublicacion({ ...valido, ubicacion: 'Lota', lugar: null }, { modo: 'editar', ubicacionOriginal: 'Coronel' })).toContain('Busca y elige la localidad');
     });
 
     it('en modo editar no exige fotos ni modalidades', () => {
-        expect(validarPublicacion({ ...valido, fotos: [], modalidadesEntrega: [], lugar: null }, { modo: 'editar' })).toBeNull();
+        expect(validarPublicacion({ ...valido, fotos: [], modalidadesEntrega: [], lugar: null }, { modo: 'editar', ubicacionOriginal: 'Coronel' })).toBeNull();
     });
 
     it('envía los datos del formulario a onEnviar (estado → props)', async () => {

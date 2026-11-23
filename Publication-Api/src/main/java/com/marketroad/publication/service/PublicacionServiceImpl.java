@@ -276,6 +276,14 @@ public class PublicacionServiceImpl implements PublicacionService {
             p.setUnidades(normalizarUnidades(datos.unidades()));
         }
 
+        if (datos.latitud() != null || datos.longitud() != null) {
+            if (!Geo.coordenadasValidas(datos.latitud(), datos.longitud())) {
+                throw new IllegalArgumentException("La latitud y la longitud deben venir juntas y ser válidas");
+            }
+            p.setLatitud(datos.latitud());
+            p.setLongitud(datos.longitud());
+        }
+
         Publicacion guardada = repository.save(p);
         int cantidad = mapper.contarImagenes(List.of(guardada.getId())).getOrDefault(guardada.getId(), 0);
         return mapper.aDTO(guardada, cantidad, null);

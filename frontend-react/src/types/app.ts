@@ -33,6 +33,8 @@ export interface DatosPublicacion {
 export type CambiosPublicacion = Partial<Pick<DatosPublicacion, 'titulo' | 'descripcion' | 'ubicacion' | 'categoria'>> & {
     precio?: string | number;
     unidades?: number;
+    latitud?: number;
+    longitud?: number;
     estado?: string;
 };
 

@@ -38,6 +38,7 @@ import api.com.v1.dto.DispositivoInicioSesionDTO;
 import api.com.v1.dto.FotoPerfilDTO;
 import api.com.v1.dto.LoginRequestDTO;
 import api.com.v1.dto.LoginResponseDTO;
+import api.com.v1.dto.RestablecerContrasenaDTO;
 import api.com.v1.dto.UsuarioRequestDTO;
 import api.com.v1.dto.UsuarioResponseDTO;
 import api.com.v1.dto.UsuarioUpdateDTO;
@@ -134,6 +135,61 @@ class ControllerTest {
 
             assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
             assertEquals("Acceso restringido al superusuario", ex.getReason());
+        }
+    }
+
+    @Nested
+    class RestablecerContrasenaAdminTests {
+
+        private final RestablecerContrasenaDTO dto = new RestablecerContrasenaDTO("Nueva1234");
+
+        @Test
+        void superusuarioCambiaLaContrasenaDeUnUsuarioNormal() {
+            when(usuarioRepository.findById(1L))
+                    .thenReturn(Optional.of(usuario(1L, "admin", "a@correo.cl", Rol.SUPERUSUARIO)));
+            when(usuarioRepository.findById(2L))
+                    .thenReturn(Optional.of(usuario(2L, "juan", "j@correo.cl", Rol.USUARIO)));
+
+            ResponseEntity<Void> r = adminUsuarioController.restablecerContrasena(1L, 2L, dto);
+
+            assertEquals(HttpStatus.NO_CONTENT, r.getStatusCode());
+            verify(usuarioService).restablecerContrasena(2L, "Nueva1234");
+        }
+
+        @Test
+        void superusuarioPuedeCambiarSuPropiaContrasena() {
+            when(usuarioRepository.findById(1L))
+                    .thenReturn(Optional.of(usuario(1L, "admin", "a@correo.cl", Rol.SUPERUSUARIO)));
+
+            adminUsuarioController.restablecerContrasena(1L, 1L, dto);
+
+            verify(usuarioService).restablecerContrasena(1L, "Nueva1234");
+        }
+
+        @Test
+        void usuarioNormalRecibeForbidden() {
+            when(usuarioRepository.findById(2L))
+                    .thenReturn(Optional.of(usuario(2L, "juan", "j@correo.cl", Rol.USUARIO)));
+
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> adminUsuarioController.restablecerContrasena(2L, 3L, dto));
+
+            assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+            verify(usuarioService, never()).restablecerContrasena(any(), any());
+        }
+
+        @Test
+        void noSePuedeCambiarLaContrasenaDeOtroSuperusuario() {
+            when(usuarioRepository.findById(1L))
+                    .thenReturn(Optional.of(usuario(1L, "admin", "a@correo.cl", Rol.SUPERUSUARIO)));
+            when(usuarioRepository.findById(9L))
+                    .thenReturn(Optional.of(usuario(9L, "otro", "o@correo.cl", Rol.SUPERUSUARIO)));
+
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> adminUsuarioController.restablecerContrasena(1L, 9L, dto));
+
+            assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+            verify(usuarioService, never()).restablecerContrasena(any(), any());
         }
     }
 

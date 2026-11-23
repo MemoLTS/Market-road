@@ -7,6 +7,7 @@ import type { LeafletEvento, LeafletLib } from '../src/core/mapa';
 import { calcularRecorte } from '../src/core/recorte';
 import { Equipo } from '../src/pages/SoportePanelPage';
 import { FotoPerfil } from '../src/pages/PerfilPage';
+import type { GeneradorFoto } from '../src/pages/PerfilPage';
 import { authService } from '../src/services/authService';
 import { soportePanelService } from '../src/services/soporteService';
 import { clic, desmontarTodo, enviarFormulario, escribir, esperar, montar, respuestaJson, texto } from './helpers';
@@ -274,14 +275,14 @@ describe('FotoPerfil: recorte con zoom y posición', () => {
     }
 
     it('rechaza formatos que no son JPG, PNG o WEBP', async () => {
-        const c = await montar(<FotoPerfil />);
+        const c = await montar(<FotoPerfil onPreparada={() => undefined} />);
         await elegir(c, new File(['x'], 'archivo.gif', { type: 'image/gif' }));
         expect(texto(c)).toContain('Solo se permiten fotos JPG, PNG o WEBP');
         expect(c.querySelector('img')).toBeNull();
     });
 
     it('al elegir una foto muestra la vista previa y los controles', async () => {
-        const c = await montar(<FotoPerfil />);
+        const c = await montar(<FotoPerfil onPreparada={() => undefined} />);
         await elegir(c, await imagen());
         expect(c.querySelector('img[alt="Vista previa de recorte"]')).not.toBeNull();
         expect(c.querySelector('#zoomFoto')).not.toBeNull();
@@ -290,7 +291,7 @@ describe('FotoPerfil: recorte con zoom y posición', () => {
     });
 
     it('el zoom y la posición cambian el estilo de la vista previa', async () => {
-        const c = await montar(<FotoPerfil />);
+        const c = await montar(<FotoPerfil onPreparada={() => undefined} />);
         await elegir(c, await imagen());
         await escribir(c.querySelector('#zoomFoto') as HTMLInputElement, '2');
         await escribir(c.querySelector('#posXFoto') as HTMLInputElement, '20');
@@ -299,25 +300,24 @@ describe('FotoPerfil: recorte con zoom y posición', () => {
         expect(estilo.objectPosition).toContain('20%');
     });
 
-    it('guarda una imagen JPEG cuadrada de 512 x 512', async () => {
-        const subir = spyOn(authService, 'subirFoto').and.resolveTo(undefined as never);
-        const c = await montar(<FotoPerfil />);
+    it('no tiene botón de guardado propio: entrega al perfil una función que genera el JPEG cuadrado de 512 x 512', async () => {
+        let generar: GeneradorFoto | null = null;
+        const c = await montar(<FotoPerfil onPreparada={g => { generar = g; }} />);
+        expect(Array.from(c.querySelectorAll('button')).length).toBe(0);
         await elegir(c, await imagen());
-        await clic(Array.from(c.querySelectorAll('button')).find(b => b.textContent === 'Guardar foto ajustada'));
-        await esperar(80);
-        const enviada = subir.calls.mostRecent().args[0] as File;
-        expect(enviada.type).toBe('image/jpeg');
-        const bitmap = await createImageBitmap(enviada);
+        expect(generar).not.toBeNull();
+        const enviada = await (generar as unknown as GeneradorFoto)();
+        expect(enviada?.type).toBe('image/jpeg');
+        const bitmap = await createImageBitmap(enviada as File);
         expect([bitmap.width, bitmap.height]).toEqual([512, 512]);
-        expect(texto(c)).toContain('Foto guardada');
     });
 
-    it('si la subida falla muestra el error', async () => {
-        spyOn(authService, 'subirFoto').and.rejectWith(new Error('Sin conexión con el servidor'));
-        const c = await montar(<FotoPerfil />);
+    it('si se elige un archivo inválido, el perfil deja de tener foto pendiente', async () => {
+        const estados: (GeneradorFoto | null)[] = [];
+        const c = await montar(<FotoPerfil onPreparada={g => estados.push(g)} />);
         await elegir(c, await imagen());
-        await clic(Array.from(c.querySelectorAll('button')).find(b => b.textContent === 'Guardar foto ajustada'));
-        await esperar(80);
-        expect(texto(c)).toContain('Sin conexión con el servidor');
+        await elegir(c, new File(['x'], 'archivo.gif', { type: 'image/gif' }));
+        expect(estados[0]).not.toBeNull();
+        expect(estados[estados.length - 1]).toBeNull();
     });
 });

@@ -590,4 +590,29 @@ class UsuarioServiceImplTest {
             assertTrue(servicio.obtenerFotoPerfil(ID).isEmpty());
         }
     }
+
+    @Nested
+    class RestablecerContrasena {
+
+        @Test
+        void guardaLaContrasenaCodificada() {
+            Usuario u = usuario(ID, "juan", "juan@correo.cl");
+            when(usuarioRepository.findById(ID)).thenReturn(Optional.of(u));
+            when(passwordEncoder.encode("Nueva1234")).thenReturn("hash-nuevo");
+
+            servicio.restablecerContrasena(ID, "Nueva1234");
+
+            assertEquals("hash-nuevo", u.getContrasena());
+            verify(usuarioRepository).save(u);
+        }
+
+        @Test
+        void lanzaSiElUsuarioNoExiste() {
+            when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+
+            assertThrows(RecursoNoEncontradoException.class, () -> servicio.restablecerContrasena(99L, "Nueva1234"));
+
+            verify(usuarioRepository, never()).save(any(Usuario.class));
+        }
+    }
 }

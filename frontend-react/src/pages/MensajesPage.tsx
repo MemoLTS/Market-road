@@ -8,15 +8,13 @@ import { useAuth } from '../context/AuthContext';
 import { formatoPrecio, mensajeDeError } from '../core/formato';
 import { validarMonto } from '../core/validaciones';
 import { Link, useNavigate, useParams } from '../core/router';
+import { RESPUESTAS_RAPIDAS } from '../core/mensajesPredeterminados';
 import { useAsync } from '../hooks/useAsync';
 import { urlAbsoluta } from '../services/http';
 import { mensajesService } from '../services/mensajesService';
-import type { ConversacionDetalle, ConversacionResumen, Mensaje, Rol } from '../types/api';
+import type { ConversacionDetalle, ConversacionResumen, Mensaje } from '../types/api';
 
-const RAPIDAS: Record<Rol, string[]> = {
-    COMPRADOR: ['¿Sigue disponible?', '¿Aceptas una oferta?', '¿Dónde podríamos juntarnos?', 'Gracias'],
-    VENDEDOR: ['Sí, sigue disponible', 'Podemos coordinar la entrega por aquí', '¿Cuándo podrías pasar?', 'Gracias'],
-};
+const RAPIDAS = RESPUESTAS_RAPIDAS;
 
 export function normalizarMensajes(mensajes: Mensaje[], miId: number): MensajeChat[] {
     return mensajes.map(m => ({

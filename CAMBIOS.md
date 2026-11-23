@@ -58,3 +58,32 @@ Resumen de lo corregido sobre el proyecto entregado. Las pruebas unitarias exist
 - **Postman:** se quitaron los scripts de prueba (JavaScript); el token del login se copia a la variable `token` del entorno.
 - Tras actualizar `package.json` de `frontend-react`, ejecutar `npm install` (nueva dependencia de desarrollo: `ts-node`). 231 pruebas Jasmine, 0 fallas.
 
+
+
+# Quinta ronda: ubicación, perfil, primer mensaje y contraseñas de usuario
+
+Todo en TypeScript + React (frontend) y servicios Spring Boot (backend). No hay archivos JavaScript.
+
+## Validación de ubicación unificada (perfil = publicaciones)
+- `core/localidad.ts` → `validarLocalidad(texto, lugar, {obligatoria, original, de})`: **una sola regla** para toda localidad. Si el texto cambió, hay que elegirlo en la lista de resultados (Nominatim) o marcarlo en el mapa; así siempre es una ciudad o pueblo real con coordenadas válidas. Si no cambió (localidad ya guardada) se acepta sin volver a buscar.
+- `components/common/SelectorLocalidad.tsx` reemplaza a `BuscadorCiudad` (eliminado) y lo usan el **formulario de publicaciones** y el **perfil** (buscar, lista de resultados, «Elegir en el mapa», «✔ Localidad confirmada»).
+- Editar una publicación ahora también envía `latitud`/`longitud` al elegir otra localidad: `Publication-Api` (`ActualizarPublicacionDTO` + `PublicacionServiceImpl.actualizar`) las guarda solo si vienen juntas y son válidas (`Geo.coordenadasValidas`). Prueba: `ActualizarPublicacionServiceTest`.
+
+## Perfil con un único botón «Guardar cambios»
+- `PerfilPage` tiene **un solo formulario y un solo botón de guardado**: apodo, ciudad, foto (con recorte) y cambio de correo (opcional, pide la contraseña actual). Solo se llama a los servicios de lo que cambió: `PATCH /usuarios/{id}`, `PATCH /usuarios/{id}/correo`, `PUT /usuarios/{id}/foto`.
+- `FotoPerfil` ya no tiene botón propio: entrega al formulario una función que genera el JPEG 512×512 al guardar.
+- Los demás formularios (publicar/editar, registro, inicio de sesión, tickets, personal de soporte, cambio de contraseña, primer mensaje, contraseña de usuario) tienen su botón de guardado/envío.
+
+## Mensajes: primer mensaje en ventana emergente + autocompletado
+- `components/chat/CampoMensaje.tsx`: cuadro de texto con **autocompletado** (filtra sin distinguir tildes/mayúsculas; flechas + Enter o clic; Escape cierra).
+- `core/mensajesPredeterminados.ts`: lista `PRIMER_MENSAJE` (primer contacto) y `RESPUESTAS_RAPIDAS` por rol (dentro del chat), más `sugerirMensajes`.
+- `components/chat/PrimerMensajeModal.tsx`: ventana emergente (Bootstrap) abierta con «Enviar mensaje» en la publicación, con mensajes predeterminados y autocompletado. Al enviar el primer mensaje (`POST /conversaciones`) **la ventana se cierra y se abre el chat**; como la conversación ya existe, la publicación deja de ofrecerla y muestra «Ya hablaste con el vendedor: ver conversación».
+- `ChatThread` usa el mismo autocompletado con las respuestas predeterminadas del rol.
+
+## Administración: cambiar la contraseña de un usuario
+- Backend `User-Api`: `PATCH /api/v1/admin/usuarios/{id}/contrasena` (`RestablecerContrasenaDTO`, `UsuarioService.restablecerContrasena`, BCrypt). Solo superusuario; 403 si el objetivo es **otro** superusuario (la propia cuenta sí se puede); 404 si no existe; 204 si sale bien. Pruebas en `ControllerTest` y `UsuarioServiceImplTest`.
+- Frontend: `adminService.restablecerContrasena`, modal `CambiarContrasenaUsuarioModal` en la pestaña **Usuarios** (botón «Cambiar contraseña» por fila) y atajo en el Dashboard. Valida igual que el registro (8–32, letras y números) y exige repetirla. El modo simulado (`baseDatos.restablecerContrasena`) replica las reglas.
+
+## Pruebas
+- Jasmine/Karma: **255 pruebas, todas pasan** (antes 231). `npx tsc --noEmit` y `npx tsc --noEmit -p tests` sin errores.
+- Java: no se pudo ejecutar Maven en este entorno (sin red); los archivos nuevos solo se revisaron con `javac` a nivel de sintaxis. Conviene correr `mvn test` en `User-Api` y `Publication-Api`.

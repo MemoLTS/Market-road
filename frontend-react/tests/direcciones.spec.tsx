@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import App from '../src/App';
-import BuscadorCiudad from '../src/components/common/BuscadorCiudad';
+import SelectorLocalidad from '../src/components/common/SelectorLocalidad';
+import type { ValorLocalidad } from '../src/components/common/SelectorLocalidad';
+import { validarLocalidad } from '../src/core/localidad';
 import RutaProtegida from '../src/components/layout/RutaProtegida';
 import CambiarContrasena from '../src/components/soporte/CambiarContrasena';
 import { config } from '../src/config';
@@ -114,53 +116,100 @@ describe('direcciones de la API', () => {
     });
 });
 
-describe('BuscadorCiudad (ciudad con sugerencias)', () => {
+describe('validarLocalidad (misma regla en publicaciones y perfil)', () => {
+    const lugar = { nombre: 'Concepción, Biobío, Chile', ubicacion: { lat: -36.82, lon: -73.04 } };
+
+    it('vacío: error si es obligatoria y válido si es opcional', () => {
+        expect(validarLocalidad('', null, { obligatoria: true })).toContain('Busca y elige la localidad');
+        expect(validarLocalidad('  ', null, { obligatoria: false })).toBeNull();
+    });
+
+    it('un texto sin elegir de la lista ni del mapa se rechaza', () => {
+        expect(validarLocalidad('Lota', null, { de: 'de tu perfil' })).toBe('Busca y elige la localidad de tu perfil en la lista o márcala en el mapa.');
+    });
+
+    it('un lugar elegido con coordenadas válidas se acepta y uno con coordenadas inválidas no', () => {
+        expect(validarLocalidad(lugar.nombre, lugar)).toBeNull();
+        expect(validarLocalidad(lugar.nombre, { ...lugar, ubicacion: { lat: 120, lon: 0 } })).toContain('coordenadas');
+    });
+
+    it('la localidad ya guardada se acepta mientras no se cambie', () => {
+        expect(validarLocalidad('Concepción', null, { original: 'Concepción' })).toBeNull();
+        expect(validarLocalidad('Concepcion', null, { original: 'Concepción' })).toContain('Busca y elige');
+    });
+
+    it('valida el largo (2 a 120 caracteres)', () => {
+        expect(validarLocalidad('a', null)).toContain('entre 2 y 120');
+        expect(validarLocalidad('a'.repeat(121), null)).toContain('entre 2 y 120');
+    });
+});
+
+describe('SelectorLocalidad (búsqueda y elección de localidad)', () => {
     afterEach(desmontarTodo);
     const resultado = { lat: '-36.82', lon: '-73.04', class: 'place', type: 'city', address: { city: 'Concepción', state: 'Biobío', country: 'Chile' } };
 
-    function Prueba({ inicial = '' }: { inicial?: string }) {
-        return <BuscadorCiudadControlado inicial={inicial} />;
+    function Controlado({ inicial = '', original }: { inicial?: string; original?: string }) {
+        const [valor, setValor] = useState<ValorLocalidad>({ ubicacion: inicial, lugar: null });
+        return <><SelectorLocalidad id="locPrueba" valor={valor} original={original} onCambiar={setValor} /><output data-testid="valor">{valor.ubicacion}|{valor.lugar ? 'confirmada' : 'sin-confirmar'}</output></>;
     }
-    // Pequeño envoltorio con estado, como lo usa la página de perfil.
-    function BuscadorCiudadControlado({ inicial }: { inicial: string }) {
-        const [valor, setValor] = useState(inicial);
-        return <><BuscadorCiudad id="ciudadPrueba" valor={valor} onCambiar={setValor} /><output data-testid="valor">{valor}</output></>;
-    }
+    const buscar = (c: HTMLElement) => clic(Array.from(c.querySelectorAll('button')).find(b => b.textContent === 'Buscar'));
 
-    it('pide al menos 3 letras antes de buscar', async () => {
+    it('pide al menos 2 letras antes de buscar', async () => {
         const espia = spyOn(window, 'fetch');
-        const c = await montar(<Prueba inicial="Co" />);
-        await clic(Array.from(c.querySelectorAll('button')).find(b => b.textContent === 'Buscar'));
-        expect(texto(c)).toContain('al menos 3 letras');
+        const c = await montar(<Controlado inicial="C" />);
+        await buscar(c);
+        expect(texto(c)).toContain('al menos 2 letras');
         expect(espia).not.toHaveBeenCalled();
     });
 
-    it('muestra las ciudades encontradas y al elegir una la entrega', async () => {
+    it('muestra las localidades encontradas y al elegir una la confirma con sus coordenadas', async () => {
         spyOn(window, 'fetch').and.resolveTo(respuestaJson([resultado]));
-        const c = await montar(<Prueba inicial="Concep" />);
-        await clic(Array.from(c.querySelectorAll('button')).find(b => b.textContent === 'Buscar'));
+        const c = await montar(<Controlado inicial="Concep" />);
+        await buscar(c);
         await esperar(1300);
-        const opcion = c.querySelector('[role="option"]') as HTMLButtonElement;
+        const opcion = c.querySelector('ul[aria-label="Resultados de localidades"] button') as HTMLButtonElement;
         expect(opcion.textContent).toBe('Concepción, Biobío, Chile');
         await clic(opcion);
-        expect(c.querySelector('[data-testid="valor"]')?.textContent).toBe('Concepción, Biobío, Chile');
-        expect(c.querySelector('[role="option"]')).toBeNull();
+        expect(c.querySelector('[data-testid="valor"]')?.textContent).toBe('Concepción, Biobío, Chile|confirmada');
+        expect(texto(c)).toContain('Localidad confirmada');
+        expect(c.querySelector('ul[aria-label="Resultados de localidades"]')).toBeNull();
+    });
+
+    it('al volver a escribir se pierde la confirmación', async () => {
+        spyOn(window, 'fetch').and.resolveTo(respuestaJson([resultado]));
+        const c = await montar(<Controlado inicial="Concep" />);
+        await buscar(c);
+        await esperar(1300);
+        await clic(c.querySelector('ul[aria-label="Resultados de localidades"] button'));
+        await escribir(c.querySelector('#locPrueba'), 'Lota');
+        expect(c.querySelector('[data-testid="valor"]')?.textContent).toBe('Lota|sin-confirmar');
     });
 
     it('avisa cuando no hay resultados', async () => {
         spyOn(window, 'fetch').and.resolveTo(respuestaJson([]));
-        const c = await montar(<Prueba inicial="Zzzzz" />);
-        await clic(Array.from(c.querySelectorAll('button')).find(b => b.textContent === 'Buscar'));
+        const c = await montar(<Controlado inicial="Zzzzz" />);
+        await buscar(c);
         await esperar(1300);
-        expect(texto(c)).toContain('No encontramos ciudades o pueblos');
+        expect(texto(c)).toContain('No encontramos ciudades, pueblos o aldeas');
     });
 
     it('si el servicio falla muestra el error y deja seguir escribiendo', async () => {
         spyOn(window, 'fetch').and.resolveTo(respuestaJson({}, 500));
-        const c = await montar(<Prueba inicial="Concep" />);
-        await clic(Array.from(c.querySelectorAll('button')).find(b => b.textContent === 'Buscar'));
+        const c = await montar(<Controlado inicial="Concep" />);
+        await buscar(c);
         await esperar(1300);
         expect(texto(c)).toContain('No se pudo consultar el servicio de ubicaciones');
+    });
+
+    it('con una localidad ya guardada indica que está guardada', async () => {
+        const c = await montar(<Controlado inicial="Concepción" original="Concepción" />);
+        expect(texto(c)).toContain('Localidad guardada');
+    });
+
+    it('ofrece elegir en el mapa', async () => {
+        const c = await montar(<Controlado />);
+        const boton = Array.from(c.querySelectorAll('button')).find(b => b.textContent === 'Elegir en el mapa');
+        expect(boton).toBeDefined();
     });
 });
 

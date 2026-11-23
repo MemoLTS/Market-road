@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
 import { formatoFechaCorta, formatoPrecio } from '../../core/formato';
 import { LIMITES, validarMensaje } from '../../core/validaciones';
 import type { EstadoOferta, TipoMensaje } from '../../types/api';
 import Alert from '../common/Alert';
+import CampoMensaje from './CampoMensaje';
 
 export interface MensajeChat {
     id: number;
@@ -55,7 +56,7 @@ export interface PropsChatThread {
     puedeEscribir?: boolean;
     puedeResponderOfertas?: boolean;
     onResponderOferta?: ResponderOferta;
-    respuestasRapidas?: string[];
+    respuestasRapidas?: readonly string[];
     error?: string;
 }
 
@@ -101,9 +102,8 @@ export default function ChatThread({ mensajes, onEnviar, puedeEscribir = true, p
                         </div>
                     )}
                     <div className="input-group">
-                        <textarea className="form-control" rows={1} maxLength={LIMITES.mensaje.max} placeholder="Escribe un mensaje" aria-label="Mensaje"
-                            value={texto} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTexto(e.target.value)}
-                            onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent?.isComposing) { e.preventDefault(); enviar(); } }} />
+                        <CampoMensaje rows={1} valor={texto} onCambiar={setTexto} sugerencias={respuestasRapidas} placeholder="Escribe un mensaje" etiqueta="Mensaje"
+                            onTeclear={(e: KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent?.isComposing) { e.preventDefault(); enviar(); } }} />
                         <button type="submit" className="btn btn-primary" disabled={enviando}>Enviar</button>
                     </div>
                     <div className="form-text text-end">{texto.length}/{LIMITES.mensaje.max}</div>

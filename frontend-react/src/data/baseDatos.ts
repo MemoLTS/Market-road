@@ -185,6 +185,7 @@ export function actualizarPublicacion(id: number | string, cambios: CambiosPubli
     if (cambios.ubicacion !== undefined) p.ubicacion = cambios.ubicacion;
     if (cambios.categoria !== undefined) p.categoria = cambios.categoria;
     if (cambios.unidades !== undefined) p.unidades = unidadesDe(cambios.unidades);
+    if (cambios.latitud !== undefined && cambios.longitud !== undefined) { p.latitud = cambios.latitud; p.longitud = cambios.longitud; }
     if (cambios.estado !== undefined) p.estado = cambios.estado as EstadoPublicacion;
     if (cambios.categoria) p.categoriaNombre = CATEGORIAS.find(c => c.codigo === cambios.categoria)?.nombre ?? p.categoriaNombre;
     guardar();
@@ -248,6 +249,19 @@ export function autenticar(correo: string, contrasena: string): { token: string;
 
 export function listarUsuarios(): Usuario[] {
     return cargar().usuarios.map(sinContrasena);
+}
+
+/**
+ * Simula PATCH /admin/usuarios/{id}/contrasena. Devuelve un texto de error (o null si todo salió bien):
+ * 'no-existe' si el usuario no existe y 'superusuario' si es otro superusuario (el backend responde 403).
+ */
+export function restablecerContrasena(adminId: number, id: number, contrasena: string): 'no-existe' | 'superusuario' | null {
+    const u = cargar().usuarios.find(x => x.id === Number(id));
+    if (!u) return 'no-existe';
+    if (u.rol === 'SUPERUSUARIO' && u.id !== Number(adminId)) return 'superusuario';
+    u.contrasena = contrasena;
+    guardar();
+    return null;
 }
 
 export function actualizarUsuario(id: number, cambios: { apodo?: string; ciudad?: string }): Usuario | null {

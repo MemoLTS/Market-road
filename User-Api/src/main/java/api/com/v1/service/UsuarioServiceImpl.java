@@ -135,6 +135,14 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     @Transactional
+    public void restablecerContrasena(Long id, String contrasenaNueva) {
+        Usuario usuario = buscarPorIdOLanzar(id);
+        usuario.setContrasena(passwordEncoder.encode(contrasenaNueva));
+        usuarioRepository.save(usuario);
+    }
+
+    @Override
+    @Transactional
     public void eliminar(Long id) {
         Usuario usuario = buscarPorIdOLanzar(id);
         dispositivoInicioSesionRepository.deleteAllByUsuarioId(id);

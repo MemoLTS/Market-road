@@ -1,18 +1,17 @@
 import { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { mensajeDeError } from '../../core/formato';
-import { buscarLugares, buscarLugarEnCoordenadas } from '../../core/geocodificacion';
 import type { Lugar } from '../../core/geocodificacion';
-import type { Ubicacion } from '../../core/formato';
+import { validarLocalidad } from '../../core/localidad';
 import {
-    LIMITES, primerError, validarCoordenadas, validarDescripcion, validarFotos, validarMonto, validarTitulo, validarUbicacion, validarUnidades,
+    LIMITES, primerError, validarDescripcion, validarFotos, validarMonto, validarTitulo, validarUnidades,
 } from '../../core/validaciones';
 import type { ArchivoFoto } from '../../core/validaciones';
 import type { Categoria, Publicacion } from '../../types/api';
 import type { DatosPublicacion } from '../../types/app';
 import Alert from '../common/Alert';
 import Campo from '../common/Campo';
-import MapaSelector from './MapaSelector';
+import SelectorLocalidad from '../common/SelectorLocalidad';
 
 const MODALIDADES = [
     { codigo: 'ENTREGA_PERSONAL', nombre: 'Entrega en persona' },
@@ -43,14 +42,23 @@ export type ValidablePublicacion = Omit<ValoresFormulario, 'fotos'> & { fotos: r
 export interface OpcionesValidacion {
     modo?: 'crear' | 'editar';
     exigirLugar?: boolean;
+    /** Localidad ya guardada (al editar): se acepta sin volver a buscarla mientras no se cambie. */
+    ubicacionOriginal?: string;
 }
 
-export function validarPublicacion(v: ValidablePublicacion, { modo = 'crear', exigirLugar = true }: OpcionesValidacion = {}) {
+/** Localidad de una publicación: misma regla que el perfil (ver core/localidad.ts). */
+export function validarLocalidadPublicacion(v: ValidablePublicacion, { exigirLugar = true, ubicacionOriginal }: OpcionesValidacion = {}) {
+    if (!exigirLugar) return validarLocalidad(v.ubicacion, v.lugar, { obligatoria: true, original: v.ubicacion, de: 'de la publicación' });
+    return validarLocalidad(v.ubicacion, v.lugar, { obligatoria: true, original: ubicacionOriginal, de: 'de la publicación' });
+}
+
+export function validarPublicacion(v: ValidablePublicacion, opciones: OpcionesValidacion = {}) {
+    const { modo = 'crear' } = opciones;
     const base = [
         validarTitulo(v.titulo.trim()),
         validarMonto(v.precio),
         validarDescripcion(v.descripcion.trim()),
-        validarUbicacion(v.ubicacion.trim()),
+        validarLocalidadPublicacion(v, opciones),
         v.categoria ? null : 'Selecciona una categoría.',
         validarUnidades(v.unidades),
     ];
@@ -59,7 +67,6 @@ export function validarPublicacion(v: ValidablePublicacion, { modo = 'crear', ex
         ...base,
         v.modalidadesEntrega.length ? null : 'Selecciona al menos una modalidad de entrega.',
         validarFotos(v.fotos),
-        exigirLugar ? (v.lugar ? validarCoordenadas(v.lugar.ubicacion.lat, v.lugar.ubicacion.lon) : 'Busca y elige la localidad de la publicación.') : null,
     );
 }
 
@@ -82,12 +89,8 @@ export default function PublicationForm({ categorias, onEnviar, onCancelar, modo
         ubicacion: inicial?.ubicacion ?? '', categoria: inicial?.categoria ?? '', modalidadesEntrega: [],
         unidades: inicial && inicial.unidades > 1 ? String(inicial.unidades) : '', fotos: [], lugar: null,
     });
-    const [resultados, setResultados] = useState<Lugar[]>([]);
-    const [buscando, setBuscando] = useState(false);
     const [error, setError] = useState('');
     const [enviando, setEnviando] = useState(false);
-    const [mapaAbierto, setMapaAbierto] = useState(false);
-    const [estadoMapa, setEstadoMapa] = useState('');
 
     const cambiar = (campo: 'titulo' | 'precio' | 'descripcion' | 'categoria' | 'unidades') => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): void => setV(x => ({ ...x, [campo]: e.target.value }));
     const alternarModalidad = (codigo: string): void => setV(x => ({
@@ -95,40 +98,9 @@ export default function PublicationForm({ categorias, onEnviar, onCancelar, modo
         modalidadesEntrega: x.modalidadesEntrega.includes(codigo) ? x.modalidadesEntrega.filter(m => m !== codigo) : [...x.modalidadesEntrega, codigo],
     }));
 
-    async function buscarLocalidad(): Promise<void> {
-        setError('');
-        if (v.ubicacion.trim().length < 2) { setError('Escribe al menos 2 letras para buscar la localidad.'); return; }
-        setBuscando(true);
-        try {
-            const lugares = await buscarLugares(v.ubicacion);
-            setResultados(lugares);
-            if (!lugares.length) setError('No encontramos ciudades, pueblos o aldeas con ese nombre.');
-        } catch (e) {
-            setError(mensajeDeError(e));
-        } finally {
-            setBuscando(false);
-        }
-    }
-
-    /** Un clic en el mapa: se identifica la ciudad o pueblo de ese punto y se confirma como localidad. */
-    async function elegirEnMapa(punto: Ubicacion): Promise<void> {
-        setError('');
-        setResultados([]);
-        setV(x => ({ ...x, lugar: null }));
-        setEstadoMapa('Verificando la ciudad o pueblo de esta zona...');
-        try {
-            const lugar = await buscarLugarEnCoordenadas(punto);
-            setV(x => ({ ...x, ubicacion: lugar.nombre, lugar }));
-            setEstadoMapa('');
-        } catch (e) {
-            setEstadoMapa('');
-            setError(mensajeDeError(e, 'No se pudo identificar una ciudad o pueblo en esa zona.'));
-        }
-    }
-
     async function enviar(e: FormEvent<HTMLFormElement>): Promise<void> {
         e.preventDefault();
-        const invalido = validarPublicacion(v, { modo, exigirLugar });
+        const invalido = validarPublicacion(v, { modo, exigirLugar, ubicacionOriginal: inicial?.ubicacion });
         if (invalido) { setError(invalido); return; }
         setError('');
         setEnviando(true);
@@ -169,32 +141,8 @@ export default function PublicationForm({ categorias, onEnviar, onCancelar, modo
                 <textarea id="pubDescripcion" className="form-control" rows={4} maxLength={LIMITES.descripcion.max} value={v.descripcion} onChange={cambiar('descripcion')} />
             </Campo>
             <Campo id="pubUbicacion" etiqueta="Localidad">
-                <div className="input-group">
-                    <input id="pubUbicacion" className="form-control" value={v.ubicacion} placeholder="Ej.: Concepción"
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => setV(x => ({ ...x, ubicacion: e.target.value, lugar: null }))} />
-                    {modo === 'crear' && (
-                        <button type="button" className="btn btn-outline-secondary" onClick={buscarLocalidad} disabled={buscando}>{buscando ? 'Buscando...' : 'Buscar'}</button>
-                    )}
-                    {modo === 'crear' && (
-                        <button type="button" className="btn btn-outline-secondary" aria-expanded={mapaAbierto} onClick={() => setMapaAbierto(a => !a)}>
-                            {mapaAbierto ? 'Ocultar mapa' : 'Elegir en el mapa'}
-                        </button>
-                    )}
-                </div>
-                {estadoMapa && <div className="form-text" role="status">{estadoMapa}</div>}
-                {mapaAbierto && modo === 'crear' && (
-                    <div className="mt-2"><MapaSelector posicion={v.lugar?.ubicacion ?? null} onSeleccionar={p => { void elegirEnMapa(p); }} /></div>
-                )}
-                {resultados.length > 0 && !v.lugar && (
-                    <ul className="list-group mt-2" aria-label="Resultados de localidades">
-                        {resultados.map(l => (
-                            <li key={`${l.nombre}-${l.ubicacion.lat}`} className="list-group-item list-group-item-action">
-                                <button type="button" className="btn btn-link p-0 text-start" onClick={() => { setV(x => ({ ...x, ubicacion: l.nombre, lugar: l })); setResultados([]); }}>{l.nombre}</button>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-                {v.lugar && <div className="form-text text-success">✔ Localidad confirmada.</div>}
+                <SelectorLocalidad id="pubUbicacion" valor={{ ubicacion: v.ubicacion, lugar: v.lugar }} original={inicial?.ubicacion}
+                    onCambiar={n => setV(x => ({ ...x, ubicacion: n.ubicacion, lugar: n.lugar }))} />
             </Campo>
             {modo === 'crear' && (
                 <>

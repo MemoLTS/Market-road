@@ -23,6 +23,8 @@ public interface UsuarioService {
 
     UsuarioResponseDTO cambiarCorreo(Long id, CambioCorreoDTO dto);
 
+    void restablecerContrasena(Long id, String contrasenaNueva);
+
     void eliminar(Long id);
 
     void actualizarFotoPerfil(Long id, byte[] contenido, String tipoContenido);

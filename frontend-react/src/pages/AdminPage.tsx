@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import type { ChangeEvent, ReactNode } from 'react';
+import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import Alert from '../components/common/Alert';
+import Campo from '../components/common/Campo';
 import Modal from '../components/common/Modal';
 import Spinner from '../components/common/Spinner';
-import { formatoFechaCorta, formatoPrecio } from '../core/formato';
+import { formatoFechaCorta, formatoPrecio, mensajeDeError } from '../core/formato';
+import { validarContrasenaNueva } from '../core/validaciones';
 import { useAsync } from '../hooks/useAsync';
 import { adminService } from '../services/adminService';
 import { config } from '../config';
@@ -73,7 +75,7 @@ export function ActividadPublicaciones() {
     );
 }
 
-function Dashboard({ usuarios, publicaciones, resumen }: { usuarios: Usuario[]; publicaciones: AdminPublicacion[]; resumen: ResumenSoporte | null }) {
+function Dashboard({ usuarios, publicaciones, resumen, onIrUsuarios }: { usuarios: Usuario[]; publicaciones: AdminPublicacion[]; resumen: ResumenSoporte | null; onIrUsuarios: () => void }) {
     const activas = publicaciones.filter(p => p.estado === 'ACTIVA').length;
     const vendidas = publicaciones.filter(p => p.estado === 'VENDIDA').length;
     const tarjetas: [string, number | string, string, string][] = [
@@ -93,6 +95,9 @@ function Dashboard({ usuarios, publicaciones, resumen }: { usuarios: Usuario[]; 
                         </div></div>
                     </div>
                 ))}
+            </div>
+            <div className="d-flex justify-content-end mt-3">
+                <button type="button" className="btn btn-outline-primary btn-sm" onClick={onIrUsuarios}>Cambiar contraseña de un usuario</button>
             </div>
             <ActividadPublicaciones />
         </>
@@ -125,7 +130,59 @@ export function TicketAdminModal({ id, onCerrar }: { id: number | null; onCerrar
     );
 }
 
+/**
+ * Ventana para que el superusuario fije una contraseña nueva a un usuario (no necesita la anterior).
+ * Valida igual que el registro y confirma con la repetición; el servidor guarda solo el hash BCrypt.
+ */
+export function CambiarContrasenaUsuarioModal({ usuario, onCerrar }: { usuario: Usuario | null; onCerrar: () => void }) {
+    const [nueva, setNueva] = useState('');
+    const [repetir, setRepetir] = useState('');
+    const [estado, setEstado] = useState({ mensaje: '', tipo: 'danger' });
+    const [guardando, setGuardando] = useState(false);
+
+    function cerrar(): void {
+        setNueva(''); setRepetir(''); setEstado({ mensaje: '', tipo: 'danger' });
+        onCerrar();
+    }
+
+    async function guardar(e: FormEvent<HTMLFormElement>): Promise<void> {
+        e.preventDefault();
+        if (!usuario) return;
+        const invalido = validarContrasenaNueva(nueva) ?? (nueva !== repetir ? 'Las contraseñas no coinciden.' : null);
+        if (invalido) { setEstado({ mensaje: invalido, tipo: 'danger' }); return; }
+        setGuardando(true);
+        try {
+            await adminService.restablecerContrasena(usuario.id, nueva);
+            setNueva(''); setRepetir('');
+            setEstado({ mensaje: `Contraseña de ${usuario.apodo ?? usuario.correo} actualizada.`, tipo: 'success' });
+        } catch (err) {
+            setEstado({ mensaje: mensajeDeError(err, 'No se pudo cambiar la contraseña.'), tipo: 'danger' });
+        } finally {
+            setGuardando(false);
+        }
+    }
+
+    return (
+        <Modal abierto={usuario !== null} titulo={usuario ? `Cambiar contraseña de ${usuario.apodo ?? usuario.correo}` : 'Cambiar contraseña'} onCerrar={cerrar}>
+            <form onSubmit={guardar} noValidate aria-label="Cambiar contraseña de usuario">
+                <Alert mensaje={estado.mensaje} tipo={estado.tipo} />
+                <Campo id="adminClaveNueva" etiqueta="Nueva contraseña" ayuda="Entre 8 y 32 caracteres, con letras y números, sin espacios.">
+                    <input id="adminClaveNueva" type="password" autoComplete="new-password" className="form-control" value={nueva} onChange={(e: ChangeEvent<HTMLInputElement>) => setNueva(e.target.value)} />
+                </Campo>
+                <Campo id="adminClaveRepetir" etiqueta="Repite la contraseña">
+                    <input id="adminClaveRepetir" type="password" autoComplete="new-password" className="form-control" value={repetir} onChange={(e: ChangeEvent<HTMLInputElement>) => setRepetir(e.target.value)} />
+                </Campo>
+                <div className="d-flex justify-content-end gap-2">
+                    <button type="button" className="btn btn-outline-secondary" onClick={cerrar}>Cerrar</button>
+                    <button type="submit" className="btn btn-primary" disabled={guardando}>{guardando ? 'Guardando...' : 'Guardar contraseña'}</button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
 export default function AdminPage() {
+    const [usuarioContrasena, setUsuarioContrasena] = useState<Usuario | null>(null);
     const [ticketAbierto, setTicketAbierto] = useState<number | null>(null);
     const [pestana, setPestana] = useState('dashboard');
     const [filtro, setFiltro] = useState('');
@@ -150,7 +207,7 @@ export default function AdminPage() {
             <Alert mensaje={error} />
             {cargando ? <Spinner /> : (
                 <>
-                    {pestana === 'dashboard' && <Dashboard usuarios={usuarios.datos ?? []} publicaciones={publicaciones.datos ?? []} resumen={resumen.datos} />}
+                    {pestana === 'dashboard' && <Dashboard usuarios={usuarios.datos ?? []} publicaciones={publicaciones.datos ?? []} resumen={resumen.datos} onIrUsuarios={() => { setPestana('usuarios'); setFiltro(''); }} />}
                     {pestana !== 'dashboard' && pestana !== 'soporte' && (
                         <input type="search" className="form-control mb-3" placeholder="Filtrar" aria-label="Filtrar" value={filtro} onChange={(e: ChangeEvent<HTMLInputElement>) => setFiltro(e.target.value)} />
                     )}
@@ -160,6 +217,7 @@ export default function AdminPage() {
                                 { titulo: 'ID', celda: u => u.id }, { titulo: 'Nombre', celda: u => `${u.nombre} ${u.apellido}` },
                                 { titulo: 'Apodo', celda: u => u.apodo ?? '—' }, { titulo: 'Correo', celda: u => u.correo },
                                 { titulo: 'Ciudad', celda: u => u.ciudad ?? '—' }, { titulo: 'Rol', celda: u => u.rol ?? 'USUARIO' },
+                                { titulo: 'Contraseña', celda: u => <button type="button" className="btn btn-sm btn-outline-primary" aria-label={`Cambiar contraseña de ${u.apodo ?? u.correo}`} onClick={() => setUsuarioContrasena(u)}>Cambiar contraseña</button> },
                             ]} />
                     )}
                     {pestana === 'publicaciones' && (
@@ -185,6 +243,7 @@ export default function AdminPage() {
                         ))}
                 </>
             )}
+            <CambiarContrasenaUsuarioModal usuario={usuarioContrasena} onCerrar={() => setUsuarioContrasena(null)} />
             <TicketAdminModal id={ticketAbierto} onCerrar={() => setTicketAbierto(null)} />
         </div>
     );

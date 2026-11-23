@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ChangeEvent, FormEvent } from 'react';
+import PrimerMensajeModal from '../components/chat/PrimerMensajeModal';
 import Alert from '../components/common/Alert';
 import Modal from '../components/common/Modal';
 import Spinner from '../components/common/Spinner';
@@ -8,7 +8,7 @@ import { config } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { useUi } from '../context/UiContext';
 import { formatoFechaCorta, formatoPrecio, mensajeDeError } from '../core/formato';
-import { unidadesDe, validarMensaje } from '../core/validaciones';
+import { unidadesDe } from '../core/validaciones';
 import { Link, useNavigate, useParams } from '../core/router';
 import { useCategorias } from '../hooks/usePublicaciones';
 import { useAsync } from '../hooks/useAsync';
@@ -34,8 +34,10 @@ export default function PublicationDetailPage() {
     const categorias = useCategorias();
     const { datos: p, cargando, error, recargar } = useAsync(() => publicacionesService.obtener(id), [id]);
     const [foto, setFoto] = useState(0);
-    const [mensaje, setMensaje] = useState('');
-    const [errorContacto, setErrorContacto] = useState('');
+    const [escribiendo, setEscribiendo] = useState(false);
+    // Conversación ya iniciada con el vendedor: si existe, la ventana del primer mensaje deja de ofrecerse.
+    const { datos: conversaciones, recargar: recargarConversaciones } = useAsync(
+        () => (autenticado && !config.usarMock ? mensajesService.deLaPublicacion(Number(id)) : Promise.resolve([])), [id, autenticado]);
     const [editando, setEditando] = useState(false);
     const [errorAccion, setErrorAccion] = useState('');
 
@@ -51,17 +53,13 @@ export default function PublicationDetailPage() {
     const esDueno = usuario?.id === p.usuarioId;
     const imagenes = (p.imagenUrls ?? []).map(urlAbsoluta);
 
-    async function contactar(e: FormEvent<HTMLFormElement>): Promise<void> {
-        e.preventDefault();
-        const invalido = validarMensaje(mensaje.trim());
-        if (invalido) { setErrorContacto(invalido); return; }
-        setErrorContacto('');
-        try {
-            const conversacionId = await contactarVendedor(publicacion.id, mensaje.trim());
-            navegar(`/mensajes/${conversacionId}`);
-        } catch (err) {
-            setErrorContacto(mensajeDeError(err, 'No se pudo enviar el mensaje.'));
-        }
+    const conversacionExistente = conversaciones?.[0] ?? null;
+
+    /** Primer mensaje: crea la conversación, cierra la ventana (lo hace el modal) y lleva al chat. */
+    async function enviarPrimerMensaje(contenido: string): Promise<void> {
+        const conversacionId = await contactarVendedor(publicacion.id, contenido);
+        void recargarConversaciones();
+        navegar(`/mensajes/${conversacionId}`);
     }
 
     async function eliminar(): Promise<void> {
@@ -75,7 +73,8 @@ export default function PublicationDetailPage() {
     }
 
     async function guardar(datos: DatosPublicacion): Promise<void> {
-        await publicacionesService.actualizar(publicacion.id, { titulo: datos.titulo.trim(), precio: datos.precio, descripcion: datos.descripcion.trim(), ubicacion: datos.ubicacion.trim(), categoria: datos.categoria, unidades: unidadesDe(datos.unidades) });
+        await publicacionesService.actualizar(publicacion.id, { titulo: datos.titulo.trim(), precio: datos.precio, descripcion: datos.descripcion.trim(), ubicacion: datos.ubicacion.trim(), categoria: datos.categoria, unidades: unidadesDe(datos.unidades),
+            ...(datos.latitud !== null && datos.longitud !== null ? { latitud: datos.latitud, longitud: datos.longitud } : {}) });
         setEditando(false);
         recargar();
     }
@@ -123,20 +122,21 @@ export default function PublicationDetailPage() {
                             {p.estado !== 'VENDIDA' && <button type="button" className="btn btn-outline-danger btn-icono" onClick={eliminar}>Eliminar publicación</button>}
                         </div>
                     ) : p.estado === 'ACTIVA' ? (
-                        <form onSubmit={contactar} className="rounded-3 bg-body-tertiary p-3" aria-label="Contactar al vendedor" noValidate>
+                        <div className="rounded-3 bg-body-tertiary p-3" aria-label="Contactar al vendedor">
                             <h2 className="h6">Contactar al vendedor</h2>
                             {config.usarMock && <p className="small text-secondary">La mensajería requiere el backend real (modo demostración activo).</p>}
-                            <Alert mensaje={errorContacto} />
-                            <textarea className="form-control mb-2" rows={3} aria-label="Mensaje para el vendedor" placeholder="Hola, ¿sigue disponible?"
-                                value={mensaje} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setMensaje(e.target.value)} />
-                            {autenticado
-                                ? <button type="submit" className="btn btn-primary w-100" disabled={config.usarMock}>Enviar mensaje</button>
-                                : <button type="button" className="btn btn-primary w-100" onClick={abrirLogin}>Inicia sesión para contactar</button>}
-                        </form>
+                            {!autenticado
+                                ? <button type="button" className="btn btn-primary w-100" onClick={abrirLogin}>Inicia sesión para contactar</button>
+                                : conversacionExistente
+                                    ? <Link to={`/mensajes/${conversacionExistente.id}`} className="btn btn-outline-primary w-100">Ya hablaste con el vendedor: ver conversación</Link>
+                                    : <button type="button" className="btn btn-primary w-100" disabled={config.usarMock} onClick={() => setEscribiendo(true)}>Enviar mensaje</button>}
+                        </div>
                     ) : <Alert tipo="secondary" mensaje="Esta publicación ya no está disponible." />}
                     </div></div>
                 </div>
             </div>
+            <PrimerMensajeModal abierto={escribiendo && !conversacionExistente} titulo="Primer mensaje al vendedor" vendedor={p.vendedorApodo ?? undefined}
+                onCerrar={() => setEscribiendo(false)} onEnviar={enviarPrimerMensaje} />
             <Modal abierto={editando} titulo="Editar publicación" onCerrar={() => setEditando(false)} tamano="modal-lg">
                 <PublicationForm modo="editar" inicial={p} categorias={categorias} onEnviar={guardar} onCancelar={() => setEditando(false)} />
             </Modal>

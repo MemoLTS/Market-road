@@ -1,3 +1,4 @@
+import { act } from 'react';
 import App from '../src/App';
 import RutaProtegida from '../src/components/layout/RutaProtegida';
 import { config } from '../src/config';
@@ -16,7 +17,8 @@ import { authService } from '../src/services/authService';
 import { mensajesService } from '../src/services/mensajesService';
 import { guardarSesion } from '../src/services/sesion';
 import { soportePanelService, soporteUsuarioService } from '../src/services/soporteService';
-import { botonPorTexto, clic, desmontarTodo, enviarFormulario, escribir, esperar, montar, montarConApp, texto } from './helpers';
+import { publicacionesService } from '../src/services/publicacionesService';
+import { botonPorTexto, clic, desmontarTodo, enviarFormulario, escribir, esperar, montar, montarConApp, publicacionDePrueba, respuestaJson, texto } from './helpers';
 
 const demo = { id: 1, nombre: 'Demo', apellido: 'Usuario', apodo: 'demo', correo: 'demo@marketroad.cl', ciudad: 'Concepción', rol: 'USUARIO' };
 const admin = { id: 2, nombre: 'Admin', apellido: 'Market', apodo: 'admin', correo: 'admin@marketroad.cl', rol: 'SUPERUSUARIO' };
@@ -332,6 +334,59 @@ describe('AdminPage (modo simulado)', () => {
         expect(texto(c)).toContain('No hay usuarios.');
     });
 
+    it('el superusuario cambia la contraseña de un usuario desde su dashboard (y el usuario entra con la nueva)', async () => {
+        sesion(admin);
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await clic(botonPorTexto(c, 'Cambiar contraseña de un usuario'));
+        await clic(c.querySelector('button[aria-label="Cambiar contraseña de demo"]'));
+        const formulario = () => document.querySelector('form[aria-label="Cambiar contraseña de usuario"]');
+        await escribir(document.querySelector('#adminClaveNueva') as HTMLInputElement, 'Nueva1234');
+        await escribir(document.querySelector('#adminClaveRepetir') as HTMLInputElement, 'Nueva1234');
+        await enviarFormulario(formulario());
+        await esperar(30);
+        expect(document.querySelector('.modal')?.textContent).toContain('Contraseña de demo actualizada.');
+        expect(bd.autenticar('demo@marketroad.cl', 'Nueva1234').usuario.apodo).toBe('demo');
+        expect(() => bd.autenticar('demo@marketroad.cl', 'demo1234')).toThrow();
+    });
+
+    it('valida la contraseña nueva y su repetición antes de llamar al servicio', async () => {
+        const restablecer = spyOn(adminService, 'restablecerContrasena').and.resolveTo();
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await clic(Array.from(c.querySelectorAll('[role=tab]')).find(t => t.textContent === 'Usuarios'));
+        await clic(c.querySelector('button[aria-label="Cambiar contraseña de demo"]'));
+        const formulario = () => document.querySelector('form[aria-label="Cambiar contraseña de usuario"]');
+        await escribir(document.querySelector('#adminClaveNueva') as HTMLInputElement, 'corta');
+        await enviarFormulario(formulario());
+        expect(document.querySelector('.modal')?.textContent).toContain('entre 8 y 32');
+        await escribir(document.querySelector('#adminClaveNueva') as HTMLInputElement, 'Nueva1234');
+        await escribir(document.querySelector('#adminClaveRepetir') as HTMLInputElement, 'Otra12345');
+        await enviarFormulario(formulario());
+        expect(document.querySelector('.modal')?.textContent).toContain('no coinciden');
+        expect(restablecer).not.toHaveBeenCalled();
+    });
+
+    it('el servicio (modo simulado) rechaza cambiar la contraseña de otro superusuario con 403 y de un usuario inexistente con 404', async () => {
+        sesion(demo); // la sesión es de la persona 1; el objetivo es el superusuario 2
+        await expectAsync(adminService.restablecerContrasena(2, 'Nueva1234')).toBeRejectedWithError(/otro superusuario/);
+        sesion(admin);
+        await expectAsync(adminService.restablecerContrasena(999, 'Nueva1234')).toBeRejectedWithError(/no existe/);
+        await adminService.restablecerContrasena(2, 'Nueva1234'); // el superusuario sí puede cambiar la suya
+        expect(bd.autenticar('admin@marketroad.cl', 'Nueva1234').usuario.rol).toBe('SUPERUSUARIO');
+    });
+
+    it('con el backend real envía PATCH /admin/usuarios/{id}/contrasena con la contraseña nueva', async () => {
+        config.usarMock = false;
+        sesion(admin);
+        const espia = spyOn(window, 'fetch').and.resolveTo(respuestaJson(null, 204));
+        await adminService.restablecerContrasena(7, 'Nueva1234');
+        const [url, opciones] = espia.calls.mostRecent().args as [string, RequestInit];
+        expect(String(url)).toContain('/admin/usuarios/7/contrasena');
+        expect(opciones.method).toBe('PATCH');
+        expect(JSON.parse(String(opciones.body))).toEqual({ contrasena: 'Nueva1234' });
+    });
+
     it('la pestaña Publicaciones muestra las 8 publicaciones', async () => {
         const c = await montarConApp(<AdminPage />);
         await esperar(40);
@@ -374,24 +429,209 @@ describe('PerfilPage (modo simulado)', () => {
         expect(c.querySelectorAll('[data-testid=publication-card]').length).toBe(4);
     });
 
-    it('guarda los cambios de ciudad (estado → servicio)', async () => {
+    const form = (c: HTMLElement) => c.querySelector('form[aria-label="Datos del perfil"]');
+    const buscarCiudad = async (c: HTMLElement, consulta: string) => {
+        spyOn(window, 'fetch').and.resolveTo(respuestaJson([{ lat: '-37.09', lon: '-73.15', class: 'place', type: 'town', address: { town: 'Lota', state: 'Biobío', country: 'Chile' } }]));
+        await escribir(c.querySelector('#perfilCiudad'), consulta);
+        await clic(Array.from(c.querySelectorAll('button')).find(b => b.textContent === 'Buscar'));
+        await esperar(1300);
+    };
+
+    it('tiene un único botón de guardado', async () => {
+        const c = await montarConApp(<PerfilPage />);
+        await esperar(40);
+        const guardar = Array.from(c.querySelectorAll('button[type=submit]'));
+        expect(guardar.length).toBe(1);
+        expect(guardar[0].textContent).toBe('Guardar cambios');
+        expect(c.querySelectorAll('form').length).toBe(1);
+    });
+
+    it('rechaza una ciudad escrita a mano: debe elegirse en la lista o el mapa (igual que en publicaciones)', async () => {
         const c = await montarConApp(<PerfilPage />);
         await esperar(40);
         await escribir(c.querySelector('#perfilCiudad'), 'Lota');
-        await enviarFormulario(c.querySelector('form[aria-label="Datos del perfil"]'));
+        await enviarFormulario(form(c));
+        await esperar(30);
+        expect(texto(c)).toContain('Busca y elige la localidad de tu perfil en la lista o márcala en el mapa.');
+        expect(bd.listarUsuarios()[0].ciudad).toBe('Concepción');
+    });
+
+    it('guarda la ciudad elegida de la lista (estado → servicio)', async () => {
+        const c = await montarConApp(<PerfilPage />);
+        await esperar(40);
+        await buscarCiudad(c, 'Lota');
+        await clic(c.querySelector('ul[aria-label="Resultados de localidades"] button'));
+        await enviarFormulario(form(c));
         await esperar(30);
         expect(texto(c)).toContain('Perfil actualizado correctamente.');
-        expect(bd.listarUsuarios()[0].ciudad).toBe('Lota');
+        expect(bd.listarUsuarios()[0].ciudad).toBe('Lota, Biobío, Chile');
+    });
+
+    it('guardar con la ciudad sin tocar no exige buscarla de nuevo', async () => {
+        const c = await montarConApp(<PerfilPage />);
+        await esperar(40);
+        await escribir(c.querySelector('#perfilApodo'), 'demo2');
+        await enviarFormulario(form(c));
+        await esperar(30);
+        expect(texto(c)).toContain('Perfil actualizado correctamente.');
+        expect(bd.listarUsuarios()[0].apodo).toBe('demo2');
+        expect(bd.listarUsuarios()[0].ciudad).toBe('Concepción');
     });
 
     it('avisa cuando no hay cambios y valida el apodo', async () => {
         const c = await montarConApp(<PerfilPage />);
         await esperar(40);
-        await enviarFormulario(c.querySelector('form[aria-label="Datos del perfil"]'));
+        await enviarFormulario(form(c));
         expect(texto(c)).toContain('No hay cambios para guardar.');
         await escribir(c.querySelector('#perfilApodo'), 'a');
-        await enviarFormulario(c.querySelector('form[aria-label="Datos del perfil"]'));
+        await enviarFormulario(form(c));
         expect(c.querySelector('.alert-danger')).not.toBeNull();
+    });
+});
+
+describe('PerfilPage (backend real): un solo guardado para datos, correo y foto', () => {
+    beforeEach(async () => { preparar(); config.usarMock = false; sesion(demo); });
+    afterEach(limpiar);
+
+    it('guarda datos y correo con el mismo botón, sin enviar nada que no cambió', async () => {
+        const actualizar = spyOn(authService, 'actualizarPerfil').and.resolveTo({} as never);
+        const correo = spyOn(authService, 'cambiarCorreo').and.resolveTo({} as never);
+        const subir = spyOn(authService, 'subirFoto').and.resolveTo(undefined as never);
+        spyOn(authService, 'dispositivos').and.resolveTo([]);
+        spyOn(publicacionesService, 'mias').and.resolveTo([] as never);
+        const c = await montarConApp(<PerfilPage />);
+        await esperar(40);
+        expect(c.querySelectorAll('button[type=submit]').length).toBe(1);
+        await escribir(c.querySelector('#perfilApodo'), 'nuevoApodo');
+        await escribir(c.querySelector('#nuevoCorreo'), 'otro@correo.cl');
+        await escribir(c.querySelector('#claveActual'), 'demo1234');
+        await enviarFormulario(c.querySelector('form[aria-label="Datos del perfil"]'));
+        await esperar(30);
+        expect(actualizar).toHaveBeenCalledWith({ apodo: 'nuevoApodo' });
+        expect(correo).toHaveBeenCalledWith('otro@correo.cl', 'demo1234');
+        expect(subir).not.toHaveBeenCalled();
+        expect(texto(c)).toContain('Perfil actualizado correctamente.');
+    });
+
+    it('para cambiar el correo exige la contraseña actual', async () => {
+        const correo = spyOn(authService, 'cambiarCorreo').and.resolveTo({} as never);
+        spyOn(authService, 'dispositivos').and.resolveTo([]);
+        spyOn(publicacionesService, 'mias').and.resolveTo([] as never);
+        const c = await montarConApp(<PerfilPage />);
+        await esperar(40);
+        await escribir(c.querySelector('#nuevoCorreo'), 'otro@correo.cl');
+        await enviarFormulario(c.querySelector('form[aria-label="Datos del perfil"]'));
+        expect(texto(c)).toContain('Ingresa tu contraseña actual');
+        expect(correo).not.toHaveBeenCalled();
+    });
+
+    it('si falla una parte, muestra el error del servidor', async () => {
+        spyOn(authService, 'actualizarPerfil').and.rejectWith(new Error('El apodo ya está en uso'));
+        spyOn(authService, 'dispositivos').and.resolveTo([]);
+        spyOn(publicacionesService, 'mias').and.resolveTo([] as never);
+        const c = await montarConApp(<PerfilPage />);
+        await esperar(40);
+        await escribir(c.querySelector('#perfilApodo'), 'ocupado');
+        await enviarFormulario(c.querySelector('form[aria-label="Datos del perfil"]'));
+        await esperar(30);
+        expect(texto(c)).toContain('El apodo ya está en uso');
+    });
+});
+
+describe('Primer mensaje al vendedor (ventana emergente con autocompletado)', () => {
+    beforeEach(() => { preparar(); config.usarMock = false; sesion(demo); });
+    afterEach(limpiar);
+    const ruta = () => { window.location.hash = '#/publicaciones/9'; return montarConApp(<Routes><Route path="/publicaciones/:id" element={<PublicationDetailPage />} /><Route path="/mensajes/:id" element={<p>Chat abierto</p>} /></Routes>); };
+    const ventana = () => document.querySelector('form[aria-label="Primer mensaje al vendedor"]');
+
+    beforeEach(() => { spyOn(publicacionesService, 'obtener').and.resolveTo(publicacionDePrueba({ id: 9, usuarioId: 5, vendedorApodo: 'vendedor' })); });
+
+    it('«Enviar mensaje» abre la ventana con mensajes predeterminados', async () => {
+        spyOn(mensajesService, 'deLaPublicacion').and.resolveTo([]);
+        const c = await ruta();
+        await esperar(40);
+        expect(ventana()).toBeNull();
+        await clic(botonPorTexto(c, 'Enviar mensaje'));
+        expect(ventana()).not.toBeNull();
+        const chips = Array.from(document.querySelectorAll('[aria-label="Mensajes predeterminados"] button')).map(b => b.textContent);
+        expect(chips).toContain('Hola, ¿sigue disponible?');
+        expect(chips.length).toBeGreaterThan(3);
+    });
+
+    it('el autocompletado filtra al escribir y elegir una sugerencia rellena el mensaje', async () => {
+        spyOn(mensajesService, 'deLaPublicacion').and.resolveTo([]);
+        const c = await ruta();
+        await esperar(40);
+        await clic(botonPorTexto(c, 'Enviar mensaje'));
+        const campo = document.querySelector('#primerMensaje') as HTMLTextAreaElement;
+        await act(async () => { campo.focus(); });
+        await escribir(campo, 'juntar');
+        const opciones = Array.from(document.querySelectorAll('[role=listbox] [role=option]'));
+        expect(opciones.length).toBe(1);
+        expect(opciones[0].textContent).toContain('juntarnos');
+        await act(async () => { opciones[0].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })); });
+        expect(campo.value).toBe(opciones[0].textContent as string);
+        expect(document.querySelector('[role=listbox]')).toBeNull();
+    });
+
+    it('al enviar el primer mensaje crea la conversación, la ventana desaparece y se abre el chat', async () => {
+        spyOn(mensajesService, 'deLaPublicacion').and.resolveTo([]);
+        const iniciar = spyOn(mensajesService, 'iniciar').and.resolveTo({ conversacion: { id: 11 } } as never);
+        const c = await ruta();
+        await esperar(40);
+        await clic(botonPorTexto(c, 'Enviar mensaje'));
+        await clic(document.querySelector('[aria-label="Mensajes predeterminados"] button'));
+        await enviarFormulario(ventana());
+        await esperar(40);
+        expect(iniciar).toHaveBeenCalledWith(9, 'Hola, ¿sigue disponible?');
+        expect(ventana()).toBeNull();
+        expect(window.location.hash).toBe('#/mensajes/11');
+    });
+
+    it('no envía un mensaje vacío y muestra el error del servidor si falla', async () => {
+        spyOn(mensajesService, 'deLaPublicacion').and.resolveTo([]);
+        const iniciar = spyOn(mensajesService, 'iniciar').and.rejectWith(new Error('Estás enviando mensajes muy rápido'));
+        const c = await ruta();
+        await esperar(40);
+        await clic(botonPorTexto(c, 'Enviar mensaje'));
+        await enviarFormulario(ventana());
+        expect(document.querySelector('.modal [role=alert]')).not.toBeNull();
+        expect(iniciar).not.toHaveBeenCalled();
+        await escribir(document.querySelector('#primerMensaje') as HTMLTextAreaElement, 'Hola');
+        await enviarFormulario(ventana());
+        await esperar(30);
+        expect(document.querySelector('.modal')?.textContent).toContain('Estás enviando mensajes muy rápido');
+    });
+
+    it('si ya hay una conversación con el vendedor, la ventana deja de ofrecerse', async () => {
+        spyOn(mensajesService, 'deLaPublicacion').and.resolveTo([{ id: 5 }] as never);
+        const c = await ruta();
+        await esperar(40);
+        expect(botonPorTexto(c, 'Enviar mensaje')).toBeUndefined();
+        const enlace = Array.from(c.querySelectorAll('a')).find(a => a.textContent?.includes('ver conversación'));
+        expect(enlace?.getAttribute('href')).toBe('#/mensajes/5');
+        expect(ventana()).toBeNull();
+    });
+});
+
+describe('Chat: autocompletado con los mensajes predeterminados', () => {
+    beforeEach(() => { preparar(); config.usarMock = false; sesion(demo); });
+    afterEach(limpiar);
+
+    it('al escribir sugiere respuestas rápidas y al elegir una la coloca en la caja', async () => {
+        const detalle = { conversacion: { id: 7, publicacionId: 1, tituloPublicacion: 'Bicicleta', rol: 'COMPRADOR', estado: 'ABIERTA', otroUsuarioApodo: 'vende' }, mensajes: [] };
+        spyOn(mensajesService, 'detalle').and.resolveTo(detalle as never);
+        spyOn(mensajesService, 'listar').and.resolveTo([] as never);
+        window.location.hash = '#/mensajes/7';
+        const c = await montarConApp(<Routes><Route path="/mensajes/:id" element={<MensajesPage />} /></Routes>);
+        await esperar(40);
+        const campo = c.querySelector('textarea[aria-label=Mensaje]') as HTMLTextAreaElement;
+        await act(async () => { campo.focus(); });
+        await escribir(campo, 'oferta');
+        const opcion = c.querySelector('[role=listbox] [role=option]') as HTMLElement;
+        expect(opcion.textContent).toBe('¿Aceptas una oferta?');
+        await act(async () => { opcion.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })); });
+        expect(campo.value).toBe('¿Aceptas una oferta?');
     });
 });
 
