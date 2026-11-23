@@ -88,7 +88,7 @@ export default function Navbar() {
                                 </button>
                                 <ul className={`dropdown-menu dropdown-menu-end ${menuUsuario ? 'show' : ''}`}>
                                     <li><Link to="/perfil" className="dropdown-item" onClick={cerrarMenus}>Mi perfil</Link></li>
-                                    <li><Link to="/categorias" className="dropdown-item" onClick={cerrarMenus}><i className="bi bi-tags me-2" aria-hidden="true" />Búsqueda</Link></li>
+                                    <li><Link to="/categorias" className="dropdown-item" onClick={cerrarMenus}>Búsqueda</Link></li>
                                     {(['SOPORTE', 'ADMIN', 'SUPERUSUARIO'].includes(String((usuario as any)?.rol).toUpperCase()) || esAdmin) && <li><Link to="/soporte-panel" className="dropdown-item" onClick={cerrarMenus}>Tickets de soporte</Link></li>}
                                     {esAdmin && <li><Link to="/admin" className="dropdown-item" onClick={cerrarMenus}>Administración</Link></li>}
                                     <li><hr className="dropdown-divider" /></li>

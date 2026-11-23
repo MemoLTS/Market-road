@@ -25,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import api.com.v1.dto.FotoPerfilDTO;
+import api.com.v1.dto.CambioContrasenaDTO;
 import api.com.v1.dto.CambioCorreoDTO;
 import api.com.v1.dto.DispositivoInicioSesionDTO;
 import api.com.v1.dto.UsuarioRequestDTO;
@@ -108,6 +109,16 @@ public class UsuarioController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo puedes cambiar tu propio correo");
         }
         return ResponseEntity.ok(usuarioService.cambiarCorreo(id, dto));
+    }
+
+    @PatchMapping("/{id}/contrasena")
+    public ResponseEntity<UsuarioResponseDTO> cambiarContrasena(@PathVariable Long id,
+            @RequestAttribute("usuarioAutenticadoId") Long usuarioAutenticadoId,
+            @Valid @RequestBody CambioContrasenaDTO dto) {
+        if (!id.equals(usuarioAutenticadoId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo puedes cambiar tu propia contraseña");
+        }
+        return ResponseEntity.ok(usuarioService.cambiarContrasena(id, dto));
     }
 
     @DeleteMapping("/{id}")

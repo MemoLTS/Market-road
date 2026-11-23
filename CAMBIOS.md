@@ -87,3 +87,14 @@ Todo en TypeScript + React (frontend) y servicios Spring Boot (backend). No hay 
 ## Pruebas
 - Jasmine/Karma: **255 pruebas, todas pasan** (antes 231). `npx tsc --noEmit` y `npx tsc --noEmit -p tests` sin errores.
 - Java: no se pudo ejecutar Maven en este entorno (sin red); los archivos nuevos solo se revisaron con `javac` a nivel de sintaxis. Conviene correr `mvn test` en `User-Api` y `Publication-Api`.
+
+
+# Sexta ronda: perfil con un solo botón, edición de usuarios por el administrador y menú del perfil
+
+- **Perfil (`PerfilPage`)**: un solo formulario y un solo botón «Guardar cambios» que cubre apodo, ciudad, foto, correo **y cambio de contraseña propia** (contraseña actual + nueva + repetición). Nuevo endpoint `PATCH /usuarios/{id}/contrasena` (`CambioContrasenaDTO`, exige la contraseña actual; solo la propia cuenta).
+- **Administración → Usuarios**: cada fila tiene «Editar», que abre una ventana (modal) con nombre, apellido, apodo, correo, ciudad (misma regla de localidad que publicaciones) y contraseña nueva opcional, con un único «Guardar cambios». Nuevo endpoint `PATCH /admin/usuarios/{id}` (`AdminActualizarUsuarioDTO`, solo superusuario; 403 sobre otro superusuario; 409 si el correo o apodo ya existen). El atajo del Dashboard ahora dice «Editar usuarios».
+- **Menú del perfil**: «Búsqueda» aparecía corrido porque tenía un ícono de Bootstrap Icons que, sin la fuente cargada, dejaba un hueco; se quitó el ícono y todos los ítems quedan alineados.
+- Se eliminó el componente `BuscadorCiudad.tsx` (reemplazado por `SelectorLocalidad`) y la carpeta `frontend-react/dist` (compilado viejo: si ves pantallas sin estos cambios, vuelve a compilar con `npm run build` o `docker compose build frontend`).
+- Pruebas: Jasmine/Karma 259 pasan; en Java se agregaron pruebas para los dos endpoints y los dos métodos de servicio (no se pudo ejecutar Maven aquí).
+
+- **Repetir la contraseña al crear usuario:** el registro (`RegisterForm`) tiene ahora el campo «Repite la contraseña» (se valida al salir del campo y al enviar: «Las contraseñas no coinciden.») y lo mismo el alta de personal de soporte (`FormularioPersonal`). Pruebas: 261 pasan.

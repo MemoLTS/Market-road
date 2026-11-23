@@ -28,6 +28,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import api.com.v1.dto.AdminActualizarUsuarioDTO;
+import api.com.v1.dto.CambioContrasenaDTO;
 import api.com.v1.dto.CambioCorreoDTO;
 import api.com.v1.dto.FotoPerfilDTO;
 import api.com.v1.dto.UsuarioRequestDTO;
@@ -611,6 +613,69 @@ class UsuarioServiceImplTest {
             when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
 
             assertThrows(RecursoNoEncontradoException.class, () -> servicio.restablecerContrasena(99L, "Nueva1234"));
+
+            verify(usuarioRepository, never()).save(any(Usuario.class));
+        }
+    }
+
+    @Nested
+    class CambiarContrasenaPropia {
+
+        @Test
+        void cambiaLaContrasenaSiLaActualEsCorrecta() {
+            Usuario u = usuario(ID, "juan", "juan@correo.cl");
+            when(usuarioRepository.findById(ID)).thenReturn(Optional.of(u));
+            when(passwordEncoder.matches("Actual1234", "hash-actual")).thenReturn(true);
+            when(passwordEncoder.encode("Nueva1234")).thenReturn("hash-nuevo");
+            guardaTalCual();
+
+            servicio.cambiarContrasena(ID, new CambioContrasenaDTO("Actual1234", "Nueva1234"));
+
+            assertEquals("hash-nuevo", u.getContrasena());
+        }
+
+        @Test
+        void rechazaSiLaContrasenaActualEsIncorrecta() {
+            Usuario u = usuario(ID, "juan", "juan@correo.cl");
+            when(usuarioRepository.findById(ID)).thenReturn(Optional.of(u));
+            when(passwordEncoder.matches("Mala12345", "hash-actual")).thenReturn(false);
+
+            assertThrows(CredencialesInvalidasException.class,
+                    () -> servicio.cambiarContrasena(ID, new CambioContrasenaDTO("Mala12345", "Nueva1234")));
+
+            assertEquals("hash-actual", u.getContrasena());
+            verify(usuarioRepository, never()).save(any(Usuario.class));
+        }
+    }
+
+    @Nested
+    class ActualizarComoAdmin {
+
+        @Test
+        void actualizaSoloLosCamposQueVienen() {
+            Usuario u = usuario(ID, "juan", "juan@correo.cl");
+            when(usuarioRepository.findById(ID)).thenReturn(Optional.of(u));
+            when(usuarioRepository.findByCorreo("nuevo@correo.cl")).thenReturn(Optional.empty());
+            when(passwordEncoder.encode("Nueva1234")).thenReturn("hash-nuevo");
+            guardaTalCual();
+
+            servicio.actualizarComoAdmin(ID, new AdminActualizarUsuarioDTO("Pedro", null, null, "nuevo@correo.cl", "Lota", "Nueva1234"));
+
+            assertEquals("Pedro", u.getNombre());
+            assertEquals("Perez", u.getApellido());
+            assertEquals("nuevo@correo.cl", u.getCorreo());
+            assertEquals("Lota", u.getCiudad());
+            assertEquals("hash-nuevo", u.getContrasena());
+        }
+
+        @Test
+        void rechazaUnCorreoYaUsadoPorOtraPersona() {
+            Usuario u = usuario(ID, "juan", "juan@correo.cl");
+            when(usuarioRepository.findById(ID)).thenReturn(Optional.of(u));
+            when(usuarioRepository.findByCorreo("otro@correo.cl")).thenReturn(Optional.of(usuario(OTRO_ID, "otro", "otro@correo.cl")));
+
+            assertThrows(RecursoDuplicadoException.class,
+                    () -> servicio.actualizarComoAdmin(ID, new AdminActualizarUsuarioDTO(null, null, null, "otro@correo.cl", null, null)));
 
             verify(usuarioRepository, never()).save(any(Usuario.class));
         }

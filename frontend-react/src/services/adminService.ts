@@ -1,5 +1,6 @@
 import { config } from '../config';
 import * as bd from '../data/baseDatos';
+import type { CambiosAdminUsuario } from '../data/baseDatos';
 import type { AdminPublicacion, ResumenPublicaciones, Usuario } from '../types/api';
 import type { PaginaSoporte, ResumenSoporte, TicketPanelDetalle, TicketPanelResumen } from '../types/soporte';
 import { apiFetch, ApiError } from './http';
@@ -17,15 +18,20 @@ export const adminService = {
     resumenPublicaciones: (dias: number): Promise<ResumenPublicaciones> => (config.usarMock
         ? Promise.resolve(bd.resumenPublicaciones(dias))
         : apiFetch<ResumenPublicaciones>(`/admin/publicaciones/resumen?dias=${dias}`)),
-    /** El superusuario fija una contraseña nueva a un usuario: PATCH /admin/usuarios/{id}/contrasena (204 sin cuerpo). */
-    async restablecerContrasena(id: number, contrasena: string): Promise<void> {
+    /**
+     * El superusuario edita los datos de otro usuario: PATCH /admin/usuarios/{id}. Solo se envían los campos que cambian;
+     * la contraseña es opcional. Devuelve el usuario actualizado.
+     */
+    async actualizarUsuario(id: number, cambios: CambiosAdminUsuario): Promise<Usuario> {
         if (config.usarMock) {
-            const resultado = bd.restablecerContrasena(obtenerSesion()?.usuario.id ?? 0, id, contrasena);
-            if (resultado === 'no-existe') throw new ApiError('El usuario no existe.', 404);
-            if (resultado === 'superusuario') throw new ApiError('No se puede cambiar la contraseña de otro superusuario', 403);
-            return;
+            const r = bd.actualizarUsuarioAdmin(obtenerSesion()?.usuario.id ?? 0, id, cambios);
+            if (r === 'no-existe') throw new ApiError('El usuario no existe.', 404);
+            if (r === 'superusuario') throw new ApiError('No se puede modificar a otro superusuario', 403);
+            if (r === 'correo') throw new ApiError('Ya existe un usuario registrado con ese correo', 409);
+            if (r === 'apodo') throw new ApiError('Ya existe un usuario registrado con ese apodo', 409);
+            return r;
         }
-        await apiFetch<null>(`/admin/usuarios/${id}/contrasena`, { method: 'PATCH', body: JSON.stringify({ contrasena }) });
+        return apiFetch<Usuario>(`/admin/usuarios/${id}`, { method: 'PATCH', body: JSON.stringify(cambios) });
     },
     tickets: (params: Record<string, string>) => apiFetch<PaginaSoporte<TicketPanelResumen>>(`/soporte/admin/tickets?${new URLSearchParams(params)}`),
     resumenTickets: () => apiFetch<ResumenSoporte>('/soporte/admin/tickets/resumen'),

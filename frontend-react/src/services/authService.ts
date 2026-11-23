@@ -76,6 +76,13 @@ export const authService = {
         return usuario;
     },
 
+    /** Cambia la propia contraseña (exige la actual): PATCH /usuarios/{id}/contrasena. */
+    async cambiarContrasena(contrasenaActual: string, contrasenaNueva: string): Promise<void> {
+        const sesion = sesionRequerida();
+        if (config.usarMock) throw new Error('Esta acción requiere el backend real.');
+        await apiFetch<unknown>(`/usuarios/${sesion.usuario.id}/contrasena`, { method: 'PATCH', body: JSON.stringify({ contrasenaActual, contrasenaNueva }) });
+    },
+
     async subirFoto(archivo: File): Promise<void> {
         const sesion = sesionRequerida();
         if (config.usarMock) throw new Error('Esta acción requiere el backend real.');

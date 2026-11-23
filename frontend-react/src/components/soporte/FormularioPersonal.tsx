@@ -11,6 +11,8 @@ export interface ValoresPersonal {
     nombre: string;
     correo: string;
     contrasena: string;
+    /** Repetición de la contraseña (si no se pasa, no se compara). */
+    repetir?: string;
     rol: RolPersonal;
     activo: boolean;
 }
@@ -31,7 +33,8 @@ export function validarPersonal(v: ValoresPersonal, edicion: boolean): Record<'n
     return {
         nombre: nombre.length < 2 || nombre.length > 80 ? 'El nombre debe tener entre 2 y 80 caracteres.' : null,
         correo: edicion ? null : validarCorreo(v.correo),
-        contrasena: edicion && v.contrasena === '' ? null : validarContrasenaNueva(v.contrasena),
+        contrasena: edicion && v.contrasena === '' && !v.repetir ? null
+            : (validarContrasenaNueva(v.contrasena) ?? ((v.repetir ?? v.contrasena) === v.contrasena ? null : 'Las contraseñas no coinciden.')),
     };
 }
 
@@ -39,13 +42,13 @@ export function validarPersonal(v: ValoresPersonal, edicion: boolean): Record<'n
 export default function FormularioPersonal({ persona = null, onGuardar, onCancelar }: PropsFormularioPersonal) {
     const edicion = persona !== null;
     const [v, setV] = useState<ValoresPersonal>({
-        nombre: persona?.nombre ?? '', correo: persona?.correo ?? '', contrasena: '', rol: persona?.rol ?? 'SOPORTE', activo: persona?.activo ?? true,
+        nombre: persona?.nombre ?? '', correo: persona?.correo ?? '', contrasena: '', repetir: '', rol: persona?.rol ?? 'SOPORTE', activo: persona?.activo ?? true,
     });
     const [errores, setErrores] = useState<Record<'nombre' | 'correo' | 'contrasena', Resultado> | null>(null);
     const [error, setError] = useState('');
     const [guardando, setGuardando] = useState(false);
 
-    const cambiar = (campo: 'nombre' | 'correo' | 'contrasena' | 'rol') => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
+    const cambiar = (campo: 'nombre' | 'correo' | 'contrasena' | 'repetir' | 'rol') => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
         setV(x => ({ ...x, [campo]: e.target.value }));
     };
 
@@ -75,6 +78,9 @@ export default function FormularioPersonal({ persona = null, onGuardar, onCancel
             </Campo>
             <Campo id="perContrasena" etiqueta={edicion ? 'Nueva contraseña (opcional)' : 'Contraseña'} error={errores?.contrasena} ayuda="De 8 a 32 caracteres, con letras y números.">
                 <input id="perContrasena" type="password" autoComplete="new-password" className="form-control" value={v.contrasena} onChange={cambiar('contrasena')} />
+            </Campo>
+            <Campo id="perRepetir" etiqueta={edicion ? 'Repite la nueva contraseña' : 'Repite la contraseña'}>
+                <input id="perRepetir" type="password" autoComplete="new-password" className="form-control" value={v.repetir ?? ''} onChange={cambiar('repetir')} />
             </Campo>
             <Campo id="perRol" etiqueta="Rol">
                 <select id="perRol" className="form-select" value={v.rol} onChange={cambiar('rol')}>

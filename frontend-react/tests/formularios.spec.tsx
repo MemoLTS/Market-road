@@ -70,6 +70,23 @@ describe('RegisterForm (validación en vivo)', () => {
         expect(registrar).not.toHaveBeenCalled();
     });
 
+    it('exige repetir la contraseña y no registra si no coinciden', async () => {
+        const registrar = spyOn(authService, 'registrar');
+        const c = await montarConApp(<RegisterForm />);
+        await escribir(c.querySelector('#regNombre'), 'Ana');
+        await escribir(c.querySelector('#regApellido'), 'Pérez');
+        await escribir(c.querySelector('#regCorreo'), 'ana@correo.cl');
+        await escribir(c.querySelector('#regContrasena'), 'clave1234');
+        await enviarFormulario(c.querySelector('form'));
+        expect(c.querySelector('[role=alert]').textContent).toContain('no coinciden');
+        await escribir(c.querySelector('#regRepetir'), 'clave12345');
+        const repetir = c.querySelector('#regRepetir') as HTMLInputElement;
+        repetir.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+        await esperar();
+        expect(repetir.classList.contains('is-invalid')).toBe(true);
+        expect(registrar).not.toHaveBeenCalled();
+    });
+
     it('registra con datos válidos y limpia el formulario', async () => {
         const registrar = spyOn(authService, 'registrar').and.resolveTo({ sesionIniciada: false });
         const c = await montarConApp(<RegisterForm />);
@@ -77,6 +94,7 @@ describe('RegisterForm (validación en vivo)', () => {
         await escribir(c.querySelector('#regApellido'), 'Pérez');
         await escribir(c.querySelector('#regCorreo'), 'ana@correo.cl');
         await escribir(c.querySelector('#regContrasena'), 'clave1234');
+        await escribir(c.querySelector('#regRepetir'), 'clave1234');
         await enviarFormulario(c.querySelector('form'));
         await esperar();
         expect(registrar).toHaveBeenCalledWith(jasmine.objectContaining({ nombre: 'Ana', correo: 'ana@correo.cl' }));

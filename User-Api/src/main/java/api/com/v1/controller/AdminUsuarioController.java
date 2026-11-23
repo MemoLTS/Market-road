@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import api.com.v1.dto.AdminActualizarUsuarioDTO;
 import api.com.v1.dto.RestablecerContrasenaDTO;
 import api.com.v1.dto.UsuarioResponseDTO;
 import api.com.v1.model.Rol;
@@ -38,6 +39,17 @@ public class AdminUsuarioController {
         return ResponseEntity.ok(usuarioService.obtenerTodos());
     }
 
+    /** El superusuario edita los datos de otro usuario (nombre, apellido, apodo, correo, ciudad y, si quiere, contraseña). */
+    @PatchMapping("/{id}")
+    public ResponseEntity<UsuarioResponseDTO> actualizar(
+            @RequestAttribute("usuarioAutenticadoId") Long usuarioAutenticadoId,
+            @PathVariable Long id,
+            @Valid @RequestBody AdminActualizarUsuarioDTO dto) {
+        exigirSuperusuario(usuarioAutenticadoId);
+        exigirQueNoSeaOtroSuperusuario(usuarioAutenticadoId, id);
+        return ResponseEntity.ok(usuarioService.actualizarComoAdmin(id, dto));
+    }
+
     /** El superusuario fija una contraseña nueva a otro usuario (no puede tocar a otros superusuarios). */
     @PatchMapping("/{id}/contrasena")
     public ResponseEntity<Void> restablecerContrasena(
@@ -45,17 +57,22 @@ public class AdminUsuarioController {
             @PathVariable Long id,
             @Valid @RequestBody RestablecerContrasenaDTO dto) {
         exigirSuperusuario(usuarioAutenticadoId);
-        if (!id.equals(usuarioAutenticadoId)) {
-            boolean objetivoEsSuperusuario = usuarioRepository.findById(id)
-                    .map(u -> u.getRol() == Rol.SUPERUSUARIO)
-                    .orElse(false);
-            if (objetivoEsSuperusuario) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "No se puede cambiar la contraseña de otro superusuario");
-            }
-        }
+        exigirQueNoSeaOtroSuperusuario(usuarioAutenticadoId, id);
         usuarioService.restablecerContrasena(id, dto.contrasena());
         return ResponseEntity.noContent().build();
+    }
+
+    private void exigirQueNoSeaOtroSuperusuario(Long adminId, Long objetivoId) {
+        if (objetivoId.equals(adminId)) {
+            return;
+        }
+        boolean objetivoEsSuperusuario = usuarioRepository.findById(objetivoId)
+                .map(u -> u.getRol() == Rol.SUPERUSUARIO)
+                .orElse(false);
+        if (objetivoEsSuperusuario) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "No se puede modificar a otro superusuario");
+        }
     }
 
     private void exigirSuperusuario(Long usuarioId) {

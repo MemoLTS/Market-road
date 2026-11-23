@@ -9,15 +9,16 @@ import { useAuth } from '../../context/AuthContext';
 import Alert from '../common/Alert';
 import Campo from '../common/Campo';
 
-type NombreCampo = 'nombre' | 'apellido' | 'apodo' | 'correo' | 'contrasena';
-const REGLAS: Record<NombreCampo, (valor: string) => Resultado> = {
+type NombreCampo = 'nombre' | 'apellido' | 'apodo' | 'correo' | 'contrasena' | 'repetir';
+const MENSAJE_REPETIR = 'Las contraseñas no coinciden.';
+const REGLAS: Record<Exclude<NombreCampo, 'repetir'>, (valor: string) => Resultado> = {
     nombre: v => validarNombre(v, 'El nombre'),
     apellido: v => validarNombre(v, 'El apellido'),
     apodo: validarApodo,
     correo: validarCorreo,
     contrasena: validarContrasenaNueva,
 };
-const VACIO: Record<NombreCampo, string> = { nombre: '', apellido: '', apodo: '', correo: '', contrasena: '' };
+const VACIO: Record<NombreCampo, string> = { nombre: '', apellido: '', apodo: '', correo: '', contrasena: '', repetir: '' };
 
 /** Registro con validación en vivo: cada campo se valida al perder el foco y todo otra vez al enviar. */
 export default function RegisterForm({ onExito }: { onExito?: () => void }) {
@@ -30,7 +31,8 @@ export default function RegisterForm({ onExito }: { onExito?: () => void }) {
     const cambiar = (campo: NombreCampo) => (e: ChangeEvent<HTMLInputElement>): void => setValores(v => ({ ...v, [campo]: e.target.value }));
     const validarCampo = (campo: NombreCampo) => (): void => {
         if (valores[campo] === '') return;
-        setErrores(prev => ({ ...prev, [campo]: REGLAS[campo](valores[campo]) }));
+        const error = campo === 'repetir' ? (valores.repetir === valores.contrasena ? null : MENSAJE_REPETIR) : REGLAS[campo](valores[campo]);
+        setErrores(prev => ({ ...prev, [campo]: error }));
     };
     const clase = (campo: NombreCampo): string => `form-control ${errores[campo] ? 'is-invalid' : (campo in errores ? 'is-valid' : '')}`.trim();
 
@@ -42,7 +44,8 @@ export default function RegisterForm({ onExito }: { onExito?: () => void }) {
         };
         const invalido = primerError(
             !datos.nombre || !datos.apellido || !datos.correo || !datos.contrasena ? 'Completa nombre, apellido, correo y contraseña.' : null,
-            ...(Object.keys(REGLAS) as NombreCampo[]).map(c => REGLAS[c](datos[c])),
+            ...(Object.keys(REGLAS) as (keyof typeof REGLAS)[]).map(c => REGLAS[c](datos[c])),
+            valores.repetir === valores.contrasena ? null : MENSAJE_REPETIR,
         );
         if (invalido) { setAlerta({ mensaje: invalido, tipo: 'danger' }); return; }
         setAlerta({ mensaje: '', tipo: 'danger' });
@@ -80,6 +83,9 @@ export default function RegisterForm({ onExito }: { onExito?: () => void }) {
             </Campo>
             <Campo id="regContrasena" etiqueta="Contraseña" error={errores.contrasena} ayuda="De 8 a 32 caracteres, con al menos una letra y un número.">
                 <input id="regContrasena" type="password" className={clase('contrasena')} value={valores.contrasena} onChange={cambiar('contrasena')} onBlur={validarCampo('contrasena')} autoComplete="new-password" />
+            </Campo>
+            <Campo id="regRepetir" etiqueta="Repite la contraseña" error={errores.repetir}>
+                <input id="regRepetir" type="password" className={clase('repetir')} value={valores.repetir} onChange={cambiar('repetir')} onBlur={validarCampo('repetir')} autoComplete="new-password" />
             </Campo>
             <button id="btnRegistrar" type="submit" className="btn btn-primary w-100" disabled={enviando}>{enviando ? 'Creando...' : 'Crear cuenta'}</button>
         </form>

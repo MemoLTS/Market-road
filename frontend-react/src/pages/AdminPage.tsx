@@ -2,13 +2,17 @@ import { useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import Alert from '../components/common/Alert';
 import Campo from '../components/common/Campo';
+import SelectorLocalidad from '../components/common/SelectorLocalidad';
+import type { ValorLocalidad } from '../components/common/SelectorLocalidad';
 import Modal from '../components/common/Modal';
 import Spinner from '../components/common/Spinner';
 import { formatoFechaCorta, formatoPrecio, mensajeDeError } from '../core/formato';
-import { validarContrasenaNueva } from '../core/validaciones';
+import { validarLocalidad } from '../core/localidad';
+import { primerError, validarApodo, validarContrasenaNueva, validarCorreo, validarNombre } from '../core/validaciones';
 import { useAsync } from '../hooks/useAsync';
 import { adminService } from '../services/adminService';
 import { config } from '../config';
+import type { CambiosAdminUsuario } from '../data/baseDatos';
 import type { AdminPublicacion, Usuario } from '../types/api';
 import type { ResumenSoporte, TicketPanelResumen } from '../types/soporte';
 
@@ -97,7 +101,7 @@ function Dashboard({ usuarios, publicaciones, resumen, onIrUsuarios }: { usuario
                 ))}
             </div>
             <div className="d-flex justify-content-end mt-3">
-                <button type="button" className="btn btn-outline-primary btn-sm" onClick={onIrUsuarios}>Cambiar contraseña de un usuario</button>
+                <button type="button" className="btn btn-outline-primary btn-sm" onClick={onIrUsuarios}>Editar usuarios</button>
             </div>
             <ActividadPublicaciones />
         </>
@@ -131,50 +135,91 @@ export function TicketAdminModal({ id, onCerrar }: { id: number | null; onCerrar
 }
 
 /**
- * Ventana para que el superusuario fije una contraseña nueva a un usuario (no necesita la anterior).
- * Valida igual que el registro y confirma con la repetición; el servidor guarda solo el hash BCrypt.
+ * Ventana (modal) con TODOS los datos editables de un usuario: nombre, apellido, apodo, correo, ciudad y, si se quiere,
+ * una contraseña nueva. Un único botón «Guardar cambios»; solo se envía lo que cambió (PATCH /admin/usuarios/{id}).
+ * La ciudad sigue la misma regla que en publicaciones y perfil (elegida de la lista o del mapa).
  */
-export function CambiarContrasenaUsuarioModal({ usuario, onCerrar }: { usuario: Usuario | null; onCerrar: () => void }) {
-    const [nueva, setNueva] = useState('');
-    const [repetir, setRepetir] = useState('');
+export function EditarUsuarioModal({ usuario, onCerrar, onGuardado }: { usuario: Usuario | null; onCerrar: () => void; onGuardado?: (u: Usuario) => void }) {
+    const [v, setV] = useState({ nombre: '', apellido: '', apodo: '', correo: '', contrasena: '', repetir: '' });
+    const [ciudad, setCiudad] = useState<ValorLocalidad>({ ubicacion: '', lugar: null });
+    const [errorCiudad, setErrorCiudad] = useState<string | null>(null);
     const [estado, setEstado] = useState({ mensaje: '', tipo: 'danger' });
     const [guardando, setGuardando] = useState(false);
+    const [cargadoId, setCargadoId] = useState<number | null>(null);
 
-    function cerrar(): void {
-        setNueva(''); setRepetir(''); setEstado({ mensaje: '', tipo: 'danger' });
-        onCerrar();
+    // Al abrir la ventana para otra persona se cargan sus datos actuales (y al cerrarla se olvida la anterior).
+    if (usuario && cargadoId !== usuario.id) {
+        setCargadoId(usuario.id);
+        setV({ nombre: usuario.nombre, apellido: usuario.apellido, apodo: usuario.apodo ?? '', correo: usuario.correo, contrasena: '', repetir: '' });
+        setCiudad({ ubicacion: usuario.ciudad ?? '', lugar: null });
+        setErrorCiudad(null);
+        setEstado({ mensaje: '', tipo: 'danger' });
     }
+    if (!usuario && cargadoId !== null) setCargadoId(null);
+
+    const cambiar = (campo: keyof typeof v) => (e: ChangeEvent<HTMLInputElement>): void => setV(x => ({ ...x, [campo]: e.target.value }));
 
     async function guardar(e: FormEvent<HTMLFormElement>): Promise<void> {
         e.preventDefault();
         if (!usuario) return;
-        const invalido = validarContrasenaNueva(nueva) ?? (nueva !== repetir ? 'Las contraseñas no coinciden.' : null);
+        const errLocalidad = validarLocalidad(ciudad.ubicacion, ciudad.lugar, { obligatoria: false, original: usuario.ciudad ?? '', de: 'del usuario' });
+        setErrorCiudad(errLocalidad);
+        const quiereClave = v.contrasena !== '' || v.repetir !== '';
+        const invalido = primerError(
+            validarNombre(v.nombre, 'El nombre'), validarNombre(v.apellido, 'El apellido'), validarApodo(v.apodo), validarCorreo(v.correo), errLocalidad,
+            quiereClave ? primerError(validarContrasenaNueva(v.contrasena), v.contrasena !== v.repetir ? 'Las contraseñas no coinciden.' : null) : null,
+        );
         if (invalido) { setEstado({ mensaje: invalido, tipo: 'danger' }); return; }
+
+        const cambios: CambiosAdminUsuario = {};
+        if (v.nombre.trim() !== usuario.nombre) cambios.nombre = v.nombre.trim();
+        if (v.apellido.trim() !== usuario.apellido) cambios.apellido = v.apellido.trim();
+        if (v.apodo.trim() !== (usuario.apodo ?? '')) cambios.apodo = v.apodo.trim();
+        if (v.correo.trim() !== usuario.correo) cambios.correo = v.correo.trim();
+        if (ciudad.ubicacion.trim() !== (usuario.ciudad ?? '')) cambios.ciudad = ciudad.ubicacion.trim();
+        if (quiereClave) cambios.contrasena = v.contrasena;
+        if (!Object.keys(cambios).length) { setEstado({ mensaje: 'No hay cambios para guardar.', tipo: 'info' }); return; }
+
         setGuardando(true);
         try {
-            await adminService.restablecerContrasena(usuario.id, nueva);
-            setNueva(''); setRepetir('');
-            setEstado({ mensaje: `Contraseña de ${usuario.apodo ?? usuario.correo} actualizada.`, tipo: 'success' });
+            const actualizado = await adminService.actualizarUsuario(usuario.id, cambios);
+            setV(x => ({ ...x, contrasena: '', repetir: '' }));
+            setEstado({ mensaje: `Datos de ${actualizado.apodo ?? actualizado.correo} actualizados.`, tipo: 'success' });
+            onGuardado?.(actualizado);
         } catch (err) {
-            setEstado({ mensaje: mensajeDeError(err, 'No se pudo cambiar la contraseña.'), tipo: 'danger' });
+            setEstado({ mensaje: mensajeDeError(err, 'No se pudieron guardar los cambios.'), tipo: 'danger' });
         } finally {
             setGuardando(false);
         }
     }
 
     return (
-        <Modal abierto={usuario !== null} titulo={usuario ? `Cambiar contraseña de ${usuario.apodo ?? usuario.correo}` : 'Cambiar contraseña'} onCerrar={cerrar}>
-            <form onSubmit={guardar} noValidate aria-label="Cambiar contraseña de usuario">
+        <Modal abierto={usuario !== null} titulo={usuario ? `Editar usuario #${usuario.id}` : 'Editar usuario'} onCerrar={onCerrar} tamano="modal-lg">
+            <form onSubmit={guardar} noValidate aria-label="Editar usuario">
                 <Alert mensaje={estado.mensaje} tipo={estado.tipo} />
-                <Campo id="adminClaveNueva" etiqueta="Nueva contraseña" ayuda="Entre 8 y 32 caracteres, con letras y números, sin espacios.">
-                    <input id="adminClaveNueva" type="password" autoComplete="new-password" className="form-control" value={nueva} onChange={(e: ChangeEvent<HTMLInputElement>) => setNueva(e.target.value)} />
+                <div className="row">
+                    <Campo id="adminNombre" etiqueta="Nombre" className="col-12 col-md-6 mb-3"><input id="adminNombre" className="form-control" value={v.nombre} onChange={cambiar('nombre')} /></Campo>
+                    <Campo id="adminApellido" etiqueta="Apellido" className="col-12 col-md-6 mb-3"><input id="adminApellido" className="form-control" value={v.apellido} onChange={cambiar('apellido')} /></Campo>
+                    <Campo id="adminApodo" etiqueta="Apodo" className="col-12 col-md-6 mb-3"><input id="adminApodo" className="form-control" value={v.apodo} onChange={cambiar('apodo')} /></Campo>
+                    <Campo id="adminCorreo" etiqueta="Correo" className="col-12 col-md-6 mb-3"><input id="adminCorreo" type="email" className="form-control" value={v.correo} onChange={cambiar('correo')} /></Campo>
+                </div>
+                <Campo id="adminCiudad" etiqueta="Ciudad" ayuda="Búscala y elígela de la lista o del mapa (igual que en publicaciones).">
+                    <SelectorLocalidad id="adminCiudad" valor={ciudad} original={usuario?.ciudad ?? ''} error={errorCiudad} onCambiar={n => { setCiudad(n); setErrorCiudad(null); }} />
                 </Campo>
-                <Campo id="adminClaveRepetir" etiqueta="Repite la contraseña">
-                    <input id="adminClaveRepetir" type="password" autoComplete="new-password" className="form-control" value={repetir} onChange={(e: ChangeEvent<HTMLInputElement>) => setRepetir(e.target.value)} />
-                </Campo>
+                <fieldset className="mb-3">
+                    <legend className="form-label fs-6">Cambiar contraseña (opcional)</legend>
+                    <div className="row">
+                        <Campo id="adminClaveNueva" etiqueta="Nueva contraseña" ayuda="Entre 8 y 32 caracteres, con letras y números, sin espacios." className="col-12 col-md-6 mb-2">
+                            <input id="adminClaveNueva" type="password" autoComplete="new-password" className="form-control" value={v.contrasena} onChange={cambiar('contrasena')} />
+                        </Campo>
+                        <Campo id="adminClaveRepetir" etiqueta="Repite la contraseña" className="col-12 col-md-6 mb-2">
+                            <input id="adminClaveRepetir" type="password" autoComplete="new-password" className="form-control" value={v.repetir} onChange={cambiar('repetir')} />
+                        </Campo>
+                    </div>
+                </fieldset>
                 <div className="d-flex justify-content-end gap-2">
-                    <button type="button" className="btn btn-outline-secondary" onClick={cerrar}>Cerrar</button>
-                    <button type="submit" className="btn btn-primary" disabled={guardando}>{guardando ? 'Guardando...' : 'Guardar contraseña'}</button>
+                    <button type="button" className="btn btn-outline-secondary" onClick={onCerrar}>Cerrar</button>
+                    <button type="submit" className="btn btn-primary" disabled={guardando}>{guardando ? 'Guardando...' : 'Guardar cambios'}</button>
                 </div>
             </form>
         </Modal>
@@ -182,7 +227,7 @@ export function CambiarContrasenaUsuarioModal({ usuario, onCerrar }: { usuario: 
 }
 
 export default function AdminPage() {
-    const [usuarioContrasena, setUsuarioContrasena] = useState<Usuario | null>(null);
+    const [usuarioEditando, setUsuarioEditando] = useState<Usuario | null>(null);
     const [ticketAbierto, setTicketAbierto] = useState<number | null>(null);
     const [pestana, setPestana] = useState('dashboard');
     const [filtro, setFiltro] = useState('');
@@ -217,7 +262,7 @@ export default function AdminPage() {
                                 { titulo: 'ID', celda: u => u.id }, { titulo: 'Nombre', celda: u => `${u.nombre} ${u.apellido}` },
                                 { titulo: 'Apodo', celda: u => u.apodo ?? '—' }, { titulo: 'Correo', celda: u => u.correo },
                                 { titulo: 'Ciudad', celda: u => u.ciudad ?? '—' }, { titulo: 'Rol', celda: u => u.rol ?? 'USUARIO' },
-                                { titulo: 'Contraseña', celda: u => <button type="button" className="btn btn-sm btn-outline-primary" aria-label={`Cambiar contraseña de ${u.apodo ?? u.correo}`} onClick={() => setUsuarioContrasena(u)}>Cambiar contraseña</button> },
+                                { titulo: 'Acciones', celda: u => <button type="button" className="btn btn-sm btn-outline-primary" aria-label={`Editar a ${u.apodo ?? u.correo}`} onClick={() => setUsuarioEditando(u)}>Editar</button> },
                             ]} />
                     )}
                     {pestana === 'publicaciones' && (
@@ -243,7 +288,7 @@ export default function AdminPage() {
                         ))}
                 </>
             )}
-            <CambiarContrasenaUsuarioModal usuario={usuarioContrasena} onCerrar={() => setUsuarioContrasena(null)} />
+            <EditarUsuarioModal usuario={usuarioEditando} onCerrar={() => setUsuarioEditando(null)} onGuardado={u => { setUsuarioEditando(u); void usuarios.recargar(); }} />
             <TicketAdminModal id={ticketAbierto} onCerrar={() => setTicketAbierto(null)} />
         </div>
     );

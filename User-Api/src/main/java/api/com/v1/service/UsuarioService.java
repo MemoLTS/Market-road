@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import api.com.v1.dto.FotoPerfilDTO;
+import api.com.v1.dto.AdminActualizarUsuarioDTO;
+import api.com.v1.dto.CambioContrasenaDTO;
 import api.com.v1.dto.CambioCorreoDTO;
 import api.com.v1.dto.UsuarioRequestDTO;
 import api.com.v1.dto.UsuarioResponseDTO;
@@ -22,6 +24,10 @@ public interface UsuarioService {
     UsuarioResponseDTO actualizarParcial(Long id, UsuarioUpdateDTO dto);
 
     UsuarioResponseDTO cambiarCorreo(Long id, CambioCorreoDTO dto);
+
+    UsuarioResponseDTO cambiarContrasena(Long id, CambioContrasenaDTO dto);
+
+    UsuarioResponseDTO actualizarComoAdmin(Long id, AdminActualizarUsuarioDTO dto);
 
     void restablecerContrasena(Long id, String contrasenaNueva);
 

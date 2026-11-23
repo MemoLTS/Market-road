@@ -33,6 +33,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import api.com.v1.dto.AdminActualizarUsuarioDTO;
+import api.com.v1.dto.CambioContrasenaDTO;
 import api.com.v1.dto.CambioCorreoDTO;
 import api.com.v1.dto.DispositivoInicioSesionDTO;
 import api.com.v1.dto.FotoPerfilDTO;
@@ -190,6 +192,79 @@ class ControllerTest {
 
             assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
             verify(usuarioService, never()).restablecerContrasena(any(), any());
+        }
+    }
+
+    @Nested
+    class EditarUsuarioAdminTests {
+
+        private final AdminActualizarUsuarioDTO dto = new AdminActualizarUsuarioDTO("Pedro", null, "pedro", "p@correo.cl", "Lota", null);
+
+        @Test
+        void superusuarioEditaLosDatosDeUnUsuarioNormal() {
+            UsuarioResponseDTO respuesta = new UsuarioResponseDTO(2L, "Pedro", "Apellido", "pedro", "p@correo.cl", "Lota", "USUARIO");
+            when(usuarioRepository.findById(1L))
+                    .thenReturn(Optional.of(usuario(1L, "admin", "a@correo.cl", Rol.SUPERUSUARIO)));
+            when(usuarioRepository.findById(2L))
+                    .thenReturn(Optional.of(usuario(2L, "juan", "j@correo.cl", Rol.USUARIO)));
+            when(usuarioService.actualizarComoAdmin(2L, dto)).thenReturn(respuesta);
+
+            ResponseEntity<UsuarioResponseDTO> r = adminUsuarioController.actualizar(1L, 2L, dto);
+
+            assertEquals(HttpStatus.OK, r.getStatusCode());
+            assertEquals(respuesta, r.getBody());
+        }
+
+        @Test
+        void usuarioNormalRecibeForbidden() {
+            when(usuarioRepository.findById(3L))
+                    .thenReturn(Optional.of(usuario(3L, "ana", "ana@correo.cl", Rol.USUARIO)));
+
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> adminUsuarioController.actualizar(3L, 2L, dto));
+
+            assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+            verify(usuarioService, never()).actualizarComoAdmin(any(), any());
+        }
+
+        @Test
+        void noSePuedeEditarAOtroSuperusuario() {
+            when(usuarioRepository.findById(1L))
+                    .thenReturn(Optional.of(usuario(1L, "admin", "a@correo.cl", Rol.SUPERUSUARIO)));
+            when(usuarioRepository.findById(9L))
+                    .thenReturn(Optional.of(usuario(9L, "otro", "o@correo.cl", Rol.SUPERUSUARIO)));
+
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> adminUsuarioController.actualizar(1L, 9L, dto));
+
+            assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+            verify(usuarioService, never()).actualizarComoAdmin(any(), any());
+        }
+    }
+
+    @Nested
+    class CambiarContrasenaPropiaTests {
+
+        private final CambioContrasenaDTO dto = new CambioContrasenaDTO("Actual1234", "Nueva1234");
+
+        @Test
+        void cambiaLaPropiaContrasena() {
+            UsuarioResponseDTO respuesta = new UsuarioResponseDTO(2L, "N", "A", "juan", "j@correo.cl", null, "USUARIO");
+            when(usuarioService.cambiarContrasena(2L, dto)).thenReturn(respuesta);
+
+            ResponseEntity<UsuarioResponseDTO> r = usuarioController.cambiarContrasena(2L, 2L, dto);
+
+            assertEquals(HttpStatus.OK, r.getStatusCode());
+            assertEquals(respuesta, r.getBody());
+        }
+
+        @Test
+        void noPuedeCambiarLaContrasenaDeOtraPersona() {
+            ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                    () -> usuarioController.cambiarContrasena(5L, 2L, dto));
+
+            assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+            verify(usuarioService, never()).cambiarContrasena(any(), any());
         }
     }
 

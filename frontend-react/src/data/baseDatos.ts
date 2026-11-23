@@ -251,17 +251,35 @@ export function listarUsuarios(): Usuario[] {
     return cargar().usuarios.map(sinContrasena);
 }
 
+export interface CambiosAdminUsuario {
+    nombre?: string;
+    apellido?: string;
+    apodo?: string;
+    correo?: string;
+    ciudad?: string;
+    contrasena?: string;
+}
+
 /**
- * Simula PATCH /admin/usuarios/{id}/contrasena. Devuelve un texto de error (o null si todo salió bien):
- * 'no-existe' si el usuario no existe y 'superusuario' si es otro superusuario (el backend responde 403).
+ * Simula PATCH /admin/usuarios/{id}: el superusuario edita los datos de otro usuario.
+ * Devuelve el usuario actualizado o un código de error ('no-existe', 'superusuario', 'correo', 'apodo'),
+ * con las mismas reglas que el backend (otro superusuario → 403, correo/apodo repetidos → 409).
  */
-export function restablecerContrasena(adminId: number, id: number, contrasena: string): 'no-existe' | 'superusuario' | null {
-    const u = cargar().usuarios.find(x => x.id === Number(id));
+export function actualizarUsuarioAdmin(adminId: number, id: number, cambios: CambiosAdminUsuario): Usuario | 'no-existe' | 'superusuario' | 'correo' | 'apodo' {
+    const usuarios = cargar().usuarios;
+    const u = usuarios.find(x => x.id === Number(id));
     if (!u) return 'no-existe';
     if (u.rol === 'SUPERUSUARIO' && u.id !== Number(adminId)) return 'superusuario';
-    u.contrasena = contrasena;
+    if (cambios.correo !== undefined && usuarios.some(x => x.id !== u.id && x.correo.toLowerCase() === cambios.correo?.trim().toLowerCase())) return 'correo';
+    if (cambios.apodo !== undefined && cambios.apodo.trim() !== '' && usuarios.some(x => x.id !== u.id && (x.apodo ?? '').toLowerCase() === cambios.apodo?.trim().toLowerCase())) return 'apodo';
+    if (cambios.nombre !== undefined) u.nombre = cambios.nombre.trim();
+    if (cambios.apellido !== undefined) u.apellido = cambios.apellido.trim();
+    if (cambios.apodo !== undefined) u.apodo = cambios.apodo.trim() || null;
+    if (cambios.correo !== undefined) u.correo = cambios.correo.trim();
+    if (cambios.ciudad !== undefined) u.ciudad = cambios.ciudad.trim() || null;
+    if (cambios.contrasena !== undefined) u.contrasena = cambios.contrasena;
     guardar();
-    return null;
+    return sinContrasena(u);
 }
 
 export function actualizarUsuario(id: number, cambios: { apodo?: string; ciudad?: string }): Usuario | null {

@@ -168,9 +168,23 @@ describe('FormularioPersonal (equipo de soporte)', () => {
         await escribir(c.querySelector('#perNombre'), valores.nombre);
         await escribir(c.querySelector('#perCorreo'), valores.correo);
         await escribir(c.querySelector('#perContrasena'), valores.contrasena);
+        await escribir(c.querySelector('#perRepetir'), valores.contrasena);
         await escribir(c.querySelector('#perRol'), 'ADMIN');
         await enviarFormulario(c.querySelector('form'));
         expect(onGuardar).toHaveBeenCalledWith({ nombre: 'Sol Rojas', correo: 'sol@correo.cl', contrasena: 'Clave1234', rol: 'ADMIN' });
+    });
+
+    it('en alta exige repetir la contraseña', async () => {
+        const onGuardar = jasmine.createSpy('onGuardar').and.resolveTo();
+        const c = await montar(<FormularioPersonal onGuardar={onGuardar} onCancelar={() => undefined} />);
+        await escribir(c.querySelector('#perNombre'), valores.nombre);
+        await escribir(c.querySelector('#perCorreo'), valores.correo);
+        await escribir(c.querySelector('#perContrasena'), valores.contrasena);
+        await escribir(c.querySelector('#perRepetir'), 'Otra12345');
+        await enviarFormulario(c.querySelector('form'));
+        expect(texto(c)).toContain('no coinciden');
+        expect(onGuardar).not.toHaveBeenCalled();
+        expect(validarPersonal({ ...valores, repetir: 'otra' }, false).contrasena).toContain('no coinciden');
     });
 
     it('en edición bloquea el correo y no envía contraseña vacía', async () => {
@@ -189,6 +203,7 @@ describe('FormularioPersonal (equipo de soporte)', () => {
         await escribir(c.querySelector('#perNombre'), valores.nombre);
         await escribir(c.querySelector('#perCorreo'), valores.correo);
         await escribir(c.querySelector('#perContrasena'), valores.contrasena);
+        await escribir(c.querySelector('#perRepetir'), valores.contrasena);
         await enviarFormulario(c.querySelector('form'));
         expect(texto(c)).toContain('Ese correo ya existe');
     });
@@ -220,6 +235,7 @@ describe('Equipo de soporte: alta, edición y activación', () => {
         await escribir(form.querySelector('#perNombre') as HTMLInputElement, 'Ana Pérez');
         await escribir(form.querySelector('#perCorreo') as HTMLInputElement, 'ana@correo.cl');
         await escribir(form.querySelector('#perContrasena') as HTMLInputElement, 'Clave1234');
+        await escribir(form.querySelector('#perRepetir') as HTMLInputElement, 'Clave1234');
         await enviarFormulario(form);
         await esperar(20);
         expect(crear).toHaveBeenCalledWith({ nombre: 'Ana Pérez', correo: 'ana@correo.cl', contrasena: 'Clave1234', rol: 'SOPORTE' });

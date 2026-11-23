@@ -334,57 +334,107 @@ describe('AdminPage (modo simulado)', () => {
         expect(texto(c)).toContain('No hay usuarios.');
     });
 
-    it('el superusuario cambia la contraseña de un usuario desde su dashboard (y el usuario entra con la nueva)', async () => {
+    const abrirEdicion = async (c: HTMLElement, apodo: string) => {
+        await clic(Array.from(c.querySelectorAll('[role=tab]')).find(t => t.textContent === 'Usuarios'));
+        await clic(c.querySelector(`button[aria-label="Editar a ${apodo}"]`));
+    };
+    const formEditar = () => document.querySelector('form[aria-label="Editar usuario"]');
+    const textoModal = () => document.querySelector('.modal')?.textContent ?? '';
+
+    it('cada usuario tiene un botón Editar que abre la ventana con sus datos actuales y un único botón de guardado', async () => {
         sesion(admin);
         const c = await montarConApp(<AdminPage />);
         await esperar(40);
-        await clic(botonPorTexto(c, 'Cambiar contraseña de un usuario'));
-        await clic(c.querySelector('button[aria-label="Cambiar contraseña de demo"]'));
-        const formulario = () => document.querySelector('form[aria-label="Cambiar contraseña de usuario"]');
+        await abrirEdicion(c, 'demo');
+        expect((document.querySelector('#adminNombre') as HTMLInputElement).value).toBe('Demo');
+        expect((document.querySelector('#adminApellido') as HTMLInputElement).value).toBe('Usuario');
+        expect((document.querySelector('#adminApodo') as HTMLInputElement).value).toBe('demo');
+        expect((document.querySelector('#adminCorreo') as HTMLInputElement).value).toBe('demo@marketroad.cl');
+        expect((document.querySelector('#adminCiudad') as HTMLInputElement).value).toBe('Concepción');
+        expect(document.querySelectorAll('.modal button[type=submit]').length).toBe(1);
+    });
+
+    it('el superusuario edita nombre, apodo, correo y contraseña en una sola ventana y la lista se actualiza', async () => {
+        sesion(admin);
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await abrirEdicion(c, 'demo');
+        await escribir(document.querySelector('#adminNombre') as HTMLInputElement, 'Pedro');
+        await escribir(document.querySelector('#adminApodo') as HTMLInputElement, 'pedro');
+        await escribir(document.querySelector('#adminCorreo') as HTMLInputElement, 'pedro@marketroad.cl');
         await escribir(document.querySelector('#adminClaveNueva') as HTMLInputElement, 'Nueva1234');
         await escribir(document.querySelector('#adminClaveRepetir') as HTMLInputElement, 'Nueva1234');
-        await enviarFormulario(formulario());
-        await esperar(30);
-        expect(document.querySelector('.modal')?.textContent).toContain('Contraseña de demo actualizada.');
-        expect(bd.autenticar('demo@marketroad.cl', 'Nueva1234').usuario.apodo).toBe('demo');
-        expect(() => bd.autenticar('demo@marketroad.cl', 'demo1234')).toThrow();
+        await enviarFormulario(formEditar());
+        await esperar(60);
+        expect(textoModal()).toContain('Datos de pedro actualizados.');
+        const guardado = bd.listarUsuarios().find(u => u.id === 1);
+        expect([guardado?.nombre, guardado?.apodo, guardado?.correo]).toEqual(['Pedro', 'pedro', 'pedro@marketroad.cl']);
+        expect(bd.autenticar('pedro@marketroad.cl', 'Nueva1234').usuario.id).toBe(1);
+        expect(texto(c)).toContain('pedro@marketroad.cl');
     });
 
-    it('valida la contraseña nueva y su repetición antes de llamar al servicio', async () => {
-        const restablecer = spyOn(adminService, 'restablecerContrasena').and.resolveTo();
+    it('valida los datos antes de llamar al servicio (nombre, correo, contraseña, repetición y ciudad)', async () => {
+        const actualizar = spyOn(adminService, 'actualizarUsuario').and.resolveTo({} as never);
         const c = await montarConApp(<AdminPage />);
         await esperar(40);
-        await clic(Array.from(c.querySelectorAll('[role=tab]')).find(t => t.textContent === 'Usuarios'));
-        await clic(c.querySelector('button[aria-label="Cambiar contraseña de demo"]'));
-        const formulario = () => document.querySelector('form[aria-label="Cambiar contraseña de usuario"]');
+        await abrirEdicion(c, 'demo');
+        await escribir(document.querySelector('#adminCorreo') as HTMLInputElement, 'sin-arroba');
+        await enviarFormulario(formEditar());
+        expect(textoModal()).toContain('correo con formato válido');
+        await escribir(document.querySelector('#adminCorreo') as HTMLInputElement, 'demo@marketroad.cl');
         await escribir(document.querySelector('#adminClaveNueva') as HTMLInputElement, 'corta');
-        await enviarFormulario(formulario());
-        expect(document.querySelector('.modal')?.textContent).toContain('entre 8 y 32');
+        await enviarFormulario(formEditar());
+        expect(textoModal()).toContain('entre 8 y 32');
         await escribir(document.querySelector('#adminClaveNueva') as HTMLInputElement, 'Nueva1234');
         await escribir(document.querySelector('#adminClaveRepetir') as HTMLInputElement, 'Otra12345');
-        await enviarFormulario(formulario());
-        expect(document.querySelector('.modal')?.textContent).toContain('no coinciden');
-        expect(restablecer).not.toHaveBeenCalled();
+        await enviarFormulario(formEditar());
+        expect(textoModal()).toContain('no coinciden');
+        await escribir(document.querySelector('#adminClaveNueva') as HTMLInputElement, '');
+        await escribir(document.querySelector('#adminClaveRepetir') as HTMLInputElement, '');
+        await escribir(document.querySelector('#adminCiudad') as HTMLInputElement, 'Lota');
+        await enviarFormulario(formEditar());
+        expect(textoModal()).toContain('Busca y elige la localidad del usuario');
+        expect(actualizar).not.toHaveBeenCalled();
     });
 
-    it('el servicio (modo simulado) rechaza cambiar la contraseña de otro superusuario con 403 y de un usuario inexistente con 404', async () => {
-        sesion(demo); // la sesión es de la persona 1; el objetivo es el superusuario 2
-        await expectAsync(adminService.restablecerContrasena(2, 'Nueva1234')).toBeRejectedWithError(/otro superusuario/);
+    it('avisa cuando no hay cambios y muestra el error del servidor (por ejemplo, correo repetido)', async () => {
         sesion(admin);
-        await expectAsync(adminService.restablecerContrasena(999, 'Nueva1234')).toBeRejectedWithError(/no existe/);
-        await adminService.restablecerContrasena(2, 'Nueva1234'); // el superusuario sí puede cambiar la suya
-        expect(bd.autenticar('admin@marketroad.cl', 'Nueva1234').usuario.rol).toBe('SUPERUSUARIO');
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await abrirEdicion(c, 'demo');
+        await enviarFormulario(formEditar());
+        expect(textoModal()).toContain('No hay cambios para guardar.');
+        await escribir(document.querySelector('#adminCorreo') as HTMLInputElement, 'admin@marketroad.cl');
+        await enviarFormulario(formEditar());
+        await esperar(30);
+        expect(textoModal()).toContain('Ya existe un usuario registrado con ese correo');
     });
 
-    it('con el backend real envía PATCH /admin/usuarios/{id}/contrasena con la contraseña nueva', async () => {
+    it('el servicio (modo simulado) rechaza editar a otro superusuario con 403 y a un usuario inexistente con 404', async () => {
+        sesion(demo); // la sesión es de la persona 1; el objetivo es el superusuario 2
+        await expectAsync(adminService.actualizarUsuario(2, { nombre: 'Hack' })).toBeRejectedWithError(/otro superusuario/);
+        sesion(admin);
+        await expectAsync(adminService.actualizarUsuario(999, { nombre: 'Nadie' })).toBeRejectedWithError(/no existe/);
+        const yo = await adminService.actualizarUsuario(2, { ciudad: 'Santiago, Chile' }); // el superusuario sí puede editar su propia cuenta
+        expect(yo.ciudad).toBe('Santiago, Chile');
+    });
+
+    it('con el backend real envía PATCH /admin/usuarios/{id} solo con los campos cambiados', async () => {
         config.usarMock = false;
         sesion(admin);
-        const espia = spyOn(window, 'fetch').and.resolveTo(respuestaJson(null, 204));
-        await adminService.restablecerContrasena(7, 'Nueva1234');
+        const espia = spyOn(window, 'fetch').and.resolveTo(respuestaJson({ id: 7, nombre: 'Ana', apellido: 'Paz', apodo: 'ana', correo: 'a@a.cl', ciudad: null }));
+        await adminService.actualizarUsuario(7, { nombre: 'Ana', contrasena: 'Nueva1234' });
         const [url, opciones] = espia.calls.mostRecent().args as [string, RequestInit];
-        expect(String(url)).toContain('/admin/usuarios/7/contrasena');
+        expect(String(url)).toContain('/admin/usuarios/7');
         expect(opciones.method).toBe('PATCH');
-        expect(JSON.parse(String(opciones.body))).toEqual({ contrasena: 'Nueva1234' });
+        expect(JSON.parse(String(opciones.body))).toEqual({ nombre: 'Ana', contrasena: 'Nueva1234' });
+    });
+
+    it('el atajo del dashboard lleva a la pestaña Usuarios para editar', async () => {
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await clic(botonPorTexto(c, 'Editar usuarios'));
+        expect(c.querySelector('button[aria-label="Editar a demo"]')).not.toBeNull();
     });
 
     it('la pestaña Publicaciones muestra las 8 publicaciones', async () => {
@@ -511,6 +561,29 @@ describe('PerfilPage (backend real): un solo guardado para datos, correo y foto'
         expect(correo).toHaveBeenCalledWith('otro@correo.cl', 'demo1234');
         expect(subir).not.toHaveBeenCalled();
         expect(texto(c)).toContain('Perfil actualizado correctamente.');
+    });
+
+    it('cambia también la contraseña con el mismo botón (pide la actual, valida la nueva y su repetición)', async () => {
+        const clave = spyOn(authService, 'cambiarContrasena').and.resolveTo(undefined as never);
+        spyOn(authService, 'dispositivos').and.resolveTo([]);
+        spyOn(publicacionesService, 'mias').and.resolveTo([] as never);
+        const c = await montarConApp(<PerfilPage />);
+        await esperar(40);
+        const f = () => c.querySelector('form[aria-label="Datos del perfil"]');
+        expect(c.querySelectorAll('button[type=submit]').length).toBe(1);
+        await escribir(c.querySelector('#perfilClaveNueva'), 'Nueva1234');
+        await enviarFormulario(f());
+        expect(texto(c)).toContain('Ingresa tu contraseña actual para cambiar la contraseña');
+        await escribir(c.querySelector('#perfilClaveActual'), 'demo1234');
+        await escribir(c.querySelector('#perfilClaveRepetir'), 'Otra12345');
+        await enviarFormulario(f());
+        expect(texto(c)).toContain('no coinciden');
+        await escribir(c.querySelector('#perfilClaveRepetir'), 'Nueva1234');
+        await enviarFormulario(f());
+        await esperar(30);
+        expect(clave).toHaveBeenCalledOnceWith('demo1234', 'Nueva1234');
+        expect(texto(c)).toContain('Perfil actualizado correctamente.');
+        expect((c.querySelector('#perfilClaveNueva') as HTMLInputElement).value).toBe('');
     });
 
     it('para cambiar el correo exige la contraseña actual', async () => {

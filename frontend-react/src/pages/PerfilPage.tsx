@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { formatoFechaCorta, mensajeDeError } from '../core/formato';
 import { validarLocalidad } from '../core/localidad';
 import { calcularRecorte, ZOOM_MIN, ZOOM_MAX } from '../core/recorte';
-import { primerError, TIPOS_FOTO, validarApodo, validarCorreo } from '../core/validaciones';
+import { primerError, TIPOS_FOTO, validarApodo, validarContrasenaNueva, validarCorreo } from '../core/validaciones';
 import { useAsync } from '../hooks/useAsync';
 import { authService } from '../services/authService';
 import type { Usuario } from '../types/api';
@@ -89,6 +89,9 @@ function FormularioPerfil({ usuario }: { usuario: Usuario }) {
     const [ciudad, setCiudad] = useState<ValorLocalidad>({ ubicacion: usuario.ciudad ?? '', lugar: null });
     const [correo, setCorreo] = useState('');
     const [clave, setClave] = useState('');
+    const [claveActualPerfil, setClaveActualPerfil] = useState('');
+    const [claveNueva, setClaveNueva] = useState('');
+    const [claveRepetir, setClaveRepetir] = useState('');
     const [generarFoto, setGenerarFoto] = useState<GeneradorFoto | null>(null);
     const [errorCiudad, setErrorCiudad] = useState<string | null>(null);
     const [estado, setEstado] = useState({ mensaje: '', tipo: 'danger' });
@@ -99,23 +102,27 @@ function FormularioPerfil({ usuario }: { usuario: Usuario }) {
         const errLocalidad = validarLocalidad(ciudad.ubicacion, ciudad.lugar, { obligatoria: false, original: usuario.ciudad ?? '', de: 'de tu perfil' });
         setErrorCiudad(errLocalidad);
         const quiereCorreo = !config.usarMock && (correo.trim() !== '' || clave !== '');
+        const quiereClave = !config.usarMock && (claveActualPerfil !== '' || claveNueva !== '' || claveRepetir !== '');
         const invalido = primerError(
             validarApodo(apodo),
             errLocalidad,
             quiereCorreo ? primerError(validarCorreo(correo), !clave ? 'Ingresa tu contraseña actual para cambiar el correo.' : null,
                 correo.trim().toLowerCase() === usuario.correo.toLowerCase() ? 'El nuevo correo es igual al correo actual.' : null) : null,
+            quiereClave ? primerError(!claveActualPerfil ? 'Ingresa tu contraseña actual para cambiar la contraseña.' : null, validarContrasenaNueva(claveNueva),
+                claveNueva !== claveRepetir ? 'Las contraseñas nuevas no coinciden.' : null) : null,
         );
         if (invalido) { setEstado({ mensaje: invalido, tipo: 'danger' }); return; }
 
         const cambios: { apodo?: string; ciudad?: string } = {};
         if (apodo.trim() !== (usuario.apodo ?? '')) cambios.apodo = apodo.trim();
         if (ciudad.ubicacion.trim() !== (usuario.ciudad ?? '')) cambios.ciudad = ciudad.ubicacion.trim();
-        if (!Object.keys(cambios).length && !quiereCorreo && !generarFoto) { setEstado({ mensaje: 'No hay cambios para guardar.', tipo: 'info' }); return; }
+        if (!Object.keys(cambios).length && !quiereCorreo && !quiereClave && !generarFoto) { setEstado({ mensaje: 'No hay cambios para guardar.', tipo: 'info' }); return; }
 
         setGuardando(true);
         try {
             if (Object.keys(cambios).length) await authService.actualizarPerfil(cambios);
             if (quiereCorreo) { await authService.cambiarCorreo(correo.trim(), clave); setCorreo(''); setClave(''); }
+            if (quiereClave) { await authService.cambiarContrasena(claveActualPerfil, claveNueva); setClaveActualPerfil(''); setClaveNueva(''); setClaveRepetir(''); }
             if (generarFoto) {
                 const foto = await generarFoto();
                 if (foto) await authService.subirFoto(foto);
@@ -139,7 +146,7 @@ function FormularioPerfil({ usuario }: { usuario: Usuario }) {
                     onCambiar={v => { setCiudad(v); setErrorCiudad(null); }} />
             </Campo>
             {config.usarMock
-                ? <p className="small text-secondary">La foto y el cambio de correo requieren el backend real.</p>
+                ? <p className="small text-secondary">La foto, el cambio de correo y el cambio de contraseña requieren el backend real.</p>
                 : (
                     <>
                         <div className="mb-3"><FotoPerfil onPreparada={setGenerarFoto} /></div>
@@ -147,6 +154,12 @@ function FormularioPerfil({ usuario }: { usuario: Usuario }) {
                             <legend className="form-label fs-6">Cambiar correo (opcional)</legend>
                             <Campo id="nuevoCorreo" etiqueta="Nuevo correo"><input id="nuevoCorreo" type="email" className="form-control" value={correo} onChange={(e: ChangeEvent<HTMLInputElement>) => setCorreo(e.target.value)} /></Campo>
                             <Campo id="claveActual" etiqueta="Contraseña actual" className="mb-0"><input id="claveActual" type="password" autoComplete="current-password" className="form-control" value={clave} onChange={(e: ChangeEvent<HTMLInputElement>) => setClave(e.target.value)} /></Campo>
+                        </fieldset>
+                        <fieldset className="mb-3">
+                            <legend className="form-label fs-6">Cambiar contraseña (opcional)</legend>
+                            <Campo id="perfilClaveActual" etiqueta="Contraseña actual"><input id="perfilClaveActual" type="password" autoComplete="current-password" className="form-control" value={claveActualPerfil} onChange={(e: ChangeEvent<HTMLInputElement>) => setClaveActualPerfil(e.target.value)} /></Campo>
+                            <Campo id="perfilClaveNueva" etiqueta="Contraseña nueva" ayuda="Entre 8 y 32 caracteres, con letras y números, sin espacios."><input id="perfilClaveNueva" type="password" autoComplete="new-password" className="form-control" value={claveNueva} onChange={(e: ChangeEvent<HTMLInputElement>) => setClaveNueva(e.target.value)} /></Campo>
+                            <Campo id="perfilClaveRepetir" etiqueta="Repite la contraseña nueva" className="mb-0"><input id="perfilClaveRepetir" type="password" autoComplete="new-password" className="form-control" value={claveRepetir} onChange={(e: ChangeEvent<HTMLInputElement>) => setClaveRepetir(e.target.value)} /></Campo>
                         </fieldset>
                     </>
                 )}

@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import api.com.v1.dto.UsuarioRequestDTO;
 import api.com.v1.dto.UsuarioResponseDTO;
 import api.com.v1.dto.UsuarioUpdateDTO;
+import api.com.v1.dto.AdminActualizarUsuarioDTO;
+import api.com.v1.dto.CambioContrasenaDTO;
 import api.com.v1.dto.CambioCorreoDTO;
 import api.com.v1.dto.FotoPerfilDTO;
 import api.com.v1.exception.RecursoDuplicadoException;
@@ -130,6 +132,48 @@ public class UsuarioServiceImpl implements UsuarioService {
         String correo = dto.correo().trim();
         validarCorreoDisponible(correo, id);
         usuario.setCorreo(correo);
+        return aResponseDTO(usuarioRepository.save(usuario));
+    }
+
+    @Override
+    @Transactional
+    public UsuarioResponseDTO cambiarContrasena(Long id, CambioContrasenaDTO dto) {
+        Usuario usuario = buscarPorIdOLanzar(id);
+        if (!passwordEncoder.matches(dto.contrasenaActual(), usuario.getContrasena())) {
+            throw new CredencialesInvalidasException("La contraseña actual no es correcta");
+        }
+        usuario.setContrasena(passwordEncoder.encode(dto.contrasenaNueva()));
+        return aResponseDTO(usuarioRepository.save(usuario));
+    }
+
+    @Override
+    @Transactional
+    public UsuarioResponseDTO actualizarComoAdmin(Long id, AdminActualizarUsuarioDTO dto) {
+        Usuario usuario = buscarPorIdOLanzar(id);
+        if (dto.nombre() != null) {
+            usuario.setNombre(dto.nombre().trim());
+        }
+        if (dto.apellido() != null) {
+            usuario.setApellido(dto.apellido().trim());
+        }
+        if (dto.apodo() != null) {
+            String apodo = normalizarApodo(dto.apodo());
+            if (apodo != null) {
+                validarApodoDisponible(apodo, id);
+            }
+            usuario.setApodo(apodo);
+        }
+        if (dto.correo() != null) {
+            String correo = dto.correo().trim();
+            validarCorreoDisponible(correo, id);
+            usuario.setCorreo(correo);
+        }
+        if (dto.ciudad() != null) {
+            usuario.setCiudad(dto.ciudad().isBlank() ? null : dto.ciudad().trim());
+        }
+        if (dto.contrasena() != null) {
+            usuario.setContrasena(passwordEncoder.encode(dto.contrasena()));
+        }
         return aResponseDTO(usuarioRepository.save(usuario));
     }
 
