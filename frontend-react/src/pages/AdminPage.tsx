@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import Alert from '../components/common/Alert';
+import Modal from '../components/common/Modal';
 import Spinner from '../components/common/Spinner';
 import { formatoFechaCorta, formatoPrecio } from '../core/formato';
 import { useAsync } from '../hooks/useAsync';
@@ -98,7 +99,34 @@ function Dashboard({ usuarios, publicaciones, resumen }: { usuarios: Usuario[]; 
     );
 }
 
+/** Ventana con el detalle de un ticket de soporte (solo lectura para el superusuario). */
+export function TicketAdminModal({ id, onCerrar }: { id: number | null; onCerrar: () => void }) {
+    const detalle = useAsync(() => (id === null ? Promise.resolve(null) : adminService.detalleTicket(id)), [id]);
+    const d = detalle.datos;
+    return (
+        <Modal abierto={id !== null} titulo={d ? `Ticket #${d.ticket.id} · ${d.ticket.asunto}` : 'Detalle del ticket'} onCerrar={onCerrar} tamano="modal-lg">
+            <Alert mensaje={detalle.error} />
+            {detalle.cargando && !d ? <Spinner /> : d && (
+                <>
+                    <p className="small text-secondary mb-3" data-testid="ticket-datos">
+                        {d.ticket.estadoNombre} · prioridad {d.ticket.prioridadNombre.toLowerCase()} · {d.ticket.categoriaNombre} · de {d.ticket.usuarioApodo} · {d.ticket.asignadoNombre ? `atiende ${d.ticket.asignadoNombre}` : 'sin asignar'}
+                    </p>
+                    <ul className="list-unstyled mb-0" data-testid="ticket-mensajes">
+                        {d.mensajes.map(m => (
+                            <li key={m.id} className="rounded-3 bg-body-tertiary p-3 mb-2">
+                                <div className="small text-secondary mb-1"><strong>{m.autorNombre}</strong> ({m.autorTipo.toLowerCase()}) · {formatoFechaCorta(m.fecha)}</div>
+                                <div style={{ whiteSpace: 'pre-wrap' }}>{m.contenido}</div>
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            )}
+        </Modal>
+    );
+}
+
 export default function AdminPage() {
+    const [ticketAbierto, setTicketAbierto] = useState<number | null>(null);
     const [pestana, setPestana] = useState('dashboard');
     const [filtro, setFiltro] = useState('');
     const usuarios = useAsync(() => adminService.usuarios(), []);
@@ -151,11 +179,13 @@ export default function AdminPage() {
                                     columnas={[
                                         { titulo: 'ID', celda: t => t.id }, { titulo: 'Asunto', celda: t => t.asunto }, { titulo: 'Usuario', celda: t => t.usuarioApodo },
                                         { titulo: 'Estado', celda: t => t.estadoNombre }, { titulo: 'Prioridad', celda: t => t.prioridadNombre }, { titulo: 'Asignado', celda: t => t.asignadoNombre ?? 'Sin asignar' },
+                                        { titulo: '', celda: t => <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setTicketAbierto(t.id)}>Ver</button> },
                                     ]} />
                             </>
                         ))}
                 </>
             )}
+            <TicketAdminModal id={ticketAbierto} onCerrar={() => setTicketAbierto(null)} />
         </div>
     );
 }

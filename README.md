@@ -42,7 +42,7 @@ productos: los datos del artículo viven dentro de cada publicación (`Publicati
 
 `user-api` crea al iniciar un superusuario predeterminado (`admin@marketroad.local` /
 `Admin12345`, configurable con `SUPERUSUARIO_CORREO` y `SUPERUSUARIO_CONTRASENA` en `.env`).
-Solo esta cuenta ve el enlace "Panel de superusuario" y puede abrir `admin.html`, que tiene tres pestañas:
+Solo esta cuenta ve el enlace "Panel de superusuario" y puede abrir la ruta `/#/admin`, que tiene tres pestañas:
 Usuarios, Publicaciones y **Soporte** (todos los tickets y sus chats, con búsqueda y filtro por estado; es de solo lectura:
 para responder o gestionar se usa el panel de soporte, al que lleva el botón "Panel de soporte").
 Cambia la contraseña y `JWT_SECRET` antes de desplegar.
@@ -54,15 +54,15 @@ en el gateway). Tiene dos tipos de cuenta, con tokens y secretos **distintos**:
 
 | Quién | Cómo entra | Qué puede hacer |
 | --- | --- | --- |
-| Persona usuaria de la tienda | Su sesión normal (token de `user-api`, `JWT_SECRET`) | Abrir un ticket y conversar por chat **solo en sus propios tickets**; cerrarlos. Página `soporte.html` (menú de usuario → Soporte). |
-| Personal `SOPORTE` | Cuenta propia del servicio en `soporte-panel.html` (token firmado con `SOPORTE_JWT_SECRET`) | Ver y responder los tickets **sin asignar y los suyos**; tomar tickets; cambiar estado y prioridad. No ve el correo ni el id de quien escribe. |
+| Persona usuaria de la tienda | Su sesión normal (token de `user-api`, `JWT_SECRET`) | Abrir un ticket y conversar por chat **solo en sus propios tickets**; cerrarlos. Ruta `/#/soporte` (pie de página → Soporte). |
+| Personal `SOPORTE` | Cuenta propia del servicio en la ruta `/#/soporte-panel` (token firmado con `SOPORTE_JWT_SECRET`) | Ver y responder los tickets **sin asignar y los suyos**; tomar tickets; cambiar estado y prioridad. No ve el correo ni el id de quien escribe. |
 | Personal `ADMIN` | Igual que `SOPORTE` | Todo lo de `SOPORTE` **más**: ver todos los tickets y chats (también los de otras personas), ver los datos de quien escribe (id y correo), reasignar, reabrir tickets cerrados, gestionar el equipo (crear, cambiar rol, desactivar, restablecer contraseña) y ver las estadísticas. |
 
 El personal **no** existe en `user-api`: sus cuentas viven en `db_soporte`. Un token de usuario común no sirve en el
 panel y uno del personal no sirve en el resto de la plataforma. El rol y el estado activo se consultan en la base
 en cada petición, así que desactivar o degradar a alguien surte efecto de inmediato.
 
-Al iniciar, el servicio crea dos cuentas iniciales si no existen (se entra en `soporte-panel.html`):
+Al iniciar, el servicio crea dos cuentas iniciales si no existen (se entra en `/#/soporte-panel`):
 
 | Cuenta | Rol | Correo / contraseña por defecto | Variables en `.env` |
 | --- | --- | --- | --- |
@@ -87,7 +87,7 @@ Endpoints principales (todos bajo `/api/v1/soporte`):
 - Superusuario de la plataforma (token de `user-api`, solo lectura): `GET /admin/tickets` (mismos filtros que el panel),
   `GET /admin/tickets/resumen`, `GET /admin/tickets/{id}`.
 
-Pruebas: `cd soporte && mvn test` (reglas del servicio) y `npm test` (frontend, incluye la sesión del panel).
+Pruebas: `cd soporte && mvn test` (reglas del servicio) y `cd frontend-react && npm test` (frontend, incluye la sesión del panel).
 
 ## Configuración inyectada con `@Value`
 
@@ -100,7 +100,21 @@ beans de Spring que los servicios reciben con `@Autowired`.
 
 La versión 2 del frontend está en [`frontend-react/`](frontend-react/README.md): React + Bootstrap, nuevas vistas y rutas, capa de datos con CRUD y pruebas Jasmine + Karma.
 La documentación de la entrega (ERS V2, cobertura de testing y planilla Scrum) está en [`Documentos/`](Documentos/).
-El frontend original (HTML + TypeScript) se mantiene en la raíz del repositorio y sus 28 pruebas con `node --test` siguen vigentes.
+Es el único frontend del proyecto: el frontend original (HTML + TypeScript sin framework) se eliminó porque React reemplaza todas sus funciones.
+
+### Solo TypeScript y React
+
+El código del proyecto está escrito únicamente en **TypeScript** (`.ts`) y **React** (`.tsx`): no hay archivos `.js`, `.jsx`, `.cjs` ni `.mjs`.
+
+- Configuración también en TypeScript: `vite.config.ts` (Vite) y `karma/karma.conf.ts` (Karma, cargado con `ts-node`).
+- El único HTML es `frontend-react/index.html`, la plantilla de Vite que carga `src/main.tsx`.
+- Las bibliotecas de terceros (React, Bootstrap, Leaflet) son JavaScript por naturaleza y llegan por `npm` o CDN; no forman parte del código del proyecto. El navegador siempre ejecuta JavaScript, pero aquí es el resultado de compilar TypeScript y React (`npm run build`).
+
+### Direcciones: rutas de la página y de la API
+
+- **Páginas (URL del navegador):** la app usa rutas con `#` (`/#/`, `/#/publicaciones/3`, `/#/mensajes/7`, `/#/admin`, `/#/soporte-panel`). Funcionan al recargar, con los botones Atrás/Adelante y con enlaces directos, sin configurar el servidor. Si se abre una página protegida sin sesión, se pide iniciar sesión y, al terminar, se vuelve a la página pedida.
+- **API en producción (Docker):** el navegador llama a `/api/v1/...` en el mismo sitio; Nginx reenvía `/api/` al gateway (`gateway-service:8081`), que reparte a cada servicio.
+- **API en desarrollo (`npm run dev`):** Vite reenvía `/api` al gateway (`http://localhost:8081`, o `VITE_GATEWAY_URL`), por lo que no hace falta crear un `.env`. Con `VITE_API_URL` se puede apuntar directamente a otra URL.
 
 ## Verificar que React guarda en Spring Boot y MySQL
 
@@ -117,7 +131,7 @@ los datos viven solo en el navegador y **no** llegan al backend; React muestra u
    - Consultas listas para ejecutar: `Documentos/consultas_verificacion.sql`.
 4. Prueba la API sin la página con **Postman**: importa `Documentos/postman/Market-Road.postman_collection.json` y
    `Documentos/postman/Market-Road.local.postman_environment.json`, elige el entorno *Market-Road local* y ejecuta en orden
-   *Registrar usuario → Login → Crear publicación → Editar publicación*. El login guarda `{{token}}` automáticamente.
+   *Registrar usuario → Login → Crear publicación → Editar publicación*. Del login se copia el `token` a la variable `{{token}}` del entorno.
 
 ## Unidades a la venta y dashboard
 

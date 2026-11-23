@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import Alert from '../components/common/Alert';
+import BuscadorCiudad from '../components/common/BuscadorCiudad';
 import Campo from '../components/common/Campo';
 import PublicationList from '../components/publicaciones/PublicationList';
 import { config } from '../config';
@@ -40,7 +41,7 @@ function DatosPerfil({ usuario }: { usuario: Usuario }) {
             <p className="mb-1"><strong>{usuario.nombre} {usuario.apellido}</strong></p>
             <p className="text-secondary">{usuario.correo}</p>
             <Campo id="perfilApodo" etiqueta="Apodo"><input id="perfilApodo" className="form-control" value={apodo} onChange={(e: ChangeEvent<HTMLInputElement>) => setApodo(e.target.value)} /></Campo>
-            <Campo id="perfilCiudad" etiqueta="Ciudad"><input id="perfilCiudad" className="form-control" value={ciudad} onChange={(e: ChangeEvent<HTMLInputElement>) => setCiudad(e.target.value)} /></Campo>
+            <Campo id="perfilCiudad" etiqueta="Ciudad" ayuda="Busca tu ciudad o pueblo y elígelo de la lista."><BuscadorCiudad id="perfilCiudad" valor={ciudad} onCambiar={setCiudad} /></Campo>
             <button type="submit" className="btn btn-primary">Guardar cambios</button>
         </form>
     );

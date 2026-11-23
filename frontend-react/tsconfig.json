@@ -27,5 +27,13 @@
   "include": [
     "src",
     "vite.config.ts"
-  ]
+  ],
+  "ts-node": {
+    "transpileOnly": true,
+    "compilerOptions": {
+      "module": "CommonJS",
+      "moduleResolution": "node",
+      "isolatedModules": false
+    }
+  }
 }

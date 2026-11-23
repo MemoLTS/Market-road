@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import LoginForm from '../components/auth/LoginForm';
 import RegisterForm from '../components/auth/RegisterForm';
 import Modal from '../components/common/Modal';
+import { olvidarDestino } from '../core/destino';
 
 export interface ValorUi {
     abrirLogin: () => void;
@@ -15,6 +16,8 @@ const UiContext = createContext<ValorUi>({ abrirLogin: () => {}, abrirRegistro: 
 export function UiProvider({ children }: { children: ReactNode }) {
     const [modal, setModal] = useState<'login' | 'registro' | null>(null);
     const cerrar = useCallback(() => setModal(null), []);
+    // Cerrar el modal sin iniciar sesión cancela el «volver a donde ibas».
+    const descartar = useCallback(() => { olvidarDestino(); setModal(null); }, []);
     const valor = useMemo<ValorUi>(() => ({
         abrirLogin: () => setModal('login'),
         abrirRegistro: () => setModal('registro'),
@@ -22,10 +25,10 @@ export function UiProvider({ children }: { children: ReactNode }) {
     return (
         <UiContext.Provider value={valor}>
             {children}
-            <Modal abierto={modal === 'login'} titulo="Iniciar sesión" onCerrar={cerrar}>
+            <Modal abierto={modal === 'login'} titulo="Iniciar sesión" onCerrar={descartar}>
                 <LoginForm onExito={cerrar} onIrARegistro={() => setModal('registro')} />
             </Modal>
-            <Modal abierto={modal === 'registro'} titulo="Crear cuenta" onCerrar={cerrar}>
+            <Modal abierto={modal === 'registro'} titulo="Crear cuenta" onCerrar={descartar}>
                 <RegisterForm onExito={cerrar} />
             </Modal>
         </UiContext.Provider>

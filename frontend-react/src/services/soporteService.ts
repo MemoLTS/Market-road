@@ -33,6 +33,8 @@ export const soportePanelService = {
     responder: (id: number, contenido: string) => soporteFetch<TicketPanelDetalle>(`/soporte/panel/tickets/${id}/mensajes`, post({ contenido })),
     personal: () => soporteFetch<PersonalSoporte[]>('/soporte/panel/personal'),
     estadisticas: () => soporteFetch<Estadisticas>('/soporte/panel/estadisticas'),
+    /** Cambia la contraseña de la propia persona del equipo (POST /soporte/panel/auth/contrasena). */
+    cambiarContrasena: (actual: string, nueva: string) => soporteFetch<void>('/soporte/panel/auth/contrasena', post({ actual, nueva })),
     /** Alta de una persona del equipo (solo ADMIN). */
     crearPersonal: (datos: { nombre: string; correo: string; contrasena: string; rol: RolPersonal }) => soporteFetch<PersonalSoporte>('/soporte/panel/personal', post(datos)),
     /** Edición parcial: nombre, rol, activo o contraseña (solo ADMIN). */

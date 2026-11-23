@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Market-Road API (vía gateway)",
-    "description": "Todas las peticiones pasan por el gateway (puerto 8081), igual que el frontend React.\nOrden sugerido: 1) Registrar usuario, 2) Login (guarda {{token}}), 3) Crear publicación, 4) Editar, 5) Ver en SQL (Documentos/consultas_verificacion.sql).\nEl dashboard requiere un login de SUPERUSUARIO (variables adminCorreo / adminContrasena).",
+    "description": "Todas las peticiones pasan por el gateway (puerto 8081), igual que el frontend React.\nOrden sugerido: 1) Registrar usuario, 2) Login: copia el campo \"token\" de la respuesta en la variable de entorno {{token}} (y \"usuario.id\" en {{usuarioId}}), 3) Crear publicación (copia el \"id\" de la respuesta en {{publicacionId}}), 4) Editar, 5) Ver en SQL (Documentos/consultas_verificacion.sql).\nEl dashboard requiere un login de SUPERUSUARIO (variables adminCorreo / adminContrasena). La colección no usa scripts: los valores se copian a mano.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -35,7 +35,7 @@
           }
         },
         {
-          "name": "Login (guarda el token)",
+          "name": "Login (copia el token a {{token}})",
           "request": {
             "method": "POST",
             "header": [
@@ -59,21 +59,7 @@
               "mode": "raw",
               "raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\",\n  \"dispositivoId\": \"{{$guid}}\"\n}"
             }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const j = pm.response.json();",
-                  "pm.environment.set('token', j.token);",
-                  "pm.environment.set('usuarioId', j.usuario.id);",
-                  "pm.test('login correcto', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
+          }
         },
         {
           "name": "Login SUPERUSUARIO (para el dashboard)",
@@ -95,26 +81,12 @@
                 "login"
               ]
             },
-            "description": "Reemplaza {{token}} por el del superusuario. Vuelve a ejecutar 'Login' para volver a la cuenta normal.",
+            "description": "Copia el \"token\" de la respuesta en {{token}} para usar las rutas de administración. Vuelve a ejecutar \"Login\" para volver a la cuenta normal.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"correo\": \"{{adminCorreo}}\",\n  \"contrasena\": \"{{adminContrasena}}\",\n  \"dispositivoId\": \"{{$guid}}\"\n}"
             }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const j = pm.response.json();",
-                  "pm.environment.set('token', j.token);",
-                  "pm.environment.set('usuarioId', j.usuario.id);",
-                  "pm.test('login correcto', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
+          }
         },
         {
           "name": "Mi perfil",
@@ -176,7 +148,7 @@
                 "publicaciones"
               ]
             },
-            "description": "Form-data. Elige un JPG/PNG/WEBP en el campo 'fotos'. Quita el campo 'unidades' para comprobar el valor por defecto 1.",
+            "description": "Form-data. Elige un JPG/PNG/WEBP en el campo 'fotos'. Quita el campo 'unidades' para comprobar el valor por defecto 1. Copia el \"id\" de la respuesta en {{publicacionId}}.",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -233,21 +205,7 @@
                 }
               ]
             }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const j = pm.response.json();",
-                  "pm.environment.set('publicacionId', j.id);",
-                  "pm.test('publicación creada (201)', () => pm.response.to.have.status(201));",
-                  "pm.test('unidades por defecto = 1 si no se envían', () => pm.expect(j.unidades).to.be.a('number'));"
-                ]
-              }
-            }
-          ]
+          }
         },
         {
           "name": "Catálogo",
@@ -489,18 +447,7 @@
               ]
             },
             "description": "Solo SUPERUSUARIO. dias entre 1 y 365 (1 = últimas 24 h)."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 y campos del resumen', () => { pm.response.to.have.status(200); const j = pm.response.json(); pm.expect(j).to.have.property('nuevas'); pm.expect(j).to.have.property('cerradasVentas'); });"
-                ]
-              }
-            }
-          ]
+          }
         },
         {
           "name": "Resumen (30 días)",

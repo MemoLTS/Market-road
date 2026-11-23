@@ -51,7 +51,7 @@ tests/         11 archivos *.spec (Jasmine) + helpers
 
 208 pruebas Jasmine (11 archivos en `tests/`) sobre componentes, formularios, páginas, servicios y lógica pura, ejecutadas con Karma en Chrome headless;
 sin llamadas reales a la red (`spyOn(window, 'fetch')`, spies sobre servicios y un doble de Leaflet para el mapa).
-Cobertura (Istanbul): 82,6 % de sentencias, 74,1 % de ramas, 80,0 % de funciones y 86,7 % de líneas; los umbrales de `karma.conf.cjs` hacen fallar la ejecución si bajan.
+Cobertura (Istanbul): 82,6 % de sentencias, 74,1 % de ramas, 80,0 % de funciones y 86,7 % de líneas; los umbrales de `karma/karma.conf.ts` hacen fallar la ejecución si bajan.
 
 ```bash
 npm test             # una ejecución con informe de cobertura (coverage/html/index.html)

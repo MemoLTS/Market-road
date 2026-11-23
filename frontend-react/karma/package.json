@@ -1,0 +1,5 @@
+{
+  "type": "commonjs",
+  "private": true,
+  "description": "Karma carga karma.conf.ts con ts-node como CommonJS; el paquete principal es de tipo module (Vite)."
+}

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import Footer from './components/layout/Footer';
 import Navbar from './components/layout/Navbar';
 import RutaProtegida from './components/layout/RutaProtegida';
@@ -5,7 +6,8 @@ import Alert from './components/common/Alert';
 import { config } from './config';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { UiProvider } from './context/UiContext';
-import { Route, Router, Routes } from './core/router';
+import { tomarDestino } from './core/destino';
+import { Route, Router, Routes, useNavigate } from './core/router';
 import AdminPage from './pages/AdminPage';
 import { CategoriaPage, CategoriasPage } from './pages/CategoriasPage';
 import HomePage from './pages/HomePage';
@@ -15,6 +17,18 @@ import PublicationDetailPage from './pages/PublicationDetailPage';
 import SoportePage from './pages/SoportePage';
 import SoportePanelPage from './pages/SoportePanelPage';
 import { ContactoPage, NoEncontradaPage, NosotrosPage } from './pages/StaticPages';
+
+/** Tras iniciar sesión lleva a la página protegida que se había pedido (si la hay y sigue vigente). */
+function RetornoTrasLogin() {
+    const { autenticado } = useAuth();
+    const navegar = useNavigate();
+    useEffect(() => {
+        if (!autenticado) return;
+        const destino = tomarDestino();
+        if (destino) navegar(destino, { reemplazar: true });
+    }, [autenticado, navegar]);
+    return null;
+}
 
 function Avisos() {
     const { aviso, limpiarAviso } = useAuth();
@@ -34,6 +48,7 @@ export default function App() {
             <AuthProvider>
                 <UiProvider>
                     <div className="d-flex flex-column min-vh-100">
+                        <RetornoTrasLogin />
                         <AvisoModoDemo />
                         <Navbar />
                         <Avisos />

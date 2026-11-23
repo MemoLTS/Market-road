@@ -5,6 +5,7 @@ import Pagination from '../components/common/Pagination';
 import Spinner from '../components/common/Spinner';
 import ChatThread from '../components/chat/ChatThread';
 import Modal from '../components/common/Modal';
+import CambiarContrasena from '../components/soporte/CambiarContrasena';
 import FormularioPersonal from '../components/soporte/FormularioPersonal';
 import type { DatosPersonal } from '../components/soporte/FormularioPersonal';
 import { formatoFechaCorta, mensajeDeError } from '../core/formato';
@@ -217,13 +218,14 @@ export default function SoportePanelPage() {
                 <h1 className="h3 mb-0">Panel de soporte <small className="text-secondary fs-6">{yo.nombre} · {yo.rolNombre}</small></h1>
                 <button type="button" className="btn btn-outline-secondary btn-sm" onClick={limpiarSesionSoporte}>Cerrar sesión</button>
             </div>
-            {yo.rol === 'ADMIN' && (
-                <ul className="nav nav-tabs mb-3">
-                    <li className="nav-item"><button type="button" className={`nav-link ${pestana === 'tickets' ? 'active' : ''}`} onClick={() => setPestana('tickets')}>Tickets</button></li>
-                    <li className="nav-item"><button type="button" className={`nav-link ${pestana === 'equipo' ? 'active' : ''}`} onClick={() => setPestana('equipo')}>Equipo y estadísticas</button></li>
-                </ul>
-            )}
-            {pestana === 'tickets' ? <Tickets yo={yo} /> : <Equipo />}
+            <ul className="nav nav-tabs mb-3">
+                <li className="nav-item"><button type="button" className={`nav-link ${pestana === 'tickets' ? 'active' : ''}`} onClick={() => setPestana('tickets')}>Tickets</button></li>
+                {yo.rol === 'ADMIN' && <li className="nav-item"><button type="button" className={`nav-link ${pestana === 'equipo' ? 'active' : ''}`} onClick={() => setPestana('equipo')}>Equipo y estadísticas</button></li>}
+                <li className="nav-item"><button type="button" className={`nav-link ${pestana === 'cuenta' ? 'active' : ''}`} onClick={() => setPestana('cuenta')}>Mi cuenta</button></li>
+            </ul>
+            {pestana === 'tickets' && <Tickets yo={yo} />}
+            {pestana === 'equipo' && yo.rol === 'ADMIN' && <Equipo />}
+            {pestana === 'cuenta' && <CambiarContrasena onCambiar={(actual, nueva) => soportePanelService.cambiarContrasena(actual, nueva)} />}
         </div>
     );
 }

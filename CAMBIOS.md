@@ -6,7 +6,7 @@ Resumen de lo corregido sobre el proyecto entregado. Las pruebas unitarias exist
 - `frontend-react/` pasó de JavaScript (`.js/.jsx`) a TypeScript (`.ts/.tsx`) con `strict` activado: tipos de la API en `src/types/` (reutilizan los del frontend original), componentes, hooks, contextos, servicios y pruebas.
 - Nuevo `tsconfig.json` (app) y `tests/tsconfig.json`; `vite.config.ts`; Karma usa `@babel/preset-typescript`; scripts `npm run typecheck` y `npm run build` (que ejecuta `tsc` antes de empaquetar).
 - Se eliminó una carpeta basura (`src/{core,services,...`) creada por error en una entrega anterior.
-- El frontend original (`src/*.ts` → `Js/`) no se tocó: `Js/` se regenera al compilar, como indicaste.
+- El frontend original (`src/*.ts` → `Js/`) no se tocó en esta ronda (se eliminó después; ver «Tercera y cuarta ronda»).
 
 ## 2. Servicios (backend)
 - **User-Api — seguridad:** `DELETE /usuarios/{id}` lo podía ejecutar cualquier cuenta con sesión contra cualquier otra, y `GET /usuarios` y `GET /usuarios/{id}` devolvían los correos de todas las cuentas a cualquier persona autenticada. Se agregó `ControlAccesoUsuariosFilter` (Order 2, después de `JwtAuthFilter`): solo la propia persona o un superusuario puede borrar/consultar una cuenta, y solo el superusuario puede listar. El frontend no usa esas rutas (el listado administrativo es `/admin/usuarios`), y no se cambió la firma de ningún método de los controladores.
@@ -46,3 +46,15 @@ Resumen de lo corregido sobre el proyecto entregado. Las pruebas unitarias exist
 - La edición de publicaciones en React estaba oculta fuera del modo demo aunque `PATCH /publicaciones/{id}` ya existía; ahora el botón *Editar* aparece para la persona dueña de una publicación activa.
 - Aviso amarillo en React cuando está en modo demostración (datos solo en el navegador).
 - `docker-compose.yml`: MySQL publicado solo en `127.0.0.1` (3307 y 3308) para clientes SQL; colección Postman y consultas SQL en `Documentos/`.
+
+# Tercera y cuarta ronda: solo TypeScript y React
+
+- **Eliminado el JavaScript y el frontend original:** carpeta `Js/`, las páginas `.html` de la raíz, `src/*.ts` (frontend sin framework), `Css/`, `Assets/`, `package.json` y `tsconfig.json` de la raíz y la carpeta `tests/` de la raíz (sus 28 pruebas eran de ese frontend y había copias sueltas de otros archivos). React cubre todas sus funciones.
+- **Funciones del frontend original que faltaban en React y ahora existen:** cambiar la contraseña del personal de soporte (pestaña «Mi cuenta»), elegir la ciudad del perfil con búsqueda de ciudades y pueblos, y ver el detalle de un ticket desde la administración (solo lectura).
+- **Karma en TypeScript:** `karma.conf.cjs` pasó a `frontend-react/karma/karma.conf.ts` (cargado con `ts-node`; `karma/package.json` lo declara CommonJS porque el paquete principal es `"type": "module"`). Perfil `ChromeHeadlessSinSandbox` para contenedores o integración continua.
+- **Direcciones:**
+  - `vite.config.ts` reenvía `/api` al gateway en desarrollo (antes, sin `.env`, las llamadas iban al servidor de Vite y fallaban); `.env.example` actualizado.
+  - Tras iniciar sesión se vuelve a la página protegida que se había pedido (`core/destino.ts`; solo direcciones internas, vigencia de 10 minutos, se cancela al cerrar el ingreso).
+- **Postman:** se quitaron los scripts de prueba (JavaScript); el token del login se copia a la variable `token` del entorno.
+- Tras actualizar `package.json` de `frontend-react`, ejecutar `npm install` (nueva dependencia de desarrollo: `ts-node`). 231 pruebas Jasmine, 0 fallas.
+
