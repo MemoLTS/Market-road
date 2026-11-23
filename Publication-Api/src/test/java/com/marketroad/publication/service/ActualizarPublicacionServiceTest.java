@@ -28,6 +28,8 @@ class ActualizarPublicacionServiceTest {
         PublicacionRepository repo = mock(PublicacionRepository.class);
         PublicacionMapper mapper = mock(PublicacionMapper.class);
         publicacion = new Publicacion();
+        // El servicio consulta las imágenes por id (List.of(id) no admite null), así que la entidad necesita uno.
+        ReflectionTestUtils.setField(publicacion, "id", 5L);
         publicacion.setUsuarioId(1L);
         publicacion.setEstado(EstadoPublicacion.ACTIVA);
         publicacion.setUbicacion("Concepción");
