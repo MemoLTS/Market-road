@@ -58,12 +58,15 @@ El paquete **Frontend** (módulos del frontend original y tipos de datos de la A
 Los diagramas se generan desde el código, así que no se desactualizan si se vuelve a ejecutar:
 
 ```bash
-python3 "Documentos/diagrama de clases/generador/generar.py"   # requiere Python 3, Pillow y Graphviz (dot)
+python3 "Documentos/diagrama de clases/generador/generar.py"   # desde la raíz del proyecto; requiere Python 3, Pillow y Graphviz (dot)
 ```
 
 El script lee `src/main/java` de cada servicio y `Getaway-Spring/src/main/resources/application.yml`, reescribe `Market-Road.mdj` (conservando el paquete Frontend) y vuelve a dibujar los PNG.
 
 ## Cambios de esta versión
+
+- **Actualizado con el código actual**: `User-Api - DTOs` suma `AdminActualizarUsuarioDTO`, `CambioContrasenaDTO` y `RestablecerContrasenaDTO` (cambio y restablecimiento de contraseña, edición de usuarios por el admin); `Publicaciones: DTOs` suma `ResumenPublicacionesDTO`; el panel de Soporte-Api muestra `PanelAuthController.entrarConSesionDeUsuario` (`POST /panel/auth/sso`) y `PersonalService.loginConUsuario`. Ya no queda ninguna clase sin diagrama.
+- Se recuperó la carpeta `generador/` (había desaparecido del proyecto), se corrigió su ruta por defecto y se eliminaron los PNG duplicados con el nombre dañado (`#U00e1`, `├í`...).
 
 - **Se agregó el servicio de soporte** (Soporte-Api), que no estaba modelado, con 6 diagramas y su base de datos propia en la vista general.
 - **User-Api**: ahora incluye dispositivos de inicio de sesión, foto de perfil, rol, administración de usuarios y el filtro `ControlAccesoUsuariosFilter`.
