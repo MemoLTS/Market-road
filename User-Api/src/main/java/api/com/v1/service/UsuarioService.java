@@ -29,6 +29,8 @@ public interface UsuarioService {
 
     UsuarioResponseDTO actualizarComoAdmin(Long id, AdminActualizarUsuarioDTO dto);
 
+    UsuarioResponseDTO cambiarEstado(Long id, boolean activo);
+
     void restablecerContrasena(Long id, String contrasenaNueva);
 
     void eliminar(Long id);

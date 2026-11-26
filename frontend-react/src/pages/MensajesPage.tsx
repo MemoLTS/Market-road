@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import Alert from '../components/common/Alert';
+import ConfirmarModal from '../components/common/ConfirmarModal';
 import Spinner from '../components/common/Spinner';
 import ChatThread from '../components/chat/ChatThread';
 import type { MensajeChat } from '../components/chat/ChatThread';
@@ -72,6 +73,7 @@ function Conversacion({ id }: { id: number }) {
     const [errorAccion, setErrorAccion] = useState('');
     const [detalle, setDetalle] = useState<ConversacionDetalle | null>(null);
     const [mostrarOferta, setMostrarOferta] = useState(false);
+    const [confirmarVenta, setConfirmarVenta] = useState(false);
     const [monto, setMonto] = useState('');
 
     useEffect(() => { setDetalle(datos); }, [datos]);
@@ -107,8 +109,7 @@ function Conversacion({ id }: { id: number }) {
     }
 
     async function vender(): Promise<void> {
-        const precio = formatoPrecio(c.montoAcordado ?? c.publicacionPrecio);
-        if (!window.confirm(`¿Marcar como vendido a ${c.interlocutorApodo} por ${precio}? Esta acción cierra la publicación y no se puede deshacer.`)) return;
+        setConfirmarVenta(false);
         try { await accion(mensajesService.marcarVendido(c.id)); } catch { /* ya se informó */ }
     }
 
@@ -123,10 +124,13 @@ function Conversacion({ id }: { id: number }) {
                 {!cerrada && (
                     <div className="d-flex gap-2">
                         {c.rol === 'COMPRADOR' && <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setMostrarOferta(m => !m)}>Hacer oferta</button>}
-                        {c.rol === 'VENDEDOR' && <button type="button" className="btn btn-sm btn-success" onClick={vender}>Marcar como vendido</button>}
+                        {c.rol === 'VENDEDOR' && <button type="button" className="btn btn-sm btn-success" onClick={() => setConfirmarVenta(true)}>Marcar como vendido</button>}
                     </div>
                 )}
             </div>
+            <ConfirmarModal abierto={confirmarVenta} titulo="Marcar como vendido"
+                mensaje={`¿Marcar como vendido a ${c.interlocutorApodo} por ${formatoPrecio(c.montoAcordado ?? c.publicacionPrecio)}? Esta acción cierra la publicación y no se puede deshacer.`}
+                textoConfirmar="Sí, marcar como vendido" onConfirmar={vender} onCancelar={() => setConfirmarVenta(false)} />
             {mostrarOferta && (
                 <form onSubmit={enviarOferta} className="p-2 border-bottom d-flex gap-2" aria-label="Enviar oferta">
                     <input className="form-control form-control-sm" inputMode="decimal" placeholder="Monto (CLP)" aria-label="Monto de la oferta" value={monto} onChange={(e: ChangeEvent<HTMLInputElement>) => setMonto(e.target.value)} />

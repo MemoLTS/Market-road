@@ -9,6 +9,8 @@ export interface Usuario {
     ciudad: string | null;
     /** Ausente en sesiones guardadas antes de existir los roles. */
     rol?: RolUsuario;
+    /** false = cuenta deshabilitada por la administración: solo puede usar el soporte. Ausente = habilitada. */
+    activo?: boolean;
 }
 
 export interface LoginRespuesta {
@@ -23,7 +25,7 @@ export interface Sesion {
     expiraEn: number;
 }
 
-export type EstadoPublicacion = 'ACTIVA' | 'VENDIDA' | 'ELIMINADA';
+export type EstadoPublicacion = 'ACTIVA' | 'VENDIDA' | 'DESHABILITADA' | 'ELIMINADA';
 
 export interface Categoria {
     codigo: string;

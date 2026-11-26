@@ -106,3 +106,27 @@ Todo en TypeScript + React (frontend) y servicios Spring Boot (backend). No hay 
 - `PersonalService.loginConUsuario`: solo un superusuario puede entrar. Se usa su cuenta del equipo por correo; si no existe se crea como ADMIN, con clave aleatoria. Una cuenta desactivada se rechaza. Devuelve el token del panel (8 h).
 - **Frontend**: `soportePanelService.entrarConUsuario`. `SoportePanelPage` entra sola si hay sesión de superusuario; si falla, muestra el error y deja el acceso manual.
 - Pruebas: `PersonalServiceSsoTest`, 2 casos nuevos en `SeguridadTest`, 4 en Jasmine (261 → 265).
+
+## Octava ronda: diagramas de clases
+- Se regeneraron `Market-Road.mdj` y las 22 vistas previas desde el código actual (incluye contraseñas, edición de usuarios por el admin, `ResumenPublicacionesDTO` y la entrada SSO del panel de soporte).
+- Se restauró `Documentos/diagrama de clases/generador/` (faltaba), se corrigió su ruta por defecto y se quitaron los PNG duplicados con el nombre dañado.
+- El paquete Frontend del modelo no se regeneró (no se genera desde el código Java). El .mdj no se pudo abrir en StarUML aquí; el script valida ids y referencias.
+
+## Novena ronda: deshabilitar y eliminar cuentas, deshabilitar publicaciones, confirmaciones en la página
+- **Superusuario → pestaña Usuarios**: columna *Estado* y botones **Deshabilitar/Habilitar** y **Eliminar** (no aparecen en superusuarios; el backend también lo impide). Todo pide confirmación en una ventana de la página.
+- **Cuenta deshabilitada**: puede iniciar sesión pero solo usar **Soporte** para enviar un ticket (aviso rojo, menú reducido, rutas protegidas la llevan a `/soporte`). Publication-Api responde 403 a todo lo demás; sus publicaciones activas salen del catálogo (`DESHABILITADA`) y vuelven al habilitarla.
+- **Cuenta eliminada**: deja de existir. No puede iniciar sesión (User-Api), su token deja de servir en Publication-Api y Soporte-Api (401), no envía ni recibe mensajes (sus publicaciones no vendidas pasan a `ELIMINADA`) y no puede escribir a soporte.
+- Como el JWT es *stateless*, `ControlAccesoUsuariosFilter` (User-Api) revisa la cuenta en cada petición y Publication-Api/Soporte-Api la consultan a User-Api con `VerificadorCuenta` (se guarda 10 s; si User-Api no responde no se corta el servicio). Variable nueva: `USUARIOS_API_URL` (ya está en `docker-compose.yml`).
+- **Superusuario → pestaña Publicaciones**: botón **Deshabilitar/Habilitar** por publicación (`PATCH /admin/publicaciones/{id}/estado`). Una publicación deshabilitada no está en el catálogo, no admite mensajes ni ofertas y muestra la etiqueta «Deshabilitada por la administración».
+- **«Marcar como vendido»** (y de paso «Eliminar publicación» y «Cerrar ticket») ya no usan `window.confirm`, que bloqueaba el navegador: ahora es una ventana dentro de la página (`ConfirmarModal`).
+- Base de datos: `usuarios.activo` (se agrega sola) y `publicaciones.estado` pasa de ENUM a VARCHAR(20) al iniciar Publication-Api (`PublicacionSchemaMigration`) para aceptar el estado nuevo.
+- Pruebas: React 261 → 285 (`deshabilitadas.spec.tsx` y casos nuevos en `paginas.spec.tsx`); Java: `DeshabilitarUsuarioTest` (User-Api), `AdminEstadoPublicacionTest` y `CuentaDeshabilitadaFilterTest` (Publication-Api), `CuentaDeshabilitadaSoporteTest` (soporte).
+- Diagramas de clases regenerados con las clases nuevas.
+
+## Décima ronda: acciones sobre la cuenta en la ventana de edición y panel de soporte sin doble ingreso
+- **Editar usuario**: *Deshabilitar/Habilitar usuario* y *Eliminar usuario* pasaron a la ventana de edición, abajo a la **izquierda** y en paralelo a *Cerrar* / *Guardar cambios* (derecha). La tabla solo conserva *Editar*. Siguen pidiendo confirmación y no aparecen en superusuarios.
+- **Panel de soporte sin volver a ingresar**:
+  - El superusuario entra solo (`POST /soporte/panel/auth/sso`). Antes, si esa llamada recibía un 401, la tienda lo tomaba como «sesión expirada» y **cerraba la sesión de la tienda** (por eso había que ingresar otra vez); ahora un rechazo de esa ruta nunca cierra la sesión.
+  - La sesión del **personal de soporte** ahora se guarda en `localStorage` (8 h, lo que dura su token) en vez de `sessionStorage`: no se vuelve a pedir al recargar ni al abrir otra pestaña. Se borra al cerrar sesión en el panel **o en la tienda**.
+  - No se usa el correo para dar acceso al equipo: cualquiera puede registrarse con cualquier correo (no hay verificación), así que eso permitiría entrar al panel haciéndose pasar por alguien del equipo.
+- Pruebas de React: 285 → 290.

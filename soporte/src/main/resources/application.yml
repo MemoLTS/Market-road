@@ -33,3 +33,9 @@ soporte:
     correo: ${SOPORTE_AGENTE_CORREO:soporte@marketroad.local}
     contrasena: ${SOPORTE_AGENTE_CONTRASENA:Agente12345}
     nombre: Agente de soporte
+
+# User-Api: se consulta si la cuenta del token sigue existiendo y habilitada.
+usuarios:
+  api:
+    url: ${USUARIOS_API_URL:http://localhost:8084}
+    cache-ms: 10000

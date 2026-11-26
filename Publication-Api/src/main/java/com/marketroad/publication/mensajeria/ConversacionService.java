@@ -126,6 +126,9 @@ public class ConversacionService {
         if (c.getPublicacion().getEstado() == EstadoPublicacion.ELIMINADA) {
             throw new OperacionNoPermitidaException("La publicación fue eliminada");
         }
+        if (c.getPublicacion().getEstado() == EstadoPublicacion.DESHABILITADA) {
+            throw new OperacionNoPermitidaException("La publicación fue deshabilitada por la administración");
+        }
         String texto = reglas.normalizarContenido(contenido);
         agregarMensaje(c, yo.usuarioId(), TipoMensaje.TEXTO, texto, null, null);
         return detalle(c, yo);

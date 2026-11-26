@@ -13,6 +13,8 @@ public interface PublicacionRepository extends JpaRepository<Publicacion, Long> 
 
     List<Publicacion> findByUsuarioIdAndEstadoNotOrderByFechaCreacionDesc(Long usuarioId, EstadoPublicacion estado);
 
+    List<Publicacion> findByUsuarioId(Long usuarioId);
+
     long countByEstado(EstadoPublicacion estado);
 
     /** Publicaciones creadas desde `desde`, excluyendo un estado (las eliminadas). */

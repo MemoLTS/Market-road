@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import api.com.v1.dto.AdminActualizarUsuarioDTO;
+import api.com.v1.dto.EstadoUsuarioDTO;
 import api.com.v1.dto.RestablecerContrasenaDTO;
 import api.com.v1.dto.UsuarioResponseDTO;
 import api.com.v1.model.Rol;
@@ -60,6 +62,41 @@ public class AdminUsuarioController {
         exigirQueNoSeaOtroSuperusuario(usuarioAutenticadoId, id);
         usuarioService.restablecerContrasena(id, dto.contrasena());
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Deshabilita (activo=false) o vuelve a habilitar una cuenta. Una cuenta deshabilitada solo puede usar
+     * el soporte. No se puede deshabilitar a un superusuario, ni siquiera a uno mismo.
+     */
+    @PatchMapping("/{id}/estado")
+    public ResponseEntity<UsuarioResponseDTO> cambiarEstado(
+            @RequestAttribute("usuarioAutenticadoId") Long usuarioAutenticadoId,
+            @PathVariable Long id,
+            @Valid @RequestBody EstadoUsuarioDTO dto) {
+        exigirSuperusuario(usuarioAutenticadoId);
+        exigirQueNoSeaSuperusuario(id);
+        return ResponseEntity.ok(usuarioService.cambiarEstado(id, dto.activo()));
+    }
+
+    /** Elimina la cuenta: deja de existir, no puede iniciar sesión ni enviar o recibir mensajes. */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(
+            @RequestAttribute("usuarioAutenticadoId") Long usuarioAutenticadoId,
+            @PathVariable Long id) {
+        exigirSuperusuario(usuarioAutenticadoId);
+        exigirQueNoSeaSuperusuario(id);
+        usuarioService.eliminar(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    private void exigirQueNoSeaSuperusuario(Long objetivoId) {
+        boolean objetivoEsSuperusuario = usuarioRepository.findById(objetivoId)
+                .map(u -> u.getRol() == Rol.SUPERUSUARIO)
+                .orElse(false);
+        if (objetivoEsSuperusuario) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "No se puede deshabilitar ni eliminar a un superusuario");
+        }
     }
 
     private void exigirQueNoSeaOtroSuperusuario(Long adminId, Long objetivoId) {

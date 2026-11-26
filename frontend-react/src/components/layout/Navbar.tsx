@@ -14,7 +14,7 @@ const ENLACES = [
 
 /** Barra de navegación responsiva: se colapsa en pantallas menores a "lg" (breakpoint de Bootstrap). */
 export default function Navbar() {
-    const { usuario, autenticado, esAdmin, logout } = useAuth();
+    const { usuario, autenticado, esAdmin, deshabilitada, logout } = useAuth();
     const { abrirLogin, abrirRegistro } = useUi();
     const navegar = useNavigate();
     const [abierto, setAbierto] = useState(false);
@@ -22,13 +22,13 @@ export default function Navbar() {
     const [noLeidos, setNoLeidos] = useState(0);
 
     useEffect(() => {
-        if (!autenticado || config.usarMock) { setNoLeidos(0); return undefined; }
+        if (!autenticado || deshabilitada || config.usarMock) { setNoLeidos(0); return undefined; }
         let activo = true;
         const cargar = () => mensajesService.noLeidos().then(r => { if (activo) setNoLeidos(r.total); }).catch(() => {});
         cargar();
         const intervalo = setInterval(cargar, 30000);
         return () => { activo = false; clearInterval(intervalo); };
-    }, [autenticado]);
+    }, [autenticado, deshabilitada]);
 
     const cerrarMenus = () => { setAbierto(false); setMenuUsuario(false); };
 
@@ -56,7 +56,7 @@ export default function Navbar() {
                                 <NavLink to={e.to} end={e.end} className="nav-link" onClick={cerrarMenus}>{e.texto}</NavLink>
                             </li>
                         ))}
-                        {autenticado && (
+                        {autenticado && !deshabilitada && (
                             <li className="nav-item">
                                 <NavLink to="/mensajes" className="nav-link d-flex align-items-center gap-2" onClick={cerrarMenus}>
                                     <i className="bi bi-chat-dots" aria-hidden="true" />
@@ -87,8 +87,14 @@ export default function Navbar() {
                                     ) : null}
                                 </button>
                                 <ul className={`dropdown-menu dropdown-menu-end ${menuUsuario ? 'show' : ''}`}>
-                                    <li><Link to="/perfil" className="dropdown-item" onClick={cerrarMenus}>Mi perfil</Link></li>
-                                    <li><Link to="/categorias" className="dropdown-item" onClick={cerrarMenus}>Búsqueda</Link></li>
+                                    {deshabilitada ? (
+                                        <li><Link to="/soporte" className="dropdown-item" onClick={cerrarMenus}>Soporte</Link></li>
+                                    ) : (
+                                        <>
+                                            <li><Link to="/perfil" className="dropdown-item" onClick={cerrarMenus}>Mi perfil</Link></li>
+                                            <li><Link to="/categorias" className="dropdown-item" onClick={cerrarMenus}>Búsqueda</Link></li>
+                                        </>
+                                    )}
                                     {(['SOPORTE', 'ADMIN', 'SUPERUSUARIO'].includes(String((usuario as any)?.rol).toUpperCase()) || esAdmin) && <li><Link to="/soporte-panel" className="dropdown-item" onClick={cerrarMenus}>Tickets de soporte</Link></li>}
                                     {esAdmin && <li><Link to="/admin" className="dropdown-item" onClick={cerrarMenus}>Administración</Link></li>}
                                     <li><hr className="dropdown-divider" /></li>

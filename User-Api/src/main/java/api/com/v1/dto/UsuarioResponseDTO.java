@@ -7,6 +7,12 @@ public record UsuarioResponseDTO(
         String apodo,
         String correo,
         String ciudad,
-        String rol
+        String rol,
+        boolean activo
 ) {
+    /** Cuenta habilitada (el caso normal). */
+    public UsuarioResponseDTO(Long id, String nombre, String apellido, String apodo, String correo,
+            String ciudad, String rol) {
+        this(id, nombre, apellido, apodo, correo, ciudad, rol, true);
+    }
 }

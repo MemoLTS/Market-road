@@ -22,5 +22,12 @@ public class UsuarioSchemaMigration implements ApplicationRunner {
         if (ciudadExiste != null && ciudadExiste == 0) {
             jdbcTemplate.execute("ALTER TABLE usuarios ADD COLUMN ciudad VARCHAR(120) NULL");
         }
+        Integer activoExiste = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.columns "
+                        + "WHERE table_schema = DATABASE() AND table_name = 'usuarios' AND column_name = 'activo'",
+                Integer.class);
+        if (activoExiste != null && activoExiste == 0) {
+            jdbcTemplate.execute("ALTER TABLE usuarios ADD COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE");
+        }
     }
 }

@@ -123,6 +123,7 @@ services:
     restart: always
     environment:
       SERVER_PORT: 8083
+      USUARIOS_API_URL: http://user-api:8084
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/marketroad_db?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-marketroad_app}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
@@ -151,6 +152,7 @@ services:
     restart: always
     environment:
       SERVER_PORT: 8086
+      USUARIOS_API_URL: http://user-api:8084
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql-soporte:3306/db_soporte?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${SOPORTE_DB_USERNAME:-soporte_app}
       SPRING_DATASOURCE_PASSWORD: ${SOPORTE_DB_PASSWORD:-soporte_local_dev}

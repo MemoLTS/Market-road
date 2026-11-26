@@ -10,6 +10,8 @@ export interface ValorAuth {
     usuario: Usuario | null;
     autenticado: boolean;
     esAdmin: boolean;
+    /** Cuenta deshabilitada por la administración: solo puede usar el soporte. */
+    deshabilitada: boolean;
     aviso: string;
     limpiarAviso: () => void;
     login: (correo: string, contrasena: string) => Promise<Usuario>;
@@ -48,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const valor = useMemo<ValorAuth>(() => ({
         sesion, usuario: sesion?.usuario ?? null, autenticado: sesion !== null,
-        esAdmin: esSuperusuario(sesion), aviso, limpiarAviso, login, registrar, logout,
+        esAdmin: esSuperusuario(sesion), deshabilitada: sesion?.usuario.activo === false, aviso, limpiarAviso, login, registrar, logout,
     }), [sesion, aviso, limpiarAviso, login, registrar, logout]);
 
     return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;

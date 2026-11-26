@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PrimerMensajeModal from '../components/chat/PrimerMensajeModal';
 import Alert from '../components/common/Alert';
+import ConfirmarModal from '../components/common/ConfirmarModal';
 import Modal from '../components/common/Modal';
 import Spinner from '../components/common/Spinner';
 import PublicationForm from '../components/publicaciones/PublicationForm';
@@ -39,6 +40,7 @@ export default function PublicationDetailPage() {
     const { datos: conversaciones, recargar: recargarConversaciones } = useAsync(
         () => (autenticado && !config.usarMock ? mensajesService.deLaPublicacion(Number(id)) : Promise.resolve([])), [id, autenticado]);
     const [editando, setEditando] = useState(false);
+    const [confirmarEliminar, setConfirmarEliminar] = useState(false);
     const [errorAccion, setErrorAccion] = useState('');
 
     if (cargando && !p) return <div className="container py-5"><Spinner /></div>;
@@ -63,7 +65,7 @@ export default function PublicationDetailPage() {
     }
 
     async function eliminar(): Promise<void> {
-        if (!window.confirm('¿Eliminar esta publicación? No se puede deshacer.')) return;
+        setConfirmarEliminar(false);
         try {
             await publicacionesService.eliminar(publicacion.id);
             navegar('/');
@@ -103,6 +105,7 @@ export default function PublicationDetailPage() {
                     <div className="card border-0 shadow-sm"><div className="card-body p-3 p-md-4">
                     <span className="badge rounded-pill text-bg-light border mb-2">{p.categoriaNombre}</span>
                     {p.estado === 'VENDIDA' && <span className="badge text-bg-secondary ms-2 mb-2">Vendida</span>}
+                    {p.estado === 'DESHABILITADA' && <span className="badge text-bg-warning ms-2 mb-2">Deshabilitada por la administración</span>}
                     <h1 className="h3 mb-2">{p.titulo}</h1>
                     <p className="display-6 fw-bold text-primary mb-2">{formatoPrecio(p.precio)}</p>
                     {(p.unidades ?? 1) > 1 && <p><span className="badge text-bg-info fs-6" data-testid="unidades">{p.unidades} unidades disponibles</span></p>}
@@ -116,10 +119,12 @@ export default function PublicationDetailPage() {
                     </dl>
 
                     <Alert mensaje={errorAccion} />
+                    <ConfirmarModal abierto={confirmarEliminar} titulo="Eliminar publicación" mensaje="¿Eliminar esta publicación? No se puede deshacer."
+                        textoConfirmar="Sí, eliminar" peligro onConfirmar={eliminar} onCancelar={() => setConfirmarEliminar(false)} />
                     {esDueno ? (
                         <div className="d-grid d-sm-flex gap-2">
                             {p.estado === 'ACTIVA' && <button type="button" className="btn btn-outline-primary btn-icono" onClick={() => setEditando(true)}>Editar</button>}
-                            {p.estado !== 'VENDIDA' && <button type="button" className="btn btn-outline-danger btn-icono" onClick={eliminar}>Eliminar publicación</button>}
+                            {p.estado !== 'VENDIDA' && <button type="button" className="btn btn-outline-danger btn-icono" onClick={() => setConfirmarEliminar(true)}>Eliminar publicación</button>}
                         </div>
                     ) : p.estado === 'ACTIVA' ? (
                         <div className="rounded-3 bg-body-tertiary p-3" aria-label="Contactar al vendedor">

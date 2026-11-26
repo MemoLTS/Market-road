@@ -33,3 +33,9 @@ mensajeria:
     maximo: 20          # mensajes/ofertas por persona
     ventana-ms: 60000   # en una ventana de 1 minuto
   monto-maximo: 9999999999.99
+
+# User-Api: se consulta si la cuenta del token sigue existiendo y habilitada.
+usuarios:
+  api:
+    url: ${USUARIOS_API_URL:http://localhost:8084}
+    cache-ms: 10000

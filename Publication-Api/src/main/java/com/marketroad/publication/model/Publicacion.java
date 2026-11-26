@@ -66,7 +66,7 @@ public class Publicacion {
     private OffsetDateTime fechaVenta;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) not null")
     private EstadoPublicacion estado = EstadoPublicacion.ACTIVA;
 
     @Column(nullable = false)

@@ -35,6 +35,8 @@ public class SoporteAuthFilter extends HttpFilter {
     private PersonalSoporteRepository personalRepository;
     @Autowired
     private ObjectMapper mapper;
+    @Autowired(required = false)
+    private VerificadorCuenta verificador;
 
     @Override
     protected void doFilter(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -64,7 +66,13 @@ public class SoporteAuthFilter extends HttpFilter {
                 request.setAttribute(IdentidadPersonal.ATRIBUTO,
                         new IdentidadPersonal(p.getId(), p.getNombre(), p.getRol()));
             } else {
-                request.setAttribute(IdentidadUsuario.ATRIBUTO, jwtUsuario.obtenerIdentidad(token));
+                IdentidadUsuario identidad = jwtUsuario.obtenerIdentidad(token);
+                // Una cuenta deshabilitada SÍ puede usar el soporte (es su único canal); una eliminada ya no existe.
+                if (verificador != null && verificador.consultar(identidad.usuarioId(), token) == VerificadorCuenta.Estado.ELIMINADA) {
+                    noAutorizado(response, "Tu cuenta ya no existe");
+                    return;
+                }
+                request.setAttribute(IdentidadUsuario.ATRIBUTO, identidad);
             }
         } catch (JwtException | IllegalArgumentException ex) {
             noAutorizado(response, "Tu sesión no es válida o expiró, inicia sesión nuevamente");

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import Alert from '../components/common/Alert';
+import ConfirmarModal from '../components/common/ConfirmarModal';
 import Modal from '../components/common/Modal';
 import Spinner from '../components/common/Spinner';
 import ChatThread from '../components/chat/ChatThread';
@@ -78,6 +79,7 @@ export default function SoportePage() {
     const { datos: categorias } = useAsync(() => (autenticado ? soporteUsuarioService.categorias() : Promise.resolve([])), [autenticado]);
     const [activo, setActivo] = useState<TicketDetalle | null>(null);
     const [nuevo, setNuevo] = useState(false);
+    const [confirmarCierre, setConfirmarCierre] = useState(false);
     const [errorAccion, setErrorAccion] = useState('');
 
     useEffect(() => {
@@ -116,7 +118,7 @@ export default function SoportePage() {
 
     async function cerrar(): Promise<void> {
         if (!activo) return;
-        if (!window.confirm('¿Cerrar este ticket? Ya no podrás escribir en él, pero podrás abrir uno nuevo.')) return;
+        setConfirmarCierre(false);
         try { setActivo(await soporteUsuarioService.cerrar(activo.ticket.id)); recargar(); } catch (e) { setErrorAccion(mensajeDeError(e)); }
     }
 
@@ -149,7 +151,7 @@ export default function SoportePage() {
                                 <div><button type="button" className="btn btn-sm btn-outline-secondary d-md-none me-2" onClick={() => setActivo(null)}>← Volver</button>
                                     <strong>#{activo.ticket.id} · {activo.ticket.asunto}</strong>
                                     <div className="small text-secondary">{activo.ticket.categoriaNombre}</div></div>
-                                {activo.puedeEscribir && <button type="button" className="btn btn-sm btn-outline-danger" onClick={cerrar}>Cerrar ticket</button>}
+                                {activo.puedeEscribir && <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setConfirmarCierre(true)}>Cerrar ticket</button>}
                             </div>
                             <div className="chat-contenedor">
                                 <ChatThread mensajes={normalizarMensajesTicket(activo.mensajes, m => m.autorTipo === 'USUARIO')} puedeEscribir={activo.puedeEscribir} onEnviar={responder} error={errorAccion} />
@@ -162,6 +164,8 @@ export default function SoportePage() {
                 <NuevoTicket categorias={categorias ?? []} onCancelar={() => setNuevo(false)}
                     onCreado={d => { setNuevo(false); setActivo(d); recargar(); }} />
             </Modal>
+            <ConfirmarModal abierto={confirmarCierre} titulo="Cerrar ticket" mensaje="¿Cerrar este ticket? Ya no podrás escribir en él, pero podrás abrir uno nuevo."
+                textoConfirmar="Sí, cerrar ticket" onConfirmar={cerrar} onCancelar={() => setConfirmarCierre(false)} />
         </div>
     );
 }

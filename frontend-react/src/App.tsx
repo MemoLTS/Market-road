@@ -7,7 +7,7 @@ import { config } from './config';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { UiProvider } from './context/UiContext';
 import { tomarDestino } from './core/destino';
-import { Route, Router, Routes, useNavigate } from './core/router';
+import { Link, Route, Router, Routes, useNavigate } from './core/router';
 import AdminPage from './pages/AdminPage';
 import { CategoriaPage, CategoriasPage } from './pages/CategoriasPage';
 import HomePage from './pages/HomePage';
@@ -35,6 +35,14 @@ function Avisos() {
     return aviso ? <div className="container pt-3"><Alert mensaje={aviso} tipo="warning" onCerrar={limpiarAviso} /></div> : null;
 }
 
+/** Cuenta deshabilitada por la administración: solo se puede usar el soporte. */
+function AvisoCuentaDeshabilitada() {
+    const { deshabilitada } = useAuth();
+    return deshabilitada
+        ? <div className="alert alert-danger rounded-0 mb-0 text-center py-2" role="alert" data-testid="aviso-deshabilitada">Tu cuenta está deshabilitada: solo puedes usar el soporte. <Link to="/soporte" className="alert-link">Escribir a soporte</Link></div>
+        : null;
+}
+
 /** Aviso fijo en modo demostración: ahí los datos viven en el navegador y NO llegan a Spring Boot ni a MySQL. */
 function AvisoModoDemo() {
     return config.usarMock
@@ -51,6 +59,7 @@ export default function App() {
                         <RetornoTrasLogin />
                         <AvisoModoDemo />
                         <Navbar />
+                        <AvisoCuentaDeshabilitada />
                         <Avisos />
                         <main className="flex-grow-1">
                             <Routes>

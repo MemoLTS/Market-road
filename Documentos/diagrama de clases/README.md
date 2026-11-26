@@ -65,6 +65,8 @@ El script lee `src/main/java` de cada servicio y `Getaway-Spring/src/main/resour
 
 ## Cambios de esta versión
 
+- **Deshabilitar y eliminar cuentas, deshabilitar publicaciones**: `EstadoUsuarioDTO` y `AdminUsuarioController` (`PATCH /{id}/estado`, `DELETE /{id}`) en User-Api; `ControlAccesoUsuariosFilter` ahora controla el estado de la cuenta; `EstadoPublicacionAdminDTO`, `EstadoPublicacion.DESHABILITADA` y `AdminPublicacionController` (`PATCH /{id}/estado`, `/usuario/{id}/estado`, `DELETE /usuario/{id}`) en Publication-Api; `VerificadorCuenta` (consulta a User-Api) en Publication-Api y Soporte-Api.
+
 - **Actualizado con el código actual**: `User-Api - DTOs` suma `AdminActualizarUsuarioDTO`, `CambioContrasenaDTO` y `RestablecerContrasenaDTO` (cambio y restablecimiento de contraseña, edición de usuarios por el admin); `Publicaciones: DTOs` suma `ResumenPublicacionesDTO`; el panel de Soporte-Api muestra `PanelAuthController.entrarConSesionDeUsuario` (`POST /panel/auth/sso`) y `PersonalService.loginConUsuario`. Ya no queda ninguna clase sin diagrama.
 - Se recuperó la carpeta `generador/` (había desaparecido del proyecto), se corrigió su ruta por defecto y se eliminaron los PNG duplicados con el nombre dañado (`#U00e1`, `├í`...).
 

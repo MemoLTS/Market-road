@@ -4,7 +4,7 @@ import type {
     Estadisticas, EstadoTicket, LoginSoporteRespuesta, PaginaSoporte, PersonalSoporte, PrioridadTicket,
     TicketDetalle, TicketPanelDetalle, TicketPanelResumen, TicketResumen,
 } from '../types/soporte';
-import { apiFetch } from './http';
+import { apiFetch, peticion } from './http';
 import { soporteFetch } from './sesionSoporte';
 
 const post = (cuerpo?: unknown): RequestInit => ({ method: 'POST', ...(cuerpo !== undefined ? { body: JSON.stringify(cuerpo) } : {}) });
@@ -22,8 +22,11 @@ export const soporteUsuarioService = {
 /** Panel del personal de soporte (sesión propia). */
 export const soportePanelService = {
     login: (correo: string, contrasena: string) => soporteFetch<LoginSoporteRespuesta>('/soporte/panel/auth/login', post({ correo, contrasena })),
-    /** Entra al panel con el token de la persona usuaria (superusuario), sin volver a ingresar clave: POST /soporte/panel/auth/sso. */
-    entrarConUsuario: () => apiFetch<LoginSoporteRespuesta>('/soporte/panel/auth/sso', post()),
+    /**
+     * Entra al panel con el token de la persona usuaria, sin volver a ingresar clave: POST /soporte/panel/auth/sso.
+     * Solo la acepta el superusuario (el correo de una cuenta de la tienda no está verificado, así que no se usa para dar acceso al equipo). Un rechazo aquí nunca cierra la sesión de la tienda.
+     */
+    entrarConUsuario: () => peticion<LoginSoporteRespuesta>('/soporte/panel/auth/sso', post(), { endpointSinExpiracion: '/soporte/panel/auth/sso' }),
     yo: () => soporteFetch<PersonalSoporte>('/soporte/panel/auth/yo'),
     categorias: () => soporteFetch<Categoria[]>('/soporte/categorias'),
     tickets: (params: Record<string, string>) => soporteFetch<PaginaSoporte<TicketPanelResumen>>(`/soporte/panel/tickets?${new URLSearchParams(params)}`),

@@ -48,7 +48,8 @@ public class AuthController {
 
         UsuarioResponseDTO usuarioDto = new UsuarioResponseDTO(
                 usuario.getId(), usuario.getNombre(), usuario.getApellido(),
-                usuario.getApodo(), usuario.getCorreo(), usuario.getCiudad(), usuario.getRol().name());
+                usuario.getApodo(), usuario.getCorreo(), usuario.getCiudad(), usuario.getRol().name(),
+                usuario.isActivo());
 
         return ResponseEntity.ok(new LoginResponseDTO(token, jwtUtil.getExpiracionMs(), usuarioDto));
     }

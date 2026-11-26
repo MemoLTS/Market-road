@@ -187,6 +187,14 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     @Transactional
+    public UsuarioResponseDTO cambiarEstado(Long id, boolean activo) {
+        Usuario usuario = buscarPorIdOLanzar(id);
+        usuario.setActivo(activo);
+        return aResponseDTO(usuarioRepository.save(usuario));
+    }
+
+    @Override
+    @Transactional
     public void eliminar(Long id) {
         Usuario usuario = buscarPorIdOLanzar(id);
         dispositivoInicioSesionRepository.deleteAllByUsuarioId(id);
@@ -245,6 +253,7 @@ public class UsuarioServiceImpl implements UsuarioService {
                 usuario.getApodo(),
                 usuario.getCorreo(),
                 usuario.getCiudad(),
-                usuario.getRol().name());
+                usuario.getRol().name(),
+                usuario.isActivo());
     }
 }

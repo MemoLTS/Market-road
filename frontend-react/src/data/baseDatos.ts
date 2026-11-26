@@ -282,6 +282,48 @@ export function actualizarUsuarioAdmin(adminId: number, id: number, cambios: Cam
     return sinContrasena(u);
 }
 
+/** Simula PATCH /admin/usuarios/{id}/estado: deshabilita o habilita una cuenta (y sus publicaciones activas). */
+export function cambiarEstadoUsuario(adminId: number, id: number, activo: boolean): Usuario | 'no-existe' | 'superusuario' {
+    const base = cargar();
+    const u = base.usuarios.find(x => x.id === Number(id));
+    if (!u) return 'no-existe';
+    if (u.rol === 'SUPERUSUARIO') return 'superusuario';
+    u.activo = activo;
+    base.publicaciones.filter(p => p.usuarioId === u.id).forEach(p => {
+        if (!activo && p.estado === 'ACTIVA') p.estado = 'DESHABILITADA';
+        if (activo && p.estado === 'DESHABILITADA') p.estado = 'ACTIVA';
+    });
+    guardar();
+    return sinContrasena(u);
+}
+
+/** Simula DELETE /admin/usuarios/{id}: la cuenta deja de existir y sus publicaciones (no vendidas) también. */
+export function eliminarUsuario(adminId: number, id: number): true | 'no-existe' | 'superusuario' {
+    const base = cargar();
+    const u = base.usuarios.find(x => x.id === Number(id));
+    if (!u) return 'no-existe';
+    if (u.rol === 'SUPERUSUARIO') return 'superusuario';
+    base.usuarios = base.usuarios.filter(x => x.id !== u.id);
+    base.publicaciones.filter(p => p.usuarioId === u.id && p.estado !== 'VENDIDA').forEach(p => { p.estado = 'ELIMINADA'; });
+    guardar();
+    return true;
+}
+
+/** Listado del superusuario en modo demostración: activas y deshabilitadas (las deshabilitadas no salen en el catálogo). */
+export function listarPublicacionesAdmin(): Publicacion[] {
+    return cargar().publicaciones.filter(p => p.estado === 'ACTIVA' || p.estado === 'DESHABILITADA').map(p => ({ ...p }));
+}
+
+/** Simula PATCH /admin/publicaciones/{id}/estado: solo entre ACTIVA y DESHABILITADA. */
+export function cambiarEstadoPublicacion(id: number, habilitada: boolean): Publicacion | 'no-existe' | 'no-permitido' {
+    const p = cargar().publicaciones.find(x => x.id === Number(id));
+    if (!p || p.estado === 'ELIMINADA') return 'no-existe';
+    if (p.estado === 'VENDIDA') return 'no-permitido';
+    p.estado = habilitada ? 'ACTIVA' : 'DESHABILITADA';
+    guardar();
+    return { ...p };
+}
+
 export function actualizarUsuario(id: number, cambios: { apodo?: string; ciudad?: string }): Usuario | null {
     const u = cargar().usuarios.find(x => x.id === Number(id));
     if (!u) return null;

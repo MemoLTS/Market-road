@@ -10,7 +10,7 @@ import { obtenerSesion } from './sesion';
 export const adminService = {
     usuarios: (): Promise<Usuario[]> => (config.usarMock ? Promise.resolve(bd.listarUsuarios()) : apiFetch<Usuario[]>('/admin/usuarios')),
     publicaciones: (): Promise<AdminPublicacion[]> => (config.usarMock
-        ? Promise.resolve(bd.listarPublicaciones({ tamano: 1000 }).contenido.map(p => ({
+        ? Promise.resolve(bd.listarPublicacionesAdmin().map(p => ({
             ...p, compradorId: null, precioVenta: null, fechaVenta: null, cantidadImagenes: p.imagenUrls.length,
         })))
         : apiFetch<AdminPublicacion[]>('/admin/publicaciones')),
@@ -32,6 +32,43 @@ export const adminService = {
             return r;
         }
         return apiFetch<Usuario>(`/admin/usuarios/${id}`, { method: 'PATCH', body: JSON.stringify(cambios) });
+    },
+    /**
+     * Deshabilita (activo=false) o vuelve a habilitar una cuenta: PATCH /admin/usuarios/{id}/estado. Una cuenta
+     * deshabilitada solo puede usar el soporte. Sus publicaciones activas salen del catálogo (o vuelven) con
+     * PATCH /admin/publicaciones/usuario/{id}/estado.
+     */
+    async cambiarEstadoUsuario(id: number, activo: boolean): Promise<Usuario> {
+        if (config.usarMock) {
+            const r = bd.cambiarEstadoUsuario(obtenerSesion()?.usuario.id ?? 0, id, activo);
+            if (r === 'no-existe') throw new ApiError('El usuario no existe.', 404);
+            if (r === 'superusuario') throw new ApiError('No se puede deshabilitar ni eliminar a un superusuario', 403);
+            return r;
+        }
+        const usuario = await apiFetch<Usuario>(`/admin/usuarios/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ activo }) });
+        await apiFetch(`/admin/publicaciones/usuario/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ habilitada: activo }) }).catch(() => null);
+        return usuario;
+    },
+    /** Elimina la cuenta (DELETE /admin/usuarios/{id}) y retira sus publicaciones (DELETE /admin/publicaciones/usuario/{id}). */
+    async eliminarUsuario(id: number): Promise<void> {
+        if (config.usarMock) {
+            const r = bd.eliminarUsuario(obtenerSesion()?.usuario.id ?? 0, id);
+            if (r === 'no-existe') throw new ApiError('El usuario no existe.', 404);
+            if (r === 'superusuario') throw new ApiError('No se puede deshabilitar ni eliminar a un superusuario', 403);
+            return;
+        }
+        await apiFetch<void>(`/admin/usuarios/${id}`, { method: 'DELETE' });
+        await apiFetch(`/admin/publicaciones/usuario/${id}`, { method: 'DELETE' }).catch(() => null);
+    },
+    /** Deshabilita (habilitada=false) o vuelve a habilitar una publicación: PATCH /admin/publicaciones/{id}/estado. */
+    async cambiarEstadoPublicacion(id: number, habilitada: boolean): Promise<void> {
+        if (config.usarMock) {
+            const r = bd.cambiarEstadoPublicacion(id, habilitada);
+            if (r === 'no-existe') throw new ApiError('La publicación no existe.', 404);
+            if (r === 'no-permitido') throw new ApiError('Solo se puede cambiar el estado de publicaciones activas o deshabilitadas', 400);
+            return;
+        }
+        await apiFetch(`/admin/publicaciones/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ habilitada }) });
     },
     tickets: (params: Record<string, string>) => apiFetch<PaginaSoporte<TicketPanelResumen>>(`/soporte/admin/tickets?${new URLSearchParams(params)}`),
     resumenTickets: () => apiFetch<ResumenSoporte>('/soporte/admin/tickets/resumen'),

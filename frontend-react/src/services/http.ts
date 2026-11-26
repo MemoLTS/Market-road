@@ -1,5 +1,5 @@
 import { config } from '../config';
-import { EVENTO_SESION_EXPIRADA, limpiarSesion, obtenerSesion } from './sesion';
+import { actualizarUsuarioSesion, EVENTO_SESION_EXPIRADA, limpiarSesion, obtenerSesion } from './sesion';
 
 /** Error de la API con el código HTTP, para distinguir 404, 409, 429, etc. */
 export class ApiError extends Error {
@@ -29,6 +29,12 @@ export function mensajeDeCuerpo(cuerpo: Record<string, unknown> | null, status: 
     if (status === 413) return 'El archivo es demasiado grande.';
     if (status >= 500) return 'El servidor tuvo un problema. Inténtalo más tarde.';
     return `Error HTTP: ${status}`;
+}
+
+/** Deja la sesión de la tienda como «cuenta deshabilitada» (solo soporte) sin cerrarla. */
+function marcarCuentaDeshabilitada(): void {
+    const sesion = obtenerSesion();
+    if (sesion && sesion.usuario.activo !== false) actualizarUsuarioSesion({ ...sesion.usuario, activo: false });
 }
 
 export interface OpcionesSesion {
@@ -64,6 +70,8 @@ export async function peticion<T>(endpoint: string, options: RequestInit = {}, o
         if (response.status === 401 && token && endpoint !== endpointSinExpiracion) alExpirar();
         if (!response.ok) {
             const cuerpo = await response.json().catch(() => null) as Record<string, unknown> | null;
+            // El superusuario deshabilitó la cuenta con la sesión abierta: se refleja de inmediato en la interfaz.
+            if (response.status === 403 && token && String(cuerpo?.mensaje ?? '').includes('deshabilitada')) marcarCuentaDeshabilitada();
             throw new ApiError(mensajeDeCuerpo(cuerpo, response.status), response.status);
         }
         if (response.status === 204) return null as T;

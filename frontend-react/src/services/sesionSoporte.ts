@@ -3,7 +3,8 @@ import { peticion } from './http';
 
 /**
  * Sesión del PERSONAL de soporte: independiente de la de la tienda (otra clave, otro token).
- * Vive en sessionStorage: se cierra al cerrar la pestaña, pensado para equipos compartidos.
+ * Vive en localStorage (dura lo que el token, 8 h): así el personal no vuelve a ingresar al recargar ni al abrir otra pestaña.
+ * Se borra al cerrar sesión en el panel o en la tienda (equipos compartidos).
  */
 export const CLAVE_SESION_SOPORTE = 'mr_soporte_session';
 export const EVENTO_SESION_SOPORTE = 'mr:soporte-sesion-cambiada';
@@ -16,30 +17,30 @@ export interface SesionSoporte {
 
 export function guardarSesionSoporte({ token, expiraEnMs, personal }: LoginSoporteRespuesta): SesionSoporte {
     const sesion: SesionSoporte = { token, personal, expiraEn: Date.now() + (expiraEnMs || 0) };
-    sessionStorage.setItem(CLAVE_SESION_SOPORTE, JSON.stringify(sesion));
+    localStorage.setItem(CLAVE_SESION_SOPORTE, JSON.stringify(sesion));
     window.dispatchEvent(new CustomEvent(EVENTO_SESION_SOPORTE));
     return sesion;
 }
 
 export function obtenerSesionSoporte(): SesionSoporte | null {
-    const crudo = sessionStorage.getItem(CLAVE_SESION_SOPORTE);
+    const crudo = localStorage.getItem(CLAVE_SESION_SOPORTE);
     if (!crudo) return null;
     try {
         const sesion = JSON.parse(crudo) as Partial<SesionSoporte> | null;
         if (!sesion || typeof sesion.token !== 'string' || !sesion.personal
             || typeof sesion.expiraEn !== 'number' || sesion.expiraEn <= Date.now()) {
-            sessionStorage.removeItem(CLAVE_SESION_SOPORTE);
+            localStorage.removeItem(CLAVE_SESION_SOPORTE);
             return null;
         }
         return sesion as SesionSoporte;
     } catch {
-        sessionStorage.removeItem(CLAVE_SESION_SOPORTE);
+        localStorage.removeItem(CLAVE_SESION_SOPORTE);
         return null;
     }
 }
 
 export function limpiarSesionSoporte(): void {
-    sessionStorage.removeItem(CLAVE_SESION_SOPORTE);
+    localStorage.removeItem(CLAVE_SESION_SOPORTE);
     window.dispatchEvent(new CustomEvent(EVENTO_SESION_SOPORTE));
 }
 

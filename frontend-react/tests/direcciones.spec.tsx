@@ -255,7 +255,7 @@ describe('CambiarContrasena (panel de soporte)', () => {
 
     it('el servicio envía POST /soporte/panel/auth/contrasena con {actual, nueva}', async () => {
         const espia = spyOn(window, 'fetch').and.resolveTo(new Response(null, { status: 204 }));
-        sessionStorage.setItem('mr_soporte_session', JSON.stringify({ token: 'P', expiraEnMs: 3600000, personal: { id: 1, nombre: 'Sol', rol: 'ADMIN' }, hasta: Date.now() + 3600000 }));
+        localStorage.setItem('mr_soporte_session', JSON.stringify({ token: 'P', expiraEnMs: 3600000, personal: { id: 1, nombre: 'Sol', rol: 'ADMIN' }, hasta: Date.now() + 3600000 }));
         await soportePanelService.cambiarContrasena('Vieja1234', 'Nueva1234').catch(() => undefined);
         const [url, opciones] = espia.calls.mostRecent().args as [string, RequestInit];
         expect(String(url)).toContain('/soporte/panel/auth/contrasena');

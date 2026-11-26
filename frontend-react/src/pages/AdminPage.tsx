@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import Alert from '../components/common/Alert';
 import Campo from '../components/common/Campo';
+import ConfirmarModal from '../components/common/ConfirmarModal';
 import SelectorLocalidad from '../components/common/SelectorLocalidad';
 import type { ValorLocalidad } from '../components/common/SelectorLocalidad';
 import Modal from '../components/common/Modal';
@@ -139,7 +140,13 @@ export function TicketAdminModal({ id, onCerrar }: { id: number | null; onCerrar
  * una contraseña nueva. Un único botón «Guardar cambios»; solo se envía lo que cambió (PATCH /admin/usuarios/{id}).
  * La ciudad sigue la misma regla que en publicaciones y perfil (elegida de la lista o del mapa).
  */
-export function EditarUsuarioModal({ usuario, onCerrar, onGuardado }: { usuario: Usuario | null; onCerrar: () => void; onGuardado?: (u: Usuario) => void }) {
+export function EditarUsuarioModal({ usuario, onCerrar, onGuardado, onDeshabilitar, onEliminar }: {
+    usuario: Usuario | null; onCerrar: () => void; onGuardado?: (u: Usuario) => void;
+    /** Pide confirmar el cambio de estado (deshabilitar o habilitar) de la cuenta que se está editando. */
+    onDeshabilitar?: (u: Usuario) => void;
+    /** Pide confirmar la eliminación de la cuenta que se está editando. */
+    onEliminar?: (u: Usuario) => void;
+}) {
     const [v, setV] = useState({ nombre: '', apellido: '', apodo: '', correo: '', contrasena: '', repetir: '' });
     const [ciudad, setCiudad] = useState<ValorLocalidad>({ ubicacion: '', lugar: null });
     const [errorCiudad, setErrorCiudad] = useState<string | null>(null);
@@ -217,17 +224,53 @@ export function EditarUsuarioModal({ usuario, onCerrar, onGuardado }: { usuario:
                         </Campo>
                     </div>
                 </fieldset>
-                <div className="d-flex justify-content-end gap-2">
-                    <button type="button" className="btn btn-outline-secondary" onClick={onCerrar}>Cerrar</button>
-                    <button type="submit" className="btn btn-primary" disabled={guardando}>{guardando ? 'Guardando...' : 'Guardar cambios'}</button>
+                <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div className="d-flex flex-wrap gap-2" aria-label="Acciones sobre la cuenta">
+                        {usuario && usuario.rol !== 'SUPERUSUARIO' && onDeshabilitar && onEliminar && (
+                            <>
+                                <button type="button" className="btn btn-outline-warning" onClick={() => onDeshabilitar(usuario)}>{usuario.activo === false ? 'Habilitar usuario' : 'Deshabilitar usuario'}</button>
+                                <button type="button" className="btn btn-outline-danger" onClick={() => onEliminar(usuario)}>Eliminar usuario</button>
+                            </>
+                        )}
+                    </div>
+                    <div className="d-flex gap-2">
+                        <button type="button" className="btn btn-outline-secondary" onClick={onCerrar}>Cerrar</button>
+                        <button type="submit" className="btn btn-primary" disabled={guardando}>{guardando ? 'Guardando...' : 'Guardar cambios'}</button>
+                    </div>
                 </div>
             </form>
         </Modal>
     );
 }
 
+/** Acción del superusuario que espera confirmación en una ventana (deshabilitar/habilitar/eliminar). */
+export type AccionAdmin =
+    | { tipo: 'usuario-estado'; usuario: Usuario; activo: boolean }
+    | { tipo: 'usuario-eliminar'; usuario: Usuario }
+    | { tipo: 'publicacion-estado'; publicacion: AdminPublicacion; habilitada: boolean };
+
+const nombreDe = (u: Usuario): string => u.apodo ?? u.correo;
+
+function textosDeAccion(a: AccionAdmin): { titulo: string; mensaje: string; boton: string; peligro: boolean } {
+    if (a.tipo === 'usuario-eliminar') {
+        return { titulo: 'Eliminar usuario', boton: 'Sí, eliminar usuario', peligro: true,
+            mensaje: `¿Eliminar a ${nombreDe(a.usuario)}? La cuenta dejará de existir: no podrá iniciar sesión, enviar ni recibir mensajes, ni escribir a soporte. Sus publicaciones se retiran. No se puede deshacer.` };
+    }
+    if (a.tipo === 'usuario-estado') {
+        return a.activo
+            ? { titulo: 'Habilitar usuario', boton: 'Sí, habilitar', peligro: false, mensaje: `¿Volver a habilitar a ${nombreDe(a.usuario)}? Recupera el acceso completo y sus publicaciones deshabilitadas vuelven al catálogo.` }
+            : { titulo: 'Deshabilitar usuario', boton: 'Sí, deshabilitar', peligro: true, mensaje: `¿Deshabilitar a ${nombreDe(a.usuario)}? Solo podrá entrar a soporte para enviar un ticket; no podrá publicar ni enviar o recibir mensajes. Sus publicaciones salen del catálogo.` };
+    }
+    return a.habilitada
+        ? { titulo: 'Habilitar publicación', boton: 'Sí, habilitar', peligro: false, mensaje: `¿Volver a publicar «${a.publicacion.titulo}»?` }
+        : { titulo: 'Deshabilitar publicación', boton: 'Sí, deshabilitar', peligro: true, mensaje: `¿Deshabilitar «${a.publicacion.titulo}»? Sale del catálogo y no admite mensajes ni ofertas. Podrás habilitarla de nuevo.` };
+}
+
 export default function AdminPage() {
     const [usuarioEditando, setUsuarioEditando] = useState<Usuario | null>(null);
+    const [accion, setAccion] = useState<AccionAdmin | null>(null);
+    const [errorAccion, setErrorAccion] = useState('');
+    const [exitoAccion, setExitoAccion] = useState('');
     const [ticketAbierto, setTicketAbierto] = useState<number | null>(null);
     const [pestana, setPestana] = useState('dashboard');
     const [filtro, setFiltro] = useState('');
@@ -235,6 +278,23 @@ export default function AdminPage() {
     const publicaciones = useAsync(() => adminService.publicaciones(), []);
     const tickets = useAsync(() => (config.usarMock ? Promise.resolve(null) : adminService.tickets({ pagina: '0', tamano: '20' })), []);
     const resumen = useAsync(() => (config.usarMock ? Promise.resolve(null) : adminService.resumenTickets()), []);
+
+    async function ejecutarAccion(): Promise<void> {
+        if (!accion) return;
+        const hecha = accion;
+        setAccion(null);
+        setErrorAccion('');
+        try {
+            if (hecha.tipo === 'usuario-eliminar') await adminService.eliminarUsuario(hecha.usuario.id);
+            else if (hecha.tipo === 'usuario-estado') await adminService.cambiarEstadoUsuario(hecha.usuario.id, hecha.activo);
+            else await adminService.cambiarEstadoPublicacion(hecha.publicacion.id, hecha.habilitada);
+            setExitoAccion(textosDeAccion(hecha).titulo + ': listo.');
+            await Promise.all([usuarios.recargar(), publicaciones.recargar()]);
+        } catch (err) {
+            setExitoAccion('');
+            setErrorAccion(mensajeDeError(err, 'No se pudo completar la acción.'));
+        }
+    }
 
     const cargando = usuarios.cargando || publicaciones.cargando;
     const error = usuarios.error || publicaciones.error;
@@ -250,6 +310,8 @@ export default function AdminPage() {
                 ))}
             </ul>
             <Alert mensaje={error} />
+            <Alert mensaje={errorAccion} onCerrar={() => setErrorAccion('')} />
+            <Alert mensaje={exitoAccion} tipo="success" onCerrar={() => setExitoAccion('')} />
             {cargando ? <Spinner /> : (
                 <>
                     {pestana === 'dashboard' && <Dashboard usuarios={usuarios.datos ?? []} publicaciones={publicaciones.datos ?? []} resumen={resumen.datos} onIrUsuarios={() => { setPestana('usuarios'); setFiltro(''); }} />}
@@ -262,7 +324,8 @@ export default function AdminPage() {
                                 { titulo: 'ID', celda: u => u.id }, { titulo: 'Nombre', celda: u => `${u.nombre} ${u.apellido}` },
                                 { titulo: 'Apodo', celda: u => u.apodo ?? '—' }, { titulo: 'Correo', celda: u => u.correo },
                                 { titulo: 'Ciudad', celda: u => u.ciudad ?? '—' }, { titulo: 'Rol', celda: u => u.rol ?? 'USUARIO' },
-                                { titulo: 'Acciones', celda: u => <button type="button" className="btn btn-sm btn-outline-primary" aria-label={`Editar a ${u.apodo ?? u.correo}`} onClick={() => setUsuarioEditando(u)}>Editar</button> },
+                                { titulo: 'Estado', celda: u => u.activo === false ? <span className="badge text-bg-warning">Deshabilitada</span> : <span className="badge text-bg-success">Activa</span> },
+                                { titulo: 'Acciones', celda: u => <button type="button" className="btn btn-sm btn-outline-primary" aria-label={`Editar a ${nombreDe(u)}`} onClick={() => setUsuarioEditando(u)}>Editar</button> },
                             ]} />
                     )}
                     {pestana === 'publicaciones' && (
@@ -271,6 +334,10 @@ export default function AdminPage() {
                                 { titulo: 'ID', celda: p => p.id }, { titulo: 'Título', celda: p => p.titulo }, { titulo: 'Precio', celda: p => formatoPrecio(p.precio) },
                                 { titulo: 'Categoría', celda: p => p.categoriaNombre }, { titulo: 'Unidades', celda: p => p.unidades ?? 1 }, { titulo: 'Vendedor', celda: p => p.vendedorApodo ?? '—' },
                                 { titulo: 'Estado', celda: p => <span className="badge text-bg-light border">{p.estado}</span> }, { titulo: 'Venta cerrada', celda: p => p.estado === 'VENDIDA' ? `${formatoPrecio(p.precioVenta ?? p.precio)}${p.fechaVenta ? ' · ' + formatoFechaCorta(p.fechaVenta) : ''}` : '—' }, { titulo: 'Creada', celda: p => formatoFechaCorta(p.fechaCreacion) },
+                                { titulo: 'Acciones', celda: p => (p.estado === 'ACTIVA' || p.estado === 'DESHABILITADA') ? (
+                                    <button type="button" className={`btn btn-sm ${p.estado === 'ACTIVA' ? 'btn-outline-warning' : 'btn-outline-success'}`} aria-label={`${p.estado === 'ACTIVA' ? 'Deshabilitar' : 'Habilitar'} la publicación ${p.titulo}`}
+                                        onClick={() => setAccion({ tipo: 'publicacion-estado', publicacion: p, habilitada: p.estado === 'DESHABILITADA' })}>{p.estado === 'ACTIVA' ? 'Deshabilitar' : 'Habilitar'}</button>
+                                ) : '—' },
                             ]} />
                     )}
                     {pestana === 'soporte' && (config.usarMock
@@ -288,7 +355,13 @@ export default function AdminPage() {
                         ))}
                 </>
             )}
-            <EditarUsuarioModal usuario={usuarioEditando} onCerrar={() => setUsuarioEditando(null)} onGuardado={u => { setUsuarioEditando(u); void usuarios.recargar(); }} />
+            <EditarUsuarioModal usuario={usuarioEditando} onCerrar={() => setUsuarioEditando(null)} onGuardado={u => { setUsuarioEditando(u); void usuarios.recargar(); }}
+                onDeshabilitar={u => { setUsuarioEditando(null); setAccion({ tipo: 'usuario-estado', usuario: u, activo: u.activo === false }); }}
+                onEliminar={u => { setUsuarioEditando(null); setAccion({ tipo: 'usuario-eliminar', usuario: u }); }} />
+            {accion && (() => {
+                const t = textosDeAccion(accion);
+                return <ConfirmarModal abierto titulo={t.titulo} mensaje={t.mensaje} textoConfirmar={t.boton} peligro={t.peligro} onConfirmar={ejecutarAccion} onCancelar={() => setAccion(null)} />;
+            })()}
             <TicketAdminModal id={ticketAbierto} onCerrar={() => setTicketAbierto(null)} />
         </div>
     );

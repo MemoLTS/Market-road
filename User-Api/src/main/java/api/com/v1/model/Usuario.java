@@ -53,6 +53,13 @@ public class Usuario {
     @Column(nullable = false, length = 20, columnDefinition = "varchar(20) not null default 'USUARIO'")
     private Rol rol = Rol.USUARIO;
 
+    /**
+     * Cuenta habilitada. Una cuenta deshabilitada por el superusuario puede iniciar sesión, pero
+     * solo puede usar el soporte (para escribir un ticket); el resto de los servicios la rechaza.
+     */
+    @Column(nullable = false, columnDefinition = "boolean not null default true")
+    private boolean activo = true;
+
     public Usuario(Long id, String nombre, String apellido, String apodo, String correo, String contrasena) {
         this.id = id;
         this.nombre = nombre;

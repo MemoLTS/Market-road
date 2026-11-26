@@ -72,22 +72,27 @@ describe('PublicationDetailPage', () => {
         expect(c.querySelector('form[aria-label="Contactar al vendedor"]')).toBeNull();
     });
 
-    it('eliminar pide confirmación y borra la publicación (DELETE)', async () => {
+    it('eliminar pide confirmación en una ventana de la página (sin cuadro nativo) y borra la publicación (DELETE)', async () => {
         sesion(demo);
-        spyOn(window, 'confirm').and.returnValue(true);
+        const nativo = spyOn(window, 'confirm');
         const c = await ruta(1);
         await esperar(30);
         await clic(botonPorTexto(c, 'Eliminar publicación'));
+        expect(document.querySelector('.modal')?.textContent).toContain('¿Eliminar esta publicación?');
+        expect(bd.obtenerPublicacion(1)).not.toBeNull();
+        await clic(botonPorTexto(document.body, 'Sí, eliminar'));
         await esperar(30);
         expect(bd.obtenerPublicacion(1)).toBeNull();
+        expect(nativo).not.toHaveBeenCalled();
     });
 
     it('no elimina si se cancela la confirmación', async () => {
         sesion(demo);
-        spyOn(window, 'confirm').and.returnValue(false);
         const c = await ruta(1);
         await esperar(30);
         await clic(botonPorTexto(c, 'Eliminar publicación'));
+        await clic(botonPorTexto(document.body, 'Cancelar'));
+        expect(document.querySelector('.modal')).toBeNull();
         expect(bd.obtenerPublicacion(1)).not.toBeNull();
     });
 
@@ -219,6 +224,27 @@ describe('MensajesPage (con servicios simulados)', () => {
         await enviarFormulario(c.querySelector('form[aria-label="Enviar oferta"]'));
         await esperar(30);
         expect(enviarOferta).toHaveBeenCalledWith(7, 120000);
+    });
+
+    it('"Marcar como vendido" confirma dentro de la página (no pausa el navegador) y solo vende al aceptar', async () => {
+        const comoVendedor = { ...detalle, conversacion: { ...detalle.conversacion, rol: 'VENDEDOR' } };
+        spyOn(mensajesService, 'detalle').and.resolveTo(comoVendedor as never);
+        const marcar = spyOn(mensajesService, 'marcarVendido').and.resolveTo(comoVendedor as never);
+        const nativo = spyOn(window, 'confirm');
+        window.location.hash = '#/mensajes/7';
+        const c = await montarConApp(<Routes><Route path="/mensajes/:id" element={<MensajesPage />} /></Routes>);
+        await esperar(40);
+        await clic(botonPorTexto(c, 'Marcar como vendido'));
+        expect(document.querySelector('.modal')?.textContent).toContain('¿Marcar como vendido a luis por');
+        expect(marcar).not.toHaveBeenCalled();
+        await clic(botonPorTexto(document.body, 'Cancelar'));
+        expect(document.querySelector('.modal')).toBeNull();
+        expect(marcar).not.toHaveBeenCalled();
+        await clic(botonPorTexto(c, 'Marcar como vendido'));
+        await clic(botonPorTexto(document.body, 'Sí, marcar como vendido'));
+        await esperar(30);
+        expect(marcar).toHaveBeenCalledWith(7);
+        expect(nativo).not.toHaveBeenCalled();
     });
 
     it('rechaza una oferta con monto inválido sin llamar al servicio', async () => {
@@ -471,6 +497,113 @@ describe('AdminPage (modo simulado)', () => {
         await esperar(40);
         await clic(botonPorTexto(c, 'Editar usuarios'));
         expect(c.querySelector('button[aria-label="Editar a demo"]')).not.toBeNull();
+    });
+
+    const irAUsuarios = async (c: HTMLElement) => clic(Array.from(c.querySelectorAll('[role=tab]')).find(t => t.textContent === 'Usuarios'));
+    /** Abre la ventana «Editar usuario»: ahí están Deshabilitar/Habilitar y Eliminar (abajo a la izquierda). */
+    const abrirVentana = async (c: HTMLElement, apodo: string) => { await irAUsuarios(c); await clic(c.querySelector(`button[aria-label="Editar a ${apodo}"]`)); };
+
+    it('deshabilitar un usuario pide confirmación, lo marca como Deshabilitada y retira sus publicaciones; Habilitar lo revierte', async () => {
+        sesion(admin);
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await abrirVentana(c, 'demo');
+        await clic(botonPorTexto(document.body, 'Deshabilitar usuario'));
+        expect(textoModal()).toContain('Solo podrá entrar a soporte');
+        await clic(botonPorTexto(document.body, 'Sí, deshabilitar'));
+        await esperar(40);
+        expect(texto(c)).toContain('Deshabilitada');
+        expect(bd.listarUsuarios().find(u => u.id === 1)?.activo).toBeFalse();
+        expect(bd.obtenerPublicacion(1)?.estado).toBe('DESHABILITADA');
+        expect(bd.listarPublicaciones({ tamano: 100 }).contenido.some(p => p.usuarioId === 1)).toBeFalse();
+        await abrirVentana(c, 'demo');
+        await clic(botonPorTexto(document.body, 'Habilitar usuario'));
+        await clic(botonPorTexto(document.body, 'Sí, habilitar'));
+        await esperar(40);
+        expect(bd.listarUsuarios().find(u => u.id === 1)?.activo).toBeTrue();
+        expect(bd.obtenerPublicacion(1)?.estado).toBe('ACTIVA');
+    });
+
+    it('eliminar un usuario avisa que no podrá escribir ni a soporte y, al confirmar, desaparece junto con sus publicaciones', async () => {
+        sesion(admin);
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await abrirVentana(c, 'demo');
+        await clic(botonPorTexto(document.body, 'Eliminar usuario'));
+        expect(textoModal()).toContain('dejará de existir');
+        await clic(botonPorTexto(document.body, 'Cancelar'));
+        expect(bd.listarUsuarios().some(u => u.id === 1)).toBeTrue();
+        await abrirVentana(c, 'demo');
+        await clic(botonPorTexto(document.body, 'Eliminar usuario'));
+        await clic(botonPorTexto(document.body, 'Sí, eliminar usuario'));
+        await esperar(40);
+        expect(bd.listarUsuarios().some(u => u.id === 1)).toBeFalse();
+        expect(c.querySelector('button[aria-label="Editar a demo"]')).toBeNull();
+        expect(bd.obtenerPublicacion(1)).toBeNull();
+    });
+
+    it('Deshabilitar y Eliminar están en la ventana de edición, abajo a la izquierda y en paralelo a Guardar cambios; la tabla ya no los tiene', async () => {
+        sesion(admin);
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await irAUsuarios(c);
+        expect(botonPorTexto(c, 'Deshabilitar usuario')).toBeUndefined();
+        expect(botonPorTexto(c, 'Eliminar usuario')).toBeUndefined();
+        await clic(c.querySelector('button[aria-label="Editar a demo"]'));
+        const pie = document.querySelector('form[aria-label="Editar usuario"] > div:last-child') as HTMLElement;
+        const [izquierda, derecha] = Array.from(pie.children) as HTMLElement[];
+        expect(Array.from(izquierda.querySelectorAll('button')).map(b => b.textContent)).toEqual(['Deshabilitar usuario', 'Eliminar usuario']);
+        expect(Array.from(derecha.querySelectorAll('button')).map(b => b.textContent)).toEqual(['Cerrar', 'Guardar cambios']);
+        expect(pie.classList.contains('justify-content-between')).toBeTrue();
+    });
+
+    it('en la ventana el botón cambia a «Habilitar usuario» si la cuenta ya está deshabilitada', async () => {
+        sesion(admin);
+        bd.cambiarEstadoUsuario(2, 1, false);
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await abrirVentana(c, 'demo');
+        expect(botonPorTexto(document.body, 'Habilitar usuario')).toBeDefined();
+        expect(botonPorTexto(document.body, 'Deshabilitar usuario')).toBeUndefined();
+    });
+
+    it('un superusuario no se puede deshabilitar ni eliminar (su ventana solo tiene Cerrar y Guardar cambios)', async () => {
+        sesion(admin);
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await abrirVentana(c, 'admin');
+        expect(botonPorTexto(document.body, 'Guardar cambios')).toBeDefined();
+        expect(botonPorTexto(document.body, 'Deshabilitar usuario')).toBeUndefined();
+        expect(botonPorTexto(document.body, 'Eliminar usuario')).toBeUndefined();
+    });
+
+    it('un error al deshabilitar se muestra en la página', async () => {
+        sesion(admin);
+        spyOn(adminService, 'cambiarEstadoUsuario').and.rejectWith(new Error('No se puede deshabilitar ni eliminar a un superusuario'));
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await abrirVentana(c, 'demo');
+        await clic(botonPorTexto(document.body, 'Deshabilitar usuario'));
+        await clic(botonPorTexto(document.body, 'Sí, deshabilitar'));
+        await esperar(30);
+        expect(texto(c)).toContain('No se puede deshabilitar ni eliminar a un superusuario');
+    });
+
+    it('el superusuario deshabilita y vuelve a habilitar una publicación desde la pestaña Publicaciones', async () => {
+        sesion(admin);
+        const c = await montarConApp(<AdminPage />);
+        await esperar(40);
+        await clic(Array.from(c.querySelectorAll('[role=tab]')).find(t => t.textContent === 'Publicaciones'));
+        await clic(Array.from(c.querySelectorAll('button')).find(b => b.getAttribute('aria-label') === 'Deshabilitar la publicación Notebook Lenovo 14"'));
+        expect(textoModal()).toContain('Sale del catálogo');
+        await clic(botonPorTexto(document.body, 'Sí, deshabilitar'));
+        await esperar(40);
+        expect(bd.obtenerPublicacion(1)?.estado).toBe('DESHABILITADA');
+        expect(bd.listarPublicaciones({ tamano: 100 }).contenido.some(p => p.id === 1)).toBeFalse();
+        await clic(Array.from(c.querySelectorAll('button')).find(b => b.getAttribute('aria-label') === 'Habilitar la publicación Notebook Lenovo 14"'));
+        await clic(botonPorTexto(document.body, 'Sí, habilitar'));
+        await esperar(40);
+        expect(bd.obtenerPublicacion(1)?.estado).toBe('ACTIVA');
     });
 
     it('la pestaña Publicaciones muestra las 8 publicaciones', async () => {

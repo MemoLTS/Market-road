@@ -3,6 +3,7 @@ import * as bd from '../data/baseDatos';
 import type { LoginRespuesta, Usuario } from '../types/api';
 import type { DatosRegistro, DispositivoSesion } from '../types/app';
 import { apiFetch } from './http';
+import { limpiarSesionSoporte } from './sesionSoporte';
 import { actualizarUsuarioSesion, guardarSesion, limpiarSesion, obtenerSesion } from './sesion';
 
 const CLAVE_DISPOSITIVO = 'mr_device_id';
@@ -52,6 +53,7 @@ export const authService = {
             if (!config.usarMock) await apiFetch<unknown>('/auth/logout', { method: 'POST' });
         } catch { /* mejor esfuerzo: igual se cierra la sesión localmente */ } finally {
             limpiarSesion();
+            limpiarSesionSoporte();
         }
     },
 
