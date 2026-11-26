@@ -10,6 +10,7 @@ import FormularioPersonal from '../components/soporte/FormularioPersonal';
 import type { DatosPersonal } from '../components/soporte/FormularioPersonal';
 import { formatoFechaCorta, mensajeDeError } from '../core/formato';
 import { useAsync } from '../hooks/useAsync';
+import { ApiError } from '../services/http';
 import { esSuperusuario, obtenerSesion } from '../services/sesion';
 import { EVENTO_SESION_SOPORTE, guardarSesionSoporte, limpiarSesionSoporte, obtenerSesionSoporte } from '../services/sesionSoporte';
 import { soportePanelService } from '../services/soporteService';
@@ -31,7 +32,14 @@ function LoginPanel() {
         let activo = true;
         soportePanelService.entrarConUsuario()
             .then(r => { if (activo) guardarSesionSoporte(r); })
-            .catch(err => { if (activo) { setError(mensajeDeError(err)); setValidando(false); } });
+            .catch(err => {
+                if (!activo) return;
+                // 403 trae el motivo real (p. ej. cuenta de soporte desactivada); un 401/404/sin conexión se explica con un texto propio.
+                setError(err instanceof ApiError && err.status !== 403
+                    ? 'No se pudo entrar automáticamente al panel. Ingresa con una cuenta del equipo de soporte.'
+                    : mensajeDeError(err));
+                setValidando(false);
+            });
         return () => { activo = false; };
     }, [validando]);
     if (validando) return <div className="container py-5"><Spinner /></div>;

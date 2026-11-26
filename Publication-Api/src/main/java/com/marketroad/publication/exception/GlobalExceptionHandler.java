@@ -82,6 +82,19 @@ public class GlobalExceptionHandler {
         return Map.of("mensaje", ex.getMessage());
     }
 
+    /** Una ruta que no existe (p. ej. un servicio sin actualizar) es un 404, no un «error inesperado». */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, String> rutaInexistente(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        return Map.of("mensaje", "No se encontró el recurso solicitado");
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
+    public Map<String, String> metodoNoPermitido(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        return Map.of("mensaje", "Esa operación no está disponible en este servicio");
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Map<String, String> generico(Exception ex) {

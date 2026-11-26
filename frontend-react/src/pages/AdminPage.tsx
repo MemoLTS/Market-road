@@ -262,7 +262,7 @@ function textosDeAccion(a: AccionAdmin): { titulo: string; mensaje: string; boto
             : { titulo: 'Deshabilitar usuario', boton: 'Sí, deshabilitar', peligro: true, mensaje: `¿Deshabilitar a ${nombreDe(a.usuario)}? Solo podrá entrar a soporte para enviar un ticket; no podrá publicar ni enviar o recibir mensajes. Sus publicaciones salen del catálogo.` };
     }
     return a.habilitada
-        ? { titulo: 'Habilitar publicación', boton: 'Sí, habilitar', peligro: false, mensaje: `¿Volver a publicar «${a.publicacion.titulo}»?` }
+        ? { titulo: 'Reactivar publicación', boton: 'Sí, reactivar', peligro: false, mensaje: `¿Reactivar «${a.publicacion.titulo}»? Vuelve al catálogo y admite mensajes y ofertas otra vez.` }
         : { titulo: 'Deshabilitar publicación', boton: 'Sí, deshabilitar', peligro: true, mensaje: `¿Deshabilitar «${a.publicacion.titulo}»? Sale del catálogo y no admite mensajes ni ofertas. Podrás habilitarla de nuevo.` };
 }
 
@@ -333,10 +333,10 @@ export default function AdminPage() {
                             columnas={[
                                 { titulo: 'ID', celda: p => p.id }, { titulo: 'Título', celda: p => p.titulo }, { titulo: 'Precio', celda: p => formatoPrecio(p.precio) },
                                 { titulo: 'Categoría', celda: p => p.categoriaNombre }, { titulo: 'Unidades', celda: p => p.unidades ?? 1 }, { titulo: 'Vendedor', celda: p => p.vendedorApodo ?? '—' },
-                                { titulo: 'Estado', celda: p => <span className="badge text-bg-light border">{p.estado}</span> }, { titulo: 'Venta cerrada', celda: p => p.estado === 'VENDIDA' ? `${formatoPrecio(p.precioVenta ?? p.precio)}${p.fechaVenta ? ' · ' + formatoFechaCorta(p.fechaVenta) : ''}` : '—' }, { titulo: 'Creada', celda: p => formatoFechaCorta(p.fechaCreacion) },
+                                { titulo: 'Estado', celda: p => <span className={`badge ${p.estado === 'DESHABILITADA' ? 'text-bg-warning' : 'text-bg-light border'}`}>{p.estado}</span> }, { titulo: 'Venta cerrada', celda: p => p.estado === 'VENDIDA' ? `${formatoPrecio(p.precioVenta ?? p.precio)}${p.fechaVenta ? ' · ' + formatoFechaCorta(p.fechaVenta) : ''}` : '—' }, { titulo: 'Creada', celda: p => formatoFechaCorta(p.fechaCreacion) },
                                 { titulo: 'Acciones', celda: p => (p.estado === 'ACTIVA' || p.estado === 'DESHABILITADA') ? (
-                                    <button type="button" className={`btn btn-sm ${p.estado === 'ACTIVA' ? 'btn-outline-warning' : 'btn-outline-success'}`} aria-label={`${p.estado === 'ACTIVA' ? 'Deshabilitar' : 'Habilitar'} la publicación ${p.titulo}`}
-                                        onClick={() => setAccion({ tipo: 'publicacion-estado', publicacion: p, habilitada: p.estado === 'DESHABILITADA' })}>{p.estado === 'ACTIVA' ? 'Deshabilitar' : 'Habilitar'}</button>
+                                    <button type="button" className={`btn btn-sm ${p.estado === 'ACTIVA' ? 'btn-outline-warning' : 'btn-success'}`} aria-label={`${p.estado === 'ACTIVA' ? 'Deshabilitar' : 'Reactivar'} la publicación ${p.titulo}`}
+                                        onClick={() => setAccion({ tipo: 'publicacion-estado', publicacion: p, habilitada: p.estado === 'DESHABILITADA' })}>{p.estado === 'ACTIVA' ? 'Deshabilitar' : 'Reactivar'}</button>
                                 ) : '—' },
                             ]} />
                     )}

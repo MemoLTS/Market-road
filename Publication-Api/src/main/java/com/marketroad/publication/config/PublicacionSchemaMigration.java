@@ -23,15 +23,16 @@ public class PublicacionSchemaMigration implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         try {
-            String tipo = jdbcTemplate.queryForObject(
+            java.util.List<String> tipos = jdbcTemplate.queryForList(
                     "SELECT DATA_TYPE FROM information_schema.columns WHERE table_schema = DATABASE() "
-                            + "AND LOWER(table_name) = 'publicaciones' AND column_name = 'estado'",
+                            + "AND LOWER(table_name) = 'publicaciones' AND LOWER(column_name) = 'estado'",
                     String.class);
-            if ("enum".equalsIgnoreCase(tipo)) {
+            if (!tipos.isEmpty() && "enum".equalsIgnoreCase(tipos.get(0))) {
                 jdbcTemplate.execute("ALTER TABLE publicaciones MODIFY COLUMN estado VARCHAR(20) NOT NULL");
+                log.info("La columna publicaciones.estado pasó de ENUM a VARCHAR(20)");
             }
         } catch (Exception ex) {
-            log.warn("No se pudo revisar la columna estado de publicaciones: {}", ex.getMessage());
+            log.error("No se pudo convertir publicaciones.estado a VARCHAR; deshabilitar publicaciones fallará hasta corregirlo", ex);
         }
     }
 }

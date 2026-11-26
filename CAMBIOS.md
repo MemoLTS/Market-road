@@ -130,3 +130,16 @@ Todo en TypeScript + React (frontend) y servicios Spring Boot (backend). No hay 
   - La sesión del **personal de soporte** ahora se guarda en `localStorage` (8 h, lo que dura su token) en vez de `sessionStorage`: no se vuelve a pedir al recargar ni al abrir otra pestaña. Se borra al cerrar sesión en el panel **o en la tienda**.
   - No se usa el correo para dar acceso al equipo: cualquiera puede registrarse con cualquier correo (no hay verificación), así que eso permitiría entrar al panel haciéndose pasar por alguien del equipo.
 - Pruebas de React: 285 → 290.
+
+## Undécima ronda: mensaje al entrar al panel de soporte
+- El mensaje «Tu sesión no es válida o expiró…» al abrir el panel como superusuario lo devuelve un **soporte-api sin actualizar**: la versión antigua aplica la validación del personal a todas las rutas `/panel/**`, también a `/panel/auth/sso`. Hay que reconstruir y recrear el contenedor: `docker compose build soporte-api` y `docker compose up -d --force-recreate soporte-api`.
+- El frontend ya no muestra ese texto engañoso cuando falla la entrada automática (401/404/sin conexión): dice «No se pudo entrar automáticamente al panel. Ingresa con una cuenta del equipo de soporte.»; un 403 sigue mostrando el motivo real (por ejemplo, cuenta de soporte desactivada). Pruebas de React: 291.
+
+## Duodécima ronda: error al deshabilitar una publicación
+- «Ocurrió un error inesperado en el servidor» al deshabilitar: Publication-Api convertía **cualquier** ruta inexistente en un 500 genérico (`NoResourceFoundException` caía en el manejador `Exception`). Con un contenedor `publication-api` sin actualizar (que aún no tiene `PATCH /admin/publicaciones/{id}/estado`) salía ese mensaje. Ahora una ruta inexistente responde 404 y un método no permitido 405, con un texto claro.
+- Si el contenedor sí está actualizado pero falla, la causa más probable es la columna `estado` en MySQL (ENUM antiguo): `PublicacionSchemaMigration` la pasa a VARCHAR(20) al iniciar y ahora deja el resultado (o el error) en el log de `publication-api`.
+- **Reactivar**: en la pestaña Publicaciones, una publicación `DESHABILITADA` (etiqueta amarilla) muestra el botón verde **Reactivar**, con su confirmación; vuelve al catálogo y admite mensajes y ofertas.
+
+## Decimotercera ronda: error al deshabilitar/eliminar usuarios
+- Mismo origen que el de publicaciones: User-Api también convertía una ruta inexistente en el 500 «Ocurrió un error inesperado». Un contenedor `user-api` sin actualizar no tiene `PATCH /admin/usuarios/{id}/estado` ni `DELETE /admin/usuarios/{id}`. Ahora responde 404/405 con un texto claro.
+- Para aplicar los cambios hay que reconstruir los tres servicios del backend: `docker compose build user-api publication-api soporte-api` y `docker compose up -d --force-recreate user-api publication-api soporte-api`.

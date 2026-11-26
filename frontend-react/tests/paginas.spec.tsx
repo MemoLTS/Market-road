@@ -13,6 +13,7 @@ import SoportePage from '../src/pages/SoportePage';
 import SoportePanelPage from '../src/pages/SoportePanelPage';
 import { ContactoPage, NoEncontradaPage, NosotrosPage } from '../src/pages/StaticPages';
 import { adminService } from '../src/services/adminService';
+import { ApiError } from '../src/services/http';
 import { authService } from '../src/services/authService';
 import { mensajesService } from '../src/services/mensajesService';
 import { guardarSesion } from '../src/services/sesion';
@@ -364,6 +365,15 @@ describe('SoportePanelPage (entrada con el token de usuario)', () => {
         expect(c.querySelector('[role=alert]').textContent).toContain('desactivada');
     });
 
+    it('si soporte no reconoce la sesión (401) no se muestra el texto engañoso de «sesión expirada»', async () => {
+        sesion(admin);
+        spyOn(soportePanelService, 'entrarConUsuario').and.rejectWith(new ApiError('Tu sesión no es válida o expiró, inicia sesión nuevamente', 401));
+        const c = await montar(<SoportePanelPage />);
+        await esperar(60);
+        expect(c.querySelector('[role=alert]').textContent).toBe('No se pudo entrar automáticamente al panel. Ingresa con una cuenta del equipo de soporte.');
+        expect(c.querySelector('#spCorreo')).not.toBeNull();
+    });
+
     it('una persona usuaria normal no intenta entrar sola', async () => {
         sesion(demo);
         const sso = spyOn(soportePanelService, 'entrarConUsuario');
@@ -600,8 +610,10 @@ describe('AdminPage (modo simulado)', () => {
         await esperar(40);
         expect(bd.obtenerPublicacion(1)?.estado).toBe('DESHABILITADA');
         expect(bd.listarPublicaciones({ tamano: 100 }).contenido.some(p => p.id === 1)).toBeFalse();
-        await clic(Array.from(c.querySelectorAll('button')).find(b => b.getAttribute('aria-label') === 'Habilitar la publicación Notebook Lenovo 14"'));
-        await clic(botonPorTexto(document.body, 'Sí, habilitar'));
+        expect(texto(c)).toContain('DESHABILITADA');
+        await clic(Array.from(c.querySelectorAll('button')).find(b => b.getAttribute('aria-label') === 'Reactivar la publicación Notebook Lenovo 14"'));
+        expect(textoModal()).toContain('Vuelve al catálogo');
+        await clic(botonPorTexto(document.body, 'Sí, reactivar'));
         await esperar(40);
         expect(bd.obtenerPublicacion(1)?.estado).toBe('ACTIVA');
     });
