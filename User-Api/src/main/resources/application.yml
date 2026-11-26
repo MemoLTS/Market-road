@@ -50,3 +50,8 @@ sesiones:
 usuarios:
   foto:
     max-bytes: 5242880 # 5 MB
+
+# Publication-Api: al deshabilitar o eliminar una cuenta se ocultan o retiran sus publicaciones.
+publicaciones:
+  api:
+    url: ${PUBLICACIONES_API_URL:http://localhost:8083}

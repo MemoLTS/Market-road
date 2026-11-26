@@ -4,6 +4,7 @@ import { actualizarUsuarioSesion, EVENTO_SESION_EXPIRADA, limpiarSesion, obtener
 /** Error de la API con el código HTTP, para distinguir 404, 409, 429, etc. */
 export class ApiError extends Error {
     readonly status: number;
+    transitorio = false;
 
     constructor(message: string, status: number) {
         super(message);
@@ -53,7 +54,25 @@ const SESION_TIENDA: OpcionesSesion = {
  * fetch con token, timeout y errores legibles. `opciones` permite reutilizarlo para la sesión del
  * personal de soporte, que es independiente de la de la tienda.
  */
+/** Un GET que falla por la infraestructura (gateway o servicio arrancando) se reintenta un par de veces. */
+const REINTENTOS_GET = 2;
+const ESPERA_REINTENTO_MS = 1500;
+const esperar = (ms: number) => new Promise(resolver => setTimeout(resolver, ms));
+
 export async function peticion<T>(endpoint: string, options: RequestInit = {}, opciones: Partial<OpcionesSesion> = {}): Promise<T> {
+    const esGet = (options.method ?? 'GET').toUpperCase() === 'GET';
+    for (let intento = 0; ; intento++) {
+        try {
+            return await peticionUnica<T>(endpoint, options, opciones);
+        } catch (error) {
+            const transitorio = error instanceof ApiError && (error.status === 0 && error.message.startsWith('No se pudo conectar') || [502, 503, 504].includes(error.status) || (error.status === 500 && error.transitorio));
+            if (!esGet || !transitorio || intento >= REINTENTOS_GET) throw error;
+            await esperar(ESPERA_REINTENTO_MS);
+        }
+    }
+}
+
+async function peticionUnica<T>(endpoint: string, options: RequestInit = {}, opciones: Partial<OpcionesSesion> = {}): Promise<T> {
     const { obtenerToken, alExpirar, endpointSinExpiracion }: OpcionesSesion = { ...SESION_TIENDA, ...opciones };
     const token = obtenerToken();
     const esFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -72,7 +91,10 @@ export async function peticion<T>(endpoint: string, options: RequestInit = {}, o
             const cuerpo = await response.json().catch(() => null) as Record<string, unknown> | null;
             // El superusuario deshabilitó la cuenta con la sesión abierta: se refleja de inmediato en la interfaz.
             if (response.status === 403 && token && String(cuerpo?.mensaje ?? '').includes('deshabilitada')) marcarCuentaDeshabilitada();
-            throw new ApiError(mensajeDeCuerpo(cuerpo, response.status), response.status);
+            const falla = new ApiError(mensajeDeCuerpo(cuerpo, response.status), response.status);
+            // Un 500 sin "mensaje" no lo generó la app (la app siempre responde con mensaje): es el gateway o un servicio caído.
+            falla.transitorio = response.status === 500 && !cuerpo?.mensaje;
+            throw falla;
         }
         if (response.status === 204) return null as T;
         return await response.json() as T;

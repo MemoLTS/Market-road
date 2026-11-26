@@ -20,6 +20,7 @@ import com.marketroad.publication.mensajeria.ReglasMensajeria.Rol;
 import com.marketroad.publication.model.Conversacion;
 import com.marketroad.publication.model.EstadoOferta;
 import com.marketroad.publication.model.EstadoPublicacion;
+import com.marketroad.publication.model.EstadoVenta;
 import com.marketroad.publication.model.MensajeConversacion;
 import com.marketroad.publication.model.Publicacion;
 import com.marketroad.publication.model.TipoMensaje;
@@ -201,10 +202,13 @@ public class ConversacionService {
         p.setCompradorId(c.getCompradorId());
         p.setPrecioVenta(precioFinal);
         p.setFechaVenta(OffsetDateTime.now());
+        p.setVentaEstado(EstadoVenta.PENDIENTE_CONFIRMACION);
+        p.setVentaDetalle(null);
         publicaciones.save(p);
 
         agregarMensaje(c, yo.usuarioId(), TipoMensaje.SISTEMA,
-                "Marcó la publicación como vendida por " + reglas.formatearMonto(precioFinal) + ".", null, null);
+                "Marcó la publicación como vendida por " + reglas.formatearMonto(precioFinal)
+                        + ". Falta que la otra persona confirme la compra.", null, null);
 
         for (Conversacion otra : conversaciones.findByPublicacionId(p.getId())) {
             if (otra.getId().equals(c.getId())) {
@@ -217,6 +221,52 @@ public class ConversacionService {
             agregarMensaje(otra, yo.usuarioId(), TipoMensaje.SISTEMA, "La publicación fue vendida a otra persona.",
                     null, null);
         }
+        return detalle(c, yo);
+    }
+
+    /**
+     * La persona señalada como compradora responde a la venta: COMPRADO la confirma; NO_COMPRADO la anula y la
+     * publicación vuelve a estar activa; OTRO exige describir lo ocurrido y deja la venta en revisión de soporte.
+     */
+    @Transactional
+    public ConversacionDetalleDTO responderVenta(Long id, String respuesta, String detalle, Identidad yo) {
+        Conversacion c = cargar(id, yo);
+        exigirRol(c, yo, Rol.COMPRADOR, "Solo la persona señalada como compradora puede responder");
+        Publicacion p = c.getPublicacion();
+        if (p.getEstado() != EstadoPublicacion.VENDIDA || p.getVentaEstado() != EstadoVenta.PENDIENTE_CONFIRMACION
+                || !yo.usuarioId().equals(p.getCompradorId())) {
+            throw new OperacionNoPermitidaException("No hay una venta pendiente de tu confirmación");
+        }
+        String opcion = respuesta == null ? "" : respuesta.trim().toUpperCase();
+        switch (opcion) {
+            case "COMPRADO" -> {
+                p.setVentaEstado(EstadoVenta.CONFIRMADA);
+                agregarMensaje(c, yo.usuarioId(), TipoMensaje.SISTEMA, "Confirmó que compró el artículo.", null, null);
+            }
+            case "NO_COMPRADO" -> {
+                p.setEstado(EstadoPublicacion.ACTIVA);
+                p.setVentaEstado(null);
+                p.setVentaDetalle(null);
+                p.setCompradorId(null);
+                p.setPrecioVenta(null);
+                p.setFechaVenta(null);
+                agregarMensaje(c, yo.usuarioId(), TipoMensaje.SISTEMA,
+                        "Indicó que no compró el artículo. La venta se anuló y la publicación volvió a estar activa.",
+                        null, null);
+            }
+            case "OTRO" -> {
+                String texto = detalle == null ? "" : detalle.trim();
+                if (texto.length() < 10) {
+                    throw new IllegalArgumentException("Describe lo que sucedió (mínimo 10 caracteres)");
+                }
+                p.setVentaEstado(EstadoVenta.EN_REVISION);
+                p.setVentaDetalle(texto.length() > 1000 ? texto.substring(0, 1000) : texto);
+                agregarMensaje(c, yo.usuarioId(), TipoMensaje.SISTEMA,
+                        "Informó otra situación sobre la venta. Soporte la revisará.", null, null);
+            }
+            default -> throw new IllegalArgumentException("La respuesta debe ser COMPRADO, NO_COMPRADO u OTRO");
+        }
+        publicaciones.save(p);
         return detalle(c, yo);
     }
 
@@ -300,11 +350,14 @@ public class ConversacionService {
         boolean soyComprador = rol == Rol.COMPRADOR;
         Long otroId = soyComprador ? c.getVendedorId() : c.getCompradorId();
         String otroApodo = soyComprador ? c.getVendedorApodo() : c.getCompradorApodo();
+        // El seguimiento de la venta solo se muestra en la conversación con la persona elegida como compradora.
+        boolean esLaVenta = p.getVentaEstado() != null && c.getCompradorId().equals(p.getCompradorId());
         return new ConversacionResumenDTO(
                 c.getId(), p.getId(), p.getTitulo(), p.getPrecio(), p.getEstado().name(),
                 "/api/v1/publicaciones/" + p.getId() + "/imagenes/0",
                 rol.name(), otroId, reglas.apodoODefecto(otroApodo, otroId),
-                c.getMontoAcordado(), c.getUltimoMensaje(), c.getUltimaActividad(), noLeidos);
+                c.getMontoAcordado(), c.getUltimoMensaje(), c.getUltimaActividad(), noLeidos,
+                esLaVenta ? p.getVentaEstado().name() : null, esLaVenta ? p.getVentaDetalle() : null);
     }
 
     private MensajeDTO aDTO(MensajeConversacion m) {

@@ -215,4 +215,38 @@ class DeshabilitarUsuarioTest {
         assertNotNull(cadena.getRequest());
         verify(repo, never()).findById(any());
     }
+
+    // ------------------------------------------------------------------ efecto sobre las publicaciones
+
+    @Test
+    void deshabilitarOHabilitarUnaCuentaOcultaOVuelveSusPublicaciones() {
+        api.com.v1.service.PublicacionesCliente cliente = mock(api.com.v1.service.PublicacionesCliente.class);
+        ReflectionTestUtils.setField(admin, "publicaciones", cliente);
+        when(servicioMock.cambiarEstado(anyLong(), anyBoolean()))
+                .thenReturn(new UsuarioResponseDTO(2L, "N", "A", "u2", "u2@correo.cl", null, "USUARIO", false));
+
+        admin.cambiarEstado(1L, 2L, new EstadoUsuarioDTO(false));
+        admin.cambiarEstado(1L, 2L, new EstadoUsuarioDTO(true));
+
+        verify(cliente).cambiarEstado(2L, false);
+        verify(cliente).cambiarEstado(2L, true);
+    }
+
+    @Test
+    void eliminarUnaCuentaRetiraSusPublicaciones() {
+        api.com.v1.service.PublicacionesCliente cliente = mock(api.com.v1.service.PublicacionesCliente.class);
+        ReflectionTestUtils.setField(admin, "publicaciones", cliente);
+
+        admin.eliminar(1L, 2L);
+
+        verify(cliente).retirar(2L);
+    }
+
+    @Test
+    void sinPeticionActualElClienteDePublicacionesNoEnviaNada() {
+        // Fuera de una petición HTTP no hay token que reenviar: no intenta la llamada y no falla.
+        api.com.v1.service.PublicacionesCliente cliente = new api.com.v1.service.PublicacionesCliente();
+        assertFalse(cliente.retirar(2L));
+        assertFalse(cliente.cambiarEstado(2L, false));
+    }
 }

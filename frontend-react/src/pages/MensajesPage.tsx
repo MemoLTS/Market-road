@@ -13,7 +13,8 @@ import { RESPUESTAS_RAPIDAS } from '../core/mensajesPredeterminados';
 import { useAsync } from '../hooks/useAsync';
 import { urlAbsoluta } from '../services/http';
 import { mensajesService } from '../services/mensajesService';
-import type { ConversacionDetalle, ConversacionResumen, Mensaje } from '../types/api';
+import { soporteUsuarioService } from '../services/soporteService';
+import type { ConversacionDetalle, ConversacionResumen, Mensaje, RespuestaVenta } from '../types/api';
 
 const RAPIDAS = RESPUESTAS_RAPIDAS;
 
@@ -66,6 +67,61 @@ function ListaConversaciones({ conversaciones, activaId }: { conversaciones: Con
     );
 }
 
+const ETIQUETA_ESTADO: Record<string, string> = { VENDIDA: 'Vendida', ELIMINADA: 'Eliminada', OCULTA: 'Oculta', DESHABILITADA: 'Deshabilitada' };
+
+/**
+ * Seguimiento de una venta marcada por el vendedor. La persona señalada como compradora responde si compró,
+ * si no compró, o describe otra situación (queda en revisión y se envía a soporte como ticket).
+ */
+export function SeguimientoVenta({ c, onResponder }: { c: ConversacionResumen; onResponder: (r: RespuestaVenta, detalle?: string) => Promise<void> }) {
+    const [otra, setOtra] = useState(false);
+    const [detalle, setDetalle] = useState('');
+    const [error, setError] = useState('');
+    const [enviando, setEnviando] = useState(false);
+    if (!c.ventaEstado) return null;
+
+    async function responder(r: RespuestaVenta, texto?: string): Promise<void> {
+        setError(''); setEnviando(true);
+        try { await onResponder(r, texto); } catch (e) { setError(mensajeDeError(e, 'No se pudo enviar tu respuesta.')); } finally { setEnviando(false); }
+    }
+    function enviarOtra(e: FormEvent<HTMLFormElement>): void {
+        e.preventDefault();
+        const texto = detalle.trim();
+        if (texto.length < 10) { setError('Describe lo que sucedió (mínimo 10 caracteres).'); return; }
+        void responder('OTRO', texto);
+    }
+
+    if (c.ventaEstado === 'CONFIRMADA') return <div className="alert alert-success m-2 mb-0 py-2" role="status">Venta confirmada por ambas partes.</div>;
+    if (c.ventaEstado === 'EN_REVISION') return (
+        <div className="alert alert-warning m-2 mb-0 py-2" role="status">
+            La venta está en revisión de soporte.{c.ventaDetalle && <div className="small mt-1">Detalle informado: {c.ventaDetalle}</div>}
+        </div>
+    );
+    if (c.rol === 'VENDEDOR') return <div className="alert alert-info m-2 mb-0 py-2" role="status">Esperando que {c.interlocutorApodo} confirme la compra.</div>;
+    return (
+        <div className="alert alert-info m-2 mb-0" role="group" aria-label="Confirmar la compra">
+            <p className="mb-2"><strong>{c.interlocutorApodo}</strong> te marcó como la persona que compró «{c.publicacionTitulo}» por {formatoPrecio(c.montoAcordado ?? c.publicacionPrecio)}. ¿Lo compraste?</p>
+            <Alert mensaje={error} />
+            {otra ? (
+                <form onSubmit={enviarOtra} aria-label="Describir lo ocurrido">
+                    <label className="form-label small" htmlFor="detalle-venta">Cuéntanos qué sucedió. Soporte revisará el caso.</label>
+                    <textarea id="detalle-venta" className="form-control mb-2" rows={3} maxLength={900} value={detalle} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDetalle(e.target.value)} />
+                    <div className="d-flex gap-2">
+                        <button type="submit" className="btn btn-sm btn-primary" disabled={enviando}>Enviar a soporte</button>
+                        <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setOtra(false)} disabled={enviando}>Volver</button>
+                    </div>
+                </form>
+            ) : (
+                <div className="d-flex flex-wrap gap-2">
+                    <button type="button" className="btn btn-sm btn-success" disabled={enviando} onClick={() => { void responder('COMPRADO'); }}>Sí, lo compré</button>
+                    <button type="button" className="btn btn-sm btn-outline-danger" disabled={enviando} onClick={() => { void responder('NO_COMPRADO'); }}>No lo compré</button>
+                    <button type="button" className="btn btn-sm btn-outline-secondary" disabled={enviando} onClick={() => setOtra(true)}>Otra opción</button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function Conversacion({ id }: { id: number }) {
     const { usuario } = useAuth();
     const navegar = useNavigate();
@@ -113,13 +169,24 @@ function Conversacion({ id }: { id: number }) {
         try { await accion(mensajesService.marcarVendido(c.id)); } catch { /* ya se informó */ }
     }
 
+    async function responderVenta(respuesta: RespuestaVenta, texto?: string): Promise<void> {
+        setErrorAccion('');
+        setDetalle(await mensajesService.responderVenta(c.id, respuesta, texto));
+        if (respuesta === 'OTRO' && texto) {
+            // Además de dejar la venta en revisión, se abre un ticket para que el equipo de soporte la atienda.
+            const asunto = `Venta en revisión: ${c.publicacionTitulo}`.slice(0, 100);
+            const mensaje = `Publicación #${c.publicacionId} «${c.publicacionTitulo}» (vendedor: ${c.interlocutorApodo}). Lo que informó la persona compradora: ${texto}`.slice(0, 1000);
+            await soporteUsuarioService.crear(asunto, 'PUBLICACIONES', mensaje).catch(() => setErrorAccion('La venta quedó en revisión, pero no se pudo crear el ticket de soporte. Escríbenos desde Soporte.'));
+        }
+    }
+
     return (
         <div className="card h-100">
             <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div>
                     <button type="button" className="btn btn-sm btn-outline-secondary d-md-none me-2" onClick={() => navegar('/mensajes')}>← Volver</button>
                     <Link to={`/publicaciones/${c.publicacionId}`} className="fw-semibold">{c.publicacionTitulo}</Link>
-                    <div className="small text-secondary">{c.interlocutorApodo} · {formatoPrecio(c.montoAcordado ?? c.publicacionPrecio)}{c.montoAcordado ? ' (acordado)' : ''}{cerrada ? ` · ${c.publicacionEstado === 'VENDIDA' ? 'Vendida' : 'Eliminada'}` : ''}</div>
+                    <div className="small text-secondary">{c.interlocutorApodo} · {formatoPrecio(c.montoAcordado ?? c.publicacionPrecio)}{c.montoAcordado ? ' (acordado)' : ''}{cerrada ? ` · ${ETIQUETA_ESTADO[c.publicacionEstado] ?? 'No disponible'}` : ''}</div>
                 </div>
                 {!cerrada && (
                     <div className="d-flex gap-2">
@@ -131,6 +198,7 @@ function Conversacion({ id }: { id: number }) {
             <ConfirmarModal abierto={confirmarVenta} titulo="Marcar como vendido"
                 mensaje={`¿Marcar como vendido a ${c.interlocutorApodo} por ${formatoPrecio(c.montoAcordado ?? c.publicacionPrecio)}? Esta acción cierra la publicación y no se puede deshacer.`}
                 textoConfirmar="Sí, marcar como vendido" onConfirmar={vender} onCancelar={() => setConfirmarVenta(false)} />
+            <SeguimientoVenta c={c} onResponder={responderVenta} />
             {mostrarOferta && (
                 <form onSubmit={enviarOferta} className="p-2 border-bottom d-flex gap-2" aria-label="Enviar oferta">
                     <input className="form-control form-control-sm" inputMode="decimal" placeholder="Monto (CLP)" aria-label="Monto de la oferta" value={monto} onChange={(e: ChangeEvent<HTMLInputElement>) => setMonto(e.target.value)} />

@@ -65,6 +65,15 @@ public class Publicacion {
     @Column(name = "fecha_venta")
     private OffsetDateTime fechaVenta;
 
+    /** Confirmación de la venta por parte del comprador; null mientras la publicación no se haya marcado vendida. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "venta_estado", length = 30)
+    private EstadoVenta ventaEstado;
+
+    /** Descripción que escribe el comprador cuando elige "otra opción". */
+    @Column(name = "venta_detalle", length = 1000)
+    private String ventaDetalle;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20, columnDefinition = "varchar(20) not null")
     private EstadoPublicacion estado = EstadoPublicacion.ACTIVA;
@@ -107,6 +116,10 @@ public class Publicacion {
     public void setPrecioVenta(BigDecimal precioVenta) { this.precioVenta = precioVenta; }
     public OffsetDateTime getFechaVenta() { return fechaVenta; }
     public void setFechaVenta(OffsetDateTime fechaVenta) { this.fechaVenta = fechaVenta; }
+    public EstadoVenta getVentaEstado() { return ventaEstado; }
+    public void setVentaEstado(EstadoVenta ventaEstado) { this.ventaEstado = ventaEstado; }
+    public String getVentaDetalle() { return ventaDetalle; }
+    public void setVentaDetalle(String ventaDetalle) { this.ventaDetalle = ventaDetalle; }
     public Long getUsuarioId() { return usuarioId; }
     public void setUsuarioId(Long usuarioId) { this.usuarioId = usuarioId; }
     public EstadoPublicacion getEstado() { return estado; }

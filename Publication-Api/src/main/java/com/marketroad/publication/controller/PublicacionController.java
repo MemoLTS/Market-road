@@ -126,6 +126,14 @@ public class PublicacionController {
         return ResponseEntity.ok(service.actualizar(id, datos, Identidad.de(request).usuarioId()));
     }
 
+    @PatchMapping("/{id}/visibilidad")
+    public ResponseEntity<PublicacionResponseDTO> visibilidad(
+            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id,
+            @jakarta.validation.Valid @RequestBody com.marketroad.publication.dto.VisibilidadDTO cuerpo,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(service.cambiarVisibilidad(id, cuerpo.visible(), Identidad.de(request).usuarioId()));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(
             @PathVariable @Positive(message = "El identificador indicado no es válido") Long id,

@@ -5,5 +5,7 @@ public enum EstadoPublicacion {
     VENDIDA,
     /** Retirada del catálogo por el superusuario; se puede volver a habilitar. */
     DESHABILITADA,
+    /** La persona dueña la ocultó del catálogo; puede volver a mostrarla. */
+    OCULTA,
     ELIMINADA
 }

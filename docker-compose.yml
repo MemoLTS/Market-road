@@ -98,6 +98,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-marketroad_local_dev}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       JWT_SECRET: cambia-este-secreto-en-produccion-minimo-32-caracteres
+      PUBLICACIONES_API_URL: http://publication-api:8083
       SUPERUSUARIO_CORREO: ${SUPERUSUARIO_CORREO:-admin@marketroad.local}
       SUPERUSUARIO_CONTRASENA: ${SUPERUSUARIO_CONTRASENA:-Admin12345}
     ports:

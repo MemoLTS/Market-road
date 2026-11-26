@@ -99,4 +99,12 @@ public class ConversacionController {
             HttpServletRequest request) {
         return ResponseEntity.ok(service.marcarVendida(id, Identidad.de(request)));
     }
+
+    @PostMapping("/{id}/venta/respuesta")
+    public ResponseEntity<ConversacionDetalleDTO> responderVenta(
+            @PathVariable @Positive(message = "El identificador indicado no es válido") Long id,
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody com.marketroad.publication.dto.RespuestaVentaDTO cuerpo,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(service.responderVenta(id, cuerpo.respuesta(), cuerpo.detalle(), Identidad.de(request)));
+    }
 }

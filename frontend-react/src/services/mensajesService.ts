@@ -1,4 +1,4 @@
-import type { ConversacionDetalle, ConversacionResumen } from '../types/api';
+import type { ConversacionDetalle, ConversacionResumen, RespuestaVenta } from '../types/api';
 import { apiFetch } from './http';
 
 const post = (cuerpo?: unknown): RequestInit => ({ method: 'POST', ...(cuerpo !== undefined ? { body: JSON.stringify(cuerpo) } : {}) });
@@ -18,4 +18,7 @@ export const mensajesService = {
     responderOferta: (id: number, mensajeId: number, aceptar: boolean) =>
         apiFetch<ConversacionDetalle>(`/conversaciones/${id}/ofertas/${mensajeId}/${aceptar ? 'aceptar' : 'rechazar'}`, post()),
     marcarVendido: (id: number) => apiFetch<ConversacionDetalle>(`/conversaciones/${id}/venta`, post()),
+    /** La persona señalada como compradora confirma, niega u observa la venta (OTRO exige un detalle). */
+    responderVenta: (id: number, respuesta: RespuestaVenta, detalle?: string) =>
+        apiFetch<ConversacionDetalle>(`/conversaciones/${id}/venta/respuesta`, post({ respuesta, ...(detalle ? { detalle } : {}) })),
 };

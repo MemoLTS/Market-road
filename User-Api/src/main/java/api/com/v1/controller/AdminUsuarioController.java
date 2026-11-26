@@ -23,6 +23,7 @@ import api.com.v1.dto.RestablecerContrasenaDTO;
 import api.com.v1.dto.UsuarioResponseDTO;
 import api.com.v1.model.Rol;
 import api.com.v1.repository.UsuarioRepository;
+import api.com.v1.service.PublicacionesCliente;
 import api.com.v1.service.UsuarioService;
 
 @RestController
@@ -33,6 +34,8 @@ public class AdminUsuarioController {
     private UsuarioService usuarioService;
     @Autowired
     private UsuarioRepository usuarioRepository;
+    @Autowired(required = false)
+    private PublicacionesCliente publicaciones;
 
     @GetMapping
     public ResponseEntity<List<UsuarioResponseDTO>> listar(
@@ -75,7 +78,12 @@ public class AdminUsuarioController {
             @Valid @RequestBody EstadoUsuarioDTO dto) {
         exigirSuperusuario(usuarioAutenticadoId);
         exigirQueNoSeaSuperusuario(id);
-        return ResponseEntity.ok(usuarioService.cambiarEstado(id, dto.activo()));
+        UsuarioResponseDTO actualizado = usuarioService.cambiarEstado(id, dto.activo());
+        // Deshabilitada: sus publicaciones quedan invisibles para todos. Habilitada: vuelven al catálogo.
+        if (publicaciones != null) {
+            publicaciones.cambiarEstado(id, dto.activo());
+        }
+        return ResponseEntity.ok(actualizado);
     }
 
     /** Elimina la cuenta: deja de existir, no puede iniciar sesión ni enviar o recibir mensajes. */
@@ -86,6 +94,10 @@ public class AdminUsuarioController {
         exigirSuperusuario(usuarioAutenticadoId);
         exigirQueNoSeaSuperusuario(id);
         usuarioService.eliminar(id);
+        // Eliminada: sus publicaciones dejan de existir.
+        if (publicaciones != null) {
+            publicaciones.retirar(id);
+        }
         return ResponseEntity.noContent().build();
     }
 

@@ -143,3 +143,18 @@ Todo en TypeScript + React (frontend) y servicios Spring Boot (backend). No hay 
 ## Decimotercera ronda: error al deshabilitar/eliminar usuarios
 - Mismo origen que el de publicaciones: User-Api también convertía una ruta inexistente en el 500 «Ocurrió un error inesperado». Un contenedor `user-api` sin actualizar no tiene `PATCH /admin/usuarios/{id}/estado` ni `DELETE /admin/usuarios/{id}`. Ahora responde 404/405 con un texto claro.
 - Para aplicar los cambios hay que reconstruir los tres servicios del backend: `docker compose build user-api publication-api soporte-api` y `docker compose up -d --force-recreate user-api publication-api soporte-api`.
+
+## Decimocuarta ronda
+- Requisitos funcionales: se agregaron HU-49 a HU-60 (Sprint 3) en `Documentos/Gestion_Requerimientos_Scrum_Market-Road (2).xlsx` sobre usuarios, soporte y publicaciones (deshabilitar/eliminar usuarios, deshabilitar/reactivar publicaciones, SSO a soporte, confirmaciones en la página, etc.) y se actualizaron las observaciones de EP-01, EP-02, EP-04 y EP-05.
+- `http.ts`: los GET se reintentan hasta 2 veces (1,5 s) ante 502/503/504, 500 sin `mensaje` (gateway o servicio arrancando) o falta de conexión.
+- Usuarios → publicaciones desde el servidor: `User-Api` (`PublicacionesCliente`, `PUBLICACIONES_API_URL`) avisa a Publication-Api al deshabilitar/habilitar (las publicaciones activas se ocultan/vuelven) y al eliminar una cuenta (se retiran), reenviando el token del superusuario. El navegador ya no es el único que lo dispara.
+- `GET /publicaciones/{id}` responde 404 para publicaciones DESHABILITADAS o ELIMINADAS (antes solo ELIMINADAS), de modo que quedan invisibles para todos.
+- Tests nuevos en `DeshabilitarUsuarioTest` y `AdminEstadoPublicacionTest` (Java sin ejecutar: Maven sin red).
+
+## Decimoquinta ronda: venta con confirmación y ocultar publicaciones
+- Marcar vendido ahora exige elegir quién compró (`ElegirCompradorModal`, entre quienes escribieron por la publicación). La venta queda `PENDIENTE_CONFIRMACION`.
+- La persona señalada como compradora responde desde su conversación (`POST /conversaciones/{id}/venta/respuesta`): `COMPRADO` confirma; `NO_COMPRADO` anula la venta y la publicación vuelve a ACTIVA; `OTRO` exige describir lo ocurrido (mín. 10 caracteres), deja la venta `EN_REVISION` y el frontend crea un ticket de soporte (categoría PUBLICACIONES).
+- Nuevo estado de publicación `OCULTA` (`PATCH /publicaciones/{id}/visibilidad`): sale del catálogo y del detalle público; el dueño la vuelve a mostrar desde Mi perfil. Eliminar sigue disponible (excepto vendidas).
+- Modelo: `EstadoVenta`, `Publicacion.ventaEstado/ventaDetalle`, `ConversacionResumenDTO.ventaEstado/ventaDetalle`, `RespuestaVentaDTO`, `VisibilidadDTO`.
+- Tests: `VentaConfirmacionTest` (Java, sin ejecutar: Maven sin red) y `tests/ventas.spec.tsx` (Karma 300/300).
+- Requisitos: HU-61 a HU-67 en el xlsx.

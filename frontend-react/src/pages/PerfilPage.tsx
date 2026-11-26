@@ -185,7 +185,12 @@ function Dispositivos() {
 
 export default function PerfilPage() {
     const { usuario } = useAuth();
-    const { datos, cargando, error } = useAsync(() => publicacionesService.mias(), []);
+    const { datos, cargando, error, recargar } = useAsync(() => publicacionesService.mias(), []);
+    const [errorVisibilidad, setErrorVisibilidad] = useState('');
+    async function mostrar(id: number): Promise<void> {
+        setErrorVisibilidad('');
+        try { await publicacionesService.cambiarVisibilidad(id, true); recargar(); } catch (e) { setErrorVisibilidad(mensajeDeError(e, 'No se pudo mostrar la publicación.')); }
+    }
     return (
         <div className="container py-4">
             <h1 className="h2 mb-4">Mi perfil</h1>
@@ -196,7 +201,11 @@ export default function PerfilPage() {
                 </div>
                 <div className="col-12 col-lg-7">
                     <h2 className="h5">Mis publicaciones</h2>
-                    <PublicationList publicaciones={datos ?? []} cargando={cargando} error={error} vacio="Aún no has publicado nada." />
+                    <Alert mensaje={errorVisibilidad} />
+                    <PublicationList publicaciones={datos ?? []} cargando={cargando} error={error} vacio="Aún no has publicado nada."
+                        accion={p => p.estado === 'OCULTA' && (
+                            <button type="button" className="btn btn-sm btn-outline-primary w-100 mt-2" aria-label={`Volver a mostrar ${p.titulo}`} onClick={() => { void mostrar(p.id); }}>Volver a mostrar</button>
+                        )} />
                 </div>
             </div>
         </div>

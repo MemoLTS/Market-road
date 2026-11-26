@@ -85,6 +85,15 @@ export const publicacionesService = {
         return apiFetch<Publicacion>(`/publicaciones/${id}`, { method: 'PATCH', body: JSON.stringify(cambios) });
     },
 
+    /** Oculta (visible=false) o vuelve a mostrar una publicación propia sin borrarla. */
+    cambiarVisibilidad(id: number | string, visible: boolean): Promise<Publicacion> {
+        if (config.usarMock) {
+            const p = bd.actualizarPublicacion(id, { estado: visible ? 'ACTIVA' : 'OCULTA' });
+            return p ? asincrono(p) : Promise.reject(errorConEstado('La publicación no existe.', 404));
+        }
+        return apiFetch<Publicacion>(`/publicaciones/${id}/visibilidad`, { method: 'PATCH', body: JSON.stringify({ visible }) });
+    },
+
     eliminar(id: number | string): Promise<null> {
         if (config.usarMock) return bd.eliminarPublicacion(id) ? asincrono(null) : Promise.reject(errorConEstado('La publicación no existe.', 404));
         return apiFetch<null>(`/publicaciones/${id}`, { method: 'DELETE' });

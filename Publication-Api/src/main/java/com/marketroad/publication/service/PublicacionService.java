@@ -17,6 +17,9 @@ public interface PublicacionService {
     ImagenDTO obtenerImagen(Long id, Integer posicion);
     void eliminar(Long id, Long usuarioId);
 
+    /** La persona dueña oculta (visible=false) o vuelve a mostrar una publicación activa u oculta. */
+    PublicacionResponseDTO cambiarVisibilidad(Long id, boolean visible, Long usuarioId);
+
     /** Edición parcial por la persona dueña; solo mientras la publicación está activa. */
     PublicacionResponseDTO actualizar(Long id, ActualizarPublicacionDTO datos, Long usuarioId);
 }

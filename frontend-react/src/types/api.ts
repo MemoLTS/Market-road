@@ -25,7 +25,10 @@ export interface Sesion {
     expiraEn: number;
 }
 
-export type EstadoPublicacion = 'ACTIVA' | 'VENDIDA' | 'DESHABILITADA' | 'ELIMINADA';
+export type EstadoPublicacion = 'ACTIVA' | 'VENDIDA' | 'DESHABILITADA' | 'OCULTA' | 'ELIMINADA';
+/** Seguimiento de una venta: la persona señalada como compradora debe confirmarla. */
+export type EstadoVenta = 'PENDIENTE_CONFIRMACION' | 'CONFIRMADA' | 'EN_REVISION';
+export type RespuestaVenta = 'COMPRADO' | 'NO_COMPRADO' | 'OTRO';
 
 export interface Categoria {
     codigo: string;
@@ -84,6 +87,9 @@ export interface ConversacionResumen {
     ultimoMensaje: string | null;
     ultimaActividad: string;
     noLeidos: number;
+    /** Solo en la conversación con la persona elegida como compradora; null en las demás. */
+    ventaEstado?: EstadoVenta | null;
+    ventaDetalle?: string | null;
 }
 
 export interface Mensaje {

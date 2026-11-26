@@ -109,4 +109,15 @@ class AdminEstadoPublicacionTest {
         assertEquals(EstadoPublicacion.ELIMINADA, deshabilitada.getEstado());
         assertEquals(EstadoPublicacion.VENDIDA, vendida.getEstado());
     }
+
+    @Test
+    void elDetallePublicoNoMuestraPublicacionesDeshabilitadasNiEliminadas() {
+        PublicacionServiceImpl detalle = new PublicacionServiceImpl();
+        ReflectionTestUtils.setField(detalle, "repository", repo);
+        when(repo.findById(1L)).thenReturn(Optional.of(publicacion(1L, 5L, EstadoPublicacion.DESHABILITADA)));
+        when(repo.findById(2L)).thenReturn(Optional.of(publicacion(2L, 5L, EstadoPublicacion.ELIMINADA)));
+
+        assertThrows(PublicacionNoEncontradaException.class, () -> detalle.obtenerPorId(1L));
+        assertThrows(PublicacionNoEncontradaException.class, () -> detalle.obtenerPorId(2L));
+    }
 }

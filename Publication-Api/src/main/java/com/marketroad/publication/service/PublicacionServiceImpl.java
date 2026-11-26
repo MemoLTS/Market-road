@@ -193,7 +193,9 @@ public class PublicacionServiceImpl implements PublicacionService {
     @Transactional(readOnly = true)
     public PublicacionResponseDTO obtenerPorId(Long id) {
         Publicacion p = buscar(id);
-        if (p.getEstado() == EstadoPublicacion.ELIMINADA) {
+        // Eliminada o deshabilitada por moderación (o por la cuenta de su dueño): no se muestra a nadie.
+        if (p.getEstado() == EstadoPublicacion.ELIMINADA || p.getEstado() == EstadoPublicacion.DESHABILITADA
+                || p.getEstado() == EstadoPublicacion.OCULTA) {
             throw new PublicacionNoEncontradaException("No se encontró la publicación con id " + id);
         }
         int cantidad = mapper.contarImagenes(List.of(p.getId())).getOrDefault(p.getId(), 0);
@@ -220,6 +222,22 @@ public class PublicacionServiceImpl implements PublicacionService {
             throw new IllegalArgumentException("Una publicación vendida no se puede eliminar");
         p.setEstado(EstadoPublicacion.ELIMINADA);
         repository.save(p);
+    }
+
+    @Override
+    @Transactional
+    public PublicacionResponseDTO cambiarVisibilidad(Long id, boolean visible, Long usuarioId) {
+        Publicacion p = buscar(id);
+        if (p.getEstado() == EstadoPublicacion.ELIMINADA)
+            throw new PublicacionNoEncontradaException("No se encontró la publicación con id " + id);
+        if (!p.getUsuarioId().equals(usuarioId))
+            throw new NoAutorizadoException("Solo el propietario puede ocultar o mostrar la publicación");
+        if (p.getEstado() != EstadoPublicacion.ACTIVA && p.getEstado() != EstadoPublicacion.OCULTA)
+            throw new IllegalArgumentException("Solo se pueden ocultar o mostrar publicaciones activas u ocultas");
+        p.setEstado(visible ? EstadoPublicacion.ACTIVA : EstadoPublicacion.OCULTA);
+        p = repository.save(p);
+        int cantidad = mapper.contarImagenes(List.of(p.getId())).getOrDefault(p.getId(), 0);
+        return mapper.aDTO(p, cantidad, null);
     }
 
     @Override

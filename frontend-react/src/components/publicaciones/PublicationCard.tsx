@@ -25,6 +25,7 @@ export default function PublicationCard({ publicacion }: { publicacion: Publicac
                     {distanciaKm != null && <> · a {Number(distanciaKm).toFixed(1)} km</>}
                 </p>
                 {vendedorApodo && <p className="small text-secondary mb-0"><i className="bi bi-person me-1" aria-hidden="true" />Vende {vendedorApodo}</p>}
+                {estado === 'OCULTA' && <span className="badge rounded-pill text-bg-warning mt-2 align-self-start">Oculta</span>}
                 {estado === 'VENDIDA' && <span className="badge rounded-pill text-bg-secondary mt-2 align-self-start">Vendida</span>}
             </div>
         </article>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ElegirCompradorModal from '../components/publicaciones/ElegirCompradorModal';
 import PrimerMensajeModal from '../components/chat/PrimerMensajeModal';
 import Alert from '../components/common/Alert';
 import ConfirmarModal from '../components/common/ConfirmarModal';
@@ -41,6 +42,8 @@ export default function PublicationDetailPage() {
         () => (autenticado && !config.usarMock ? mensajesService.deLaPublicacion(Number(id)) : Promise.resolve([])), [id, autenticado]);
     const [editando, setEditando] = useState(false);
     const [confirmarEliminar, setConfirmarEliminar] = useState(false);
+    const [eligiendoComprador, setEligiendoComprador] = useState(false);
+    const [confirmarOcultar, setConfirmarOcultar] = useState(false);
     const [errorAccion, setErrorAccion] = useState('');
 
     if (cargando && !p) return <div className="container py-5"><Spinner /></div>;
@@ -69,6 +72,16 @@ export default function PublicationDetailPage() {
         try {
             await publicacionesService.eliminar(publicacion.id);
             navegar('/');
+        } catch (err) {
+            setErrorAccion(mensajeDeError(err));
+        }
+    }
+
+    async function ocultar(): Promise<void> {
+        setConfirmarOcultar(false);
+        try {
+            await publicacionesService.cambiarVisibilidad(publicacion.id, false);
+            navegar('/perfil');
         } catch (err) {
             setErrorAccion(mensajeDeError(err));
         }
@@ -121,8 +134,16 @@ export default function PublicationDetailPage() {
                     <Alert mensaje={errorAccion} />
                     <ConfirmarModal abierto={confirmarEliminar} titulo="Eliminar publicación" mensaje="¿Eliminar esta publicación? No se puede deshacer."
                         textoConfirmar="Sí, eliminar" peligro onConfirmar={eliminar} onCancelar={() => setConfirmarEliminar(false)} />
+                    <ConfirmarModal abierto={confirmarOcultar} titulo="Ocultar publicación"
+                        mensaje="La publicación dejará de verse en el catálogo y para las demás personas. Podrás volver a mostrarla desde tu perfil."
+                        textoConfirmar="Sí, ocultar" onConfirmar={ocultar} onCancelar={() => setConfirmarOcultar(false)} />
+                    <ElegirCompradorModal abierto={eligiendoComprador} publicacionId={publicacion.id} precio={publicacion.precio}
+                        onCerrar={() => setEligiendoComprador(false)}
+                        onVendida={conversacionId => { setEligiendoComprador(false); navegar(`/mensajes/${conversacionId}`); }} />
                     {esDueno ? (
-                        <div className="d-grid d-sm-flex gap-2">
+                        <div className="d-grid d-sm-flex flex-wrap gap-2">
+                            {p.estado === 'ACTIVA' && <button type="button" className="btn btn-success btn-icono" disabled={config.usarMock} onClick={() => setEligiendoComprador(true)}>Marcar como vendido</button>}
+                            {p.estado === 'ACTIVA' && <button type="button" className="btn btn-outline-secondary btn-icono" onClick={() => setConfirmarOcultar(true)}>Ocultar publicación</button>}
                             {p.estado === 'ACTIVA' && <button type="button" className="btn btn-outline-primary btn-icono" onClick={() => setEditando(true)}>Editar</button>}
                             {p.estado !== 'VENDIDA' && <button type="button" className="btn btn-outline-danger btn-icono" onClick={() => setConfirmarEliminar(true)}>Eliminar publicación</button>}
                         </div>
